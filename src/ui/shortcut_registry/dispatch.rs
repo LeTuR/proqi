@@ -4,7 +4,8 @@ mod board;
 
 use std::collections::BTreeMap;
 
-use crate::ui::{KeyPhase, KeyStroke, LogicalKey, LogicalModifiers, UiKey, settings::KeyBindings};
+use crate::ui::input::UiKey;
+use crate::ui::{KeyPhase, KeyStroke, LogicalKey, LogicalModifiers, settings::KeyBindings};
 
 use super::{
     context_policy::effective_board_bindings,
@@ -92,23 +93,63 @@ impl ShortcutRegistry {
         &self.descriptors
     }
 
+    #[cfg(test)]
     pub(crate) fn descriptor(&self, action: Action) -> Option<&ShortcutDescriptor> {
         self.descriptors
             .iter()
             .find(|descriptor| descriptor.action == action)
     }
 
-    pub(crate) fn commands(&self) -> Vec<(Action, CommandMetadata)> {
+    pub(crate) fn binding_label(
+        &self,
+        context: ShortcutContext,
+        actions: &[Action],
+    ) -> Option<String> {
+        actions
+            .iter()
+            .map(|action| {
+                self.effective_bindings.iter().find_map(
+                    |(&(candidate_context, key, modifiers), candidate_action)| {
+                        (candidate_context == context
+                            && candidate_action == action
+                            && modifiers.is_empty())
+                        .then_some(logical_key_label(key))
+                    },
+                )
+            })
+            .collect::<Option<Vec<_>>>()
+            .map(|labels| labels.concat())
+    }
+
+    pub(crate) fn binding_label_for_keys(
+        &self,
+        context: ShortcutContext,
+        bindings: &[(Action, LogicalKey)],
+    ) -> Option<String> {
+        bindings
+            .iter()
+            .map(|(action, expected_key)| {
+                self.effective_bindings
+                    .get(&(context, *expected_key, LogicalModifiers::NONE))
+                    .filter(|candidate| *candidate == action)
+                    .map(|_| logical_key_label(*expected_key))
+            })
+            .collect::<Option<Vec<_>>>()
+            .map(|labels| labels.concat())
+    }
+
+    pub(crate) fn commands(&self) -> Vec<(Action, CommandMetadata, super::CommandExecution)> {
         let mut commands = self
             .descriptors
             .iter()
             .filter_map(|descriptor| {
                 descriptor
                     .commands
-                    .map(|metadata| (descriptor.action, metadata))
+                    .zip(descriptor.command_execution)
+                    .map(|(metadata, execution)| (descriptor.action, metadata, execution))
             })
             .collect::<Vec<_>>();
-        commands.sort_unstable_by_key(|(_, metadata)| metadata.order);
+        commands.sort_unstable_by_key(|(_, metadata, _)| metadata.order);
         commands
     }
 
@@ -151,63 +192,27 @@ impl ShortcutRegistry {
         self.literal_or_compatible_unbound(stroke)
     }
 
-    pub(crate) fn diagnostics_id(
+    pub(crate) fn legacy_keypress_action(&self, stroke: KeyStroke) -> Option<String> {
+        super::diagnostic_projection::legacy_keypress_action(stroke, self.platform)
+    }
+
+    pub(crate) fn preserves_editor_handoff(
         &self,
         contexts: &ShortcutContextStack,
         stroke: KeyStroke,
-    ) -> &'static str {
-        self.dispatch(contexts, stroke)
-            .and_then(|resolved| resolved.action)
-            .and_then(|action| self.descriptor(action))
-            .map_or("text.input_or_unbound", |descriptor| descriptor.diagnostics)
-    }
-
-    pub(crate) fn normalize_existing_intention(
-        &self,
-        contexts: &ShortcutContextStack,
-        key: UiKey,
-    ) -> UiKey {
-        let Some(stroke) = self.stroke_for_existing_intention(key) else {
-            return key;
-        };
-        let Some(resolved) = self.dispatch(contexts, stroke) else {
-            return key;
-        };
-        if resolved.action.is_none() {
-            return key;
+    ) -> bool {
+        let active_action = self
+            .dispatch(contexts, stroke)
+            .and_then(|resolved| resolved.action);
+        if matches!(
+            active_action,
+            Some(Action::OpenCommands | Action::ContextualTransform)
+        ) {
+            return true;
         }
-        match key {
-            UiKey::PrimaryCharacter(_) if !supports_legacy_primary(resolved.action, false) => key,
-            UiKey::PrimaryShiftCharacter(_) if !supports_legacy_primary(resolved.action, true) => {
-                key
-            }
-            _ => resolved.intention,
-        }
-    }
-
-    fn stroke_for_existing_intention(&self, key: UiKey) -> Option<KeyStroke> {
-        let (logical, modifiers) = match key {
-            UiKey::Character(character) => {
-                (LogicalKey::Character(character), LogicalModifiers::NONE)
-            }
-            UiKey::UnmodifiedSpace => (LogicalKey::Character(' '), LogicalModifiers::NONE),
-            UiKey::PrimaryCharacter(character) => {
-                (LogicalKey::Character(character), self.primary_modifier())
-            }
-            UiKey::PrimaryShiftCharacter(character) => (
-                LogicalKey::Character(character),
-                self.primary_modifier().union(LogicalModifiers::SHIFT),
-            ),
-            _ => return None,
-        };
-        Some(KeyStroke::press(logical).with_modifiers(modifiers))
-    }
-
-    const fn primary_modifier(&self) -> LogicalModifiers {
-        match self.platform {
-            ShortcutPlatform::MacOs => LogicalModifiers::SUPER,
-            ShortcutPlatform::Portable => LogicalModifiers::CONTROL,
-        }
+        self.effective_bindings
+            .get(&(ShortcutContext::Edit, stroke.key, stroke.modifiers))
+            == Some(&Action::ContextualTransform)
     }
 
     fn literal_or_compatible_unbound(&self, stroke: KeyStroke) -> Option<ResolvedShortcut> {
@@ -235,25 +240,14 @@ impl ShortcutRegistry {
     }
 }
 
-const fn supports_legacy_primary(action: Option<Action>, shifted: bool) -> bool {
-    match action {
-        Some(
-            Action::FocusPrevious
-            | Action::FocusNext
-            | Action::ChooseLeft
-            | Action::ChooseRight
-            | Action::ChooseUp
-            | Action::ChooseDown,
-        ) => true,
-        Some(Action::ContextualTransform) => !shifted,
-        Some(
-            Action::MoveUp
-            | Action::MoveDown
-            | Action::DeleteSentence
-            | Action::ExtendVisualRowStart
-            | Action::ExtendVisualRowEnd,
-        ) => shifted,
-        _ => false,
+fn logical_key_label(key: LogicalKey) -> String {
+    match key {
+        LogicalKey::Character(character) => character.to_uppercase().collect(),
+        LogicalKey::Enter => "Enter".to_owned(),
+        LogicalKey::Up => "↑".to_owned(),
+        LogicalKey::Down => "↓".to_owned(),
+        LogicalKey::Escape => "Esc".to_owned(),
+        _ => format!("{key:?}"),
     }
 }
 

@@ -13,7 +13,7 @@ fn top_boundary_blank_and_cursor_are_immediately_visible() {
         "Former first thought wraps across a narrow pane with Grüße and 界.",
     );
     fixture.input(visual(CursorMovement::VisualUp, false));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
 
     let terminal = draw_theme(&mut fixture, 38, 8, ThemePreference::Dark);
     insta::assert_snapshot!(snapshot_buffer(terminal.backend().buffer()));

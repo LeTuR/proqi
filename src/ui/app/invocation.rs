@@ -12,10 +12,10 @@ use crate::{
         invocation::{InvocationDiscovery, InvocationDiscoveryRequest},
         text_layout::{byte_for_position, position_for_byte},
     },
-    ui::{PointerKind, UiInput, UiKey},
+    ui::PointerKind,
 };
 
-use super::BoardApp;
+use super::{BoardApp, UiInput, UiKey};
 
 #[path = "invocation/builtins.rs"]
 pub(in crate::ui::app) mod builtins;

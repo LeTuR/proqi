@@ -1,4 +1,5 @@
 use super::view::SessionHitLabel as _;
+use crate::ui::input::RoutedInput as UiInput;
 use crate::{
     adapters::{
         editor::RopeEditorFactory,
@@ -7,7 +8,7 @@ use crate::{
     application::AppState,
     domain::{Session, SessionBoard, Thought, ThoughtPosition, Timestamp},
     ports::{environment::IdGenerator as _, store::SessionHit},
-    ui::{BoardApp, FastNavigation, UiInput, UiKey},
+    ui::{BoardApp, FastNavigation, UiKey},
 };
 
 #[test]

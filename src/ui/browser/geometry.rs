@@ -9,9 +9,14 @@ use super::{
 };
 
 impl BrowserLayout {
-    pub(super) fn hit_test(&self, column: u16, row: u16) -> BrowserHit {
+    pub(super) fn hit_test(
+        &self,
+        column: u16,
+        row: u16,
+        registry: &crate::ui::ShortcutRegistry,
+    ) -> BrowserHit {
         if contains(self.footer, column, row) {
-            return browser_footer_controls(self.footer)
+            return browser_footer_controls(self.footer, registry)
                 .iter()
                 .find(|control| contains(control.area, column, row))
                 .map_or(BrowserHit::None, |control| control.hit);

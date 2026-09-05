@@ -28,12 +28,12 @@ fn storage_failure_blocks_new_edits_and_exposes_retry() {
     let before = fixture.app.editor_snapshot().expect("editor");
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('x')))
+            .effects(crate::key_input(UiKey::Character('x')))
             .is_empty()
     );
     assert_eq!(fixture.app.editor_snapshot().expect("editor"), before);
     assert_eq!(
-        fixture.effects(UiInput::Key(UiKey::Character('r'))),
+        fixture.effects(crate::key_input(UiKey::Character('r'))),
         vec![Effect::RetryPersistence { sequence }]
     );
 }
@@ -52,7 +52,7 @@ fn exhausted_recovery_capacity_exposes_export_without_retry() {
     assert!(!rendered.contains("r Retry"));
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('r')))
+            .effects(crate::key_input(UiKey::Character('r')))
             .is_empty()
     );
 }
@@ -60,7 +60,7 @@ fn exhausted_recovery_capacity_exposes_export_without_retry() {
 #[test]
 fn typing_coalesces_until_a_semantic_boundary() {
     let mut fixture = Fixture::new();
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('h')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('h')));
     assert_eq!(effects.len(), 1);
     let Effect::CommitBoardOperation(operation) = &effects[0] else {
         panic!("expected initial thought persistence");
@@ -73,7 +73,7 @@ fn typing_coalesces_until_a_semantic_boundary() {
     for character in "ello".chars() {
         assert!(
             fixture
-                .effects(UiInput::Key(UiKey::Character(character)))
+                .effects(crate::key_input(UiKey::Character(character)))
                 .is_empty()
         );
     }
@@ -96,7 +96,7 @@ fn typing_coalesces_until_a_semantic_boundary() {
 fn a_save_failure_cancels_a_requested_exit() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste("must survive");
-    fixture.input(UiInput::Key(UiKey::Quit));
+    fixture.input(crate::key_input(UiKey::Quit));
     assert!(fixture.app.quit);
     fixture.app.acknowledge_persistence(sequence, false);
     assert!(!fixture.app.quit);
@@ -106,11 +106,11 @@ fn a_save_failure_cancels_a_requested_exit() {
 fn successful_retry_rearms_an_unsaved_editor_buffer() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste("base");
-    fixture.input(UiInput::Key(UiKey::Character('x')));
+    fixture.input(crate::key_input(UiKey::Character('x')));
     let generation = fixture.app.edit_generation();
     fixture.app.acknowledge_persistence(sequence, false);
     assert_eq!(
-        fixture.effects(UiInput::Key(UiKey::Character('r'))),
+        fixture.effects(crate::key_input(UiKey::Character('r'))),
         vec![Effect::RetryPersistence { sequence }]
     );
     fixture.app.acknowledge_persistence(sequence, true);

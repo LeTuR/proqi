@@ -19,7 +19,10 @@ pub(crate) fn footer_projection(
     mode: InteractionMode,
     keys: &KeyBindings,
 ) -> Option<FooterProjection> {
-    let metadata = crate::ui::shortcut_registry::inventory::metadata::footer_metadata(action)?;
+    let metadata = super::canonical_descriptors()
+        .iter()
+        .find(|descriptor| descriptor.action == action)?
+        .footer?;
     Some(FooterProjection {
         key: footer_key(action, compact, mode, keys),
         text: if compact {

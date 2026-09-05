@@ -15,8 +15,12 @@ use proqi::{
 };
 use ratatui_core::{backend::TestBackend, buffer::Buffer, terminal::Terminal};
 
+#[path = "support/keyboard.rs"]
+mod keyboard_support;
 #[path = "support/snapshots.rs"]
 mod snapshot_support;
+
+use keyboard_support::key_input;
 
 use snapshot_support::snapshot_buffer;
 
@@ -145,7 +149,7 @@ fn search_matches_name_path_and_thought_content_without_reordering() {
     let mut browser = SessionBrowser::new(items, Timestamp::from_millis(900_000_000));
     for character in "gamma unicode".chars() {
         assert_eq!(
-            browser.handle(UiInput::Key(UiKey::Character(character))),
+            browser.handle(crate::key_input(UiKey::Character(character))),
             BrowserAction::Continue
         );
     }
@@ -154,7 +158,7 @@ fn search_matches_name_path_and_thought_content_without_reordering() {
         Some(second)
     );
     assert_eq!(
-        browser.handle(UiInput::Key(UiKey::Enter)),
+        browser.handle(crate::key_input(UiKey::Enter)),
         BrowserAction::Open(second)
     );
 }
@@ -188,7 +192,7 @@ fn active_and_trashed_results_are_visible_but_cannot_open() {
     assert!(rendered.contains("owner: pid 419 from"));
 
     assert_eq!(
-        browser.handle(UiInput::Key(UiKey::Enter)),
+        browser.handle(crate::key_input(UiKey::Enter)),
         BrowserAction::Continue
     );
     assert!(
@@ -197,12 +201,12 @@ fn active_and_trashed_results_are_visible_but_cannot_open() {
             .as_deref()
             .is_some_and(|value| value.contains("419"))
     );
-    browser.handle(UiInput::Key(UiKey::Move {
+    browser.handle(crate::key_input(UiKey::Move {
         movement: proqi::ports::editor::CursorMovement::VisualDown,
         extend_selection: false,
     }));
     assert_eq!(
-        browser.handle(UiInput::Key(UiKey::Enter)),
+        browser.handle(crate::key_input(UiKey::Enter)),
         BrowserAction::Continue
     );
     assert!(
@@ -228,13 +232,13 @@ fn searchable_browser_keeps_vim_letters_literal_and_delete_edits_the_query() {
         let mut browser = SessionBrowser::new(vec![entry], Timestamp::from_millis(20));
         for character in "hjklx".chars() {
             assert_eq!(
-                browser.handle(UiInput::Key(UiKey::Character(character))),
+                browser.handle(crate::key_input(UiKey::Character(character))),
                 BrowserAction::Continue
             );
         }
         assert_eq!(browser.query(), "hjklx");
         assert_eq!(
-            browser.handle(UiInput::Key(delete)),
+            browser.handle(crate::key_input(delete)),
             BrowserAction::Continue
         );
         assert_eq!(browser.query(), "hjkl");
@@ -411,21 +415,21 @@ fn keyboard_rename_and_trash_are_explicit_browser_actions() {
     let id = entry.hit.id;
     let mut browser = SessionBrowser::new(vec![entry], Timestamp::from_millis(20));
     assert_eq!(
-        browser.handle(UiInput::Key(UiKey::Character('R'))),
+        browser.handle(crate::key_input(UiKey::Character('R'))),
         BrowserAction::Continue
     );
     for character in "Release queue".chars() {
-        browser.handle(UiInput::Key(UiKey::Character(character)));
+        browser.handle(crate::key_input(UiKey::Character(character)));
     }
     assert_eq!(
-        browser.handle(UiInput::Key(UiKey::Enter)),
+        browser.handle(crate::key_input(UiKey::Enter)),
         BrowserAction::Rename {
             session_id: id,
             name: Some("Release queue".to_owned()),
         }
     );
     assert_eq!(
-        browser.handle(UiInput::Key(UiKey::Character('D'))),
+        browser.handle(crate::key_input(UiKey::Character('D'))),
         BrowserAction::Trash(id)
     );
 }
@@ -472,7 +476,7 @@ fn wide_browser_has_a_complete_reviewed_buffer() {
 #[test]
 fn narrow_browser_has_a_complete_reviewed_buffer() {
     let mut browser = snapshot_browser();
-    browser.handle(UiInput::Key(UiKey::Move {
+    browser.handle(crate::key_input(UiKey::Move {
         movement: proqi::ports::editor::CursorMovement::VisualDown,
         extend_selection: false,
     }));

@@ -34,6 +34,10 @@ use proqi::{
 };
 use rusqlite::Connection;
 
+#[path = "support/keyboard.rs"]
+mod keyboard_support;
+use keyboard_support::key_input;
+
 struct DatabaseFixture {
     _temporary: tempfile::TempDir,
     config: StoreConfig,
@@ -144,6 +148,8 @@ mod core;
 mod editor;
 #[path = "sqlite_store/migration_12.rs"]
 mod migration_12;
+#[path = "sqlite_store/migration_13.rs"]
+mod migration_13;
 #[path = "sqlite_store/onboarding.rs"]
 mod onboarding;
 #[path = "sqlite_store/onboarding_migration.rs"]

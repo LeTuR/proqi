@@ -320,6 +320,7 @@ impl BoardApp {
                     .map(transfer::TransferState::query_cursor)
             })
             .or_else(|| self.invocation_query_cursor())
+            .or_else(|| self.global_delivery_query_cursor())
             .or_else(|| {
                 self.palette
                     .as_ref()
@@ -336,6 +337,9 @@ impl BoardApp {
         }
         if self.invocation_popup.is_some() {
             return self.invocation_overflow(visible);
+        }
+        if self.global_delivery.is_some() {
+            return self.global_delivery_overflow(visible);
         }
         self.palette
             .as_ref()
@@ -357,7 +361,7 @@ impl BoardApp {
         character: char,
     ) -> Option<crate::ui::ShortcutActionId> {
         self.shortcut_registry
-            .board_action_for_intention(crate::ui::UiKey::Character(character))
+            .board_action_for_intention(super::UiKey::Character(character))
     }
 
     /// Currently verified submission targets, empty when the enhancement is unavailable.

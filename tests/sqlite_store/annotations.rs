@@ -3,7 +3,7 @@ use proqi::{
     adapters::{editor::RopeEditorFactory, memory::FakeClock},
     domain::SessionId,
     ports::editor::CursorMovement,
-    ui::{BoardApp, UiInput, UiKey},
+    ui::{BoardApp, UiKey},
 };
 
 #[test]
@@ -122,7 +122,7 @@ fn invocation_reference_projection_survives_protocol_nine_migration() {
         .expect("version eight database")
         .execute_batch(
             "DROP TABLE onboarding_state;
-             DELETE FROM migration_history WHERE version IN (9, 10, 11, 12);
+             DELETE FROM migration_history WHERE version IN (9, 10, 11, 12, 13);
              UPDATE schema_meta SET schema_version = 8, storage_protocol = 8;",
         )
         .expect("downgrade protocol stamp");
@@ -176,7 +176,7 @@ fn protocol_ten_loads_structurally_valid_direct_shortcut_bytes_and_rejects_corru
     connection
         .execute_batch(
             "DROP TABLE onboarding_state;
-             DELETE FROM migration_history WHERE version IN (10, 11, 12);
+             DELETE FROM migration_history WHERE version IN (10, 11, 12, 13);
              UPDATE schema_meta SET schema_version = 9, storage_protocol = 9;",
         )
         .expect("version nine protocol stamp");
@@ -314,16 +314,16 @@ fn edit_shortcut_prefix(
         RopeEditorFactory,
     );
     let clock = FakeClock::new(Timestamp::from_millis(3));
-    app.handle(UiInput::Key(UiKey::Enter), ids, &clock);
+    app.handle(crate::key_input(UiKey::Enter), ids, &clock);
     app.handle(
-        UiInput::Key(UiKey::Move {
+        crate::key_input(UiKey::Move {
             movement: CursorMovement::DocumentStart,
             extend_selection: false,
         }),
         ids,
         &clock,
     );
-    app.handle(UiInput::Key(UiKey::Character('!')), ids, &clock);
+    app.handle(crate::key_input(UiKey::Character('!')), ids, &clock);
     let effects = app.flush_pending_edit(ids, &clock);
     assert_eq!(effects.len(), 1);
     persist_effect(&mut store, &effects[0]);
@@ -377,7 +377,7 @@ fn placeholder_space_revision_undo_and_redo_survive_every_reopen() {
     );
     let clock = FakeClock::new(Timestamp::from_millis(3));
     select_restart_placeholder(&mut app, &mut ids, &clock);
-    let effects = app.handle(UiInput::Key(UiKey::UnmodifiedSpace), &mut ids, &clock);
+    let effects = app.handle(crate::key_input(UiKey::UnmodifiedSpace), &mut ids, &clock);
     let [Effect::CommitRevision(revision)] = effects.as_slice() else {
         panic!("one placeholder Space revision");
     };
@@ -397,9 +397,9 @@ fn placeholder_space_revision_undo_and_redo_survive_every_reopen() {
 }
 
 fn select_restart_placeholder(app: &mut BoardApp, ids: &mut FakeIdGenerator, clock: &FakeClock) {
-    app.handle(UiInput::Key(UiKey::Enter), ids, clock);
+    app.handle(crate::key_input(UiKey::Enter), ids, clock);
     app.handle(
-        UiInput::Key(UiKey::Move {
+        crate::key_input(UiKey::Move {
             movement: CursorMovement::DocumentStart,
             extend_selection: false,
         }),
@@ -408,7 +408,7 @@ fn select_restart_placeholder(app: &mut BoardApp, ids: &mut FakeIdGenerator, clo
     );
     for _ in 0..2 {
         app.handle(
-            UiInput::Key(UiKey::Move {
+            crate::key_input(UiKey::Move {
                 movement: CursorMovement::GraphemeForward,
                 extend_selection: false,
             }),

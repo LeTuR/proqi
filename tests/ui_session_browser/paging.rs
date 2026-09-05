@@ -21,7 +21,7 @@ fn browser_fast_navigation_skips_recency_headings_and_stays_visible_after_resize
     let initial = draw(&mut browser, 38, 7);
     assert!(text(initial.backend().buffer()).contains('↓'));
     assert_eq!(
-        browser.handle(UiInput::Key(UiKey::FastNavigation {
+        browser.handle(crate::key_input(UiKey::FastNavigation {
             direction: FastNavigation::Next,
             extend_selection: false,
         })),
@@ -35,7 +35,7 @@ fn browser_fast_navigation_skips_recency_headings_and_stays_visible_after_resize
     assert!(layout.entries.iter().any(|entry| entry.item_index == 5));
 
     for _ in 0..4 {
-        browser.handle(UiInput::Key(UiKey::FastNavigation {
+        browser.handle(crate::key_input(UiKey::FastNavigation {
             direction: FastNavigation::Next,
             extend_selection: false,
         }));
@@ -67,7 +67,7 @@ fn narrow_browser_input_keeps_sanitized_cursor_suffix_visible() {
     assert!(!header.contains(['\t', '\u{7}']));
 
     let mut rename = SessionBrowser::new(Vec::new(), Timestamp::from_millis(20));
-    rename.handle(UiInput::Key(UiKey::Character('R')));
+    rename.handle(crate::key_input(UiKey::Character('R')));
     rename.handle(UiInput::Paste("rename\t界👩‍💻\u{7}tail".to_owned()));
     let rendered = draw(&mut rename, 18, 6);
     let header = text(rendered.backend().buffer())

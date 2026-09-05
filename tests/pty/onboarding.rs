@@ -10,7 +10,7 @@ use proqi::{
     application::{AppState, FirstRunEnvironment, first_run_board},
     domain::{ContentAnnotation, Session, SessionId, ThoughtId, Timestamp},
     ports::environment::IdGenerator as _,
-    ui::{BoardApp, UiInput, UiKey},
+    ui::{BoardApp, KeyStroke, LogicalKey, LogicalModifiers, UiInput},
 };
 
 use super::support::{expect_command, json_command};
@@ -109,15 +109,19 @@ fn run_launch(
     assert!(command.status().expect(expectation).success());
 }
 
-fn expected_after_edit_key(key: UiKey) -> String {
+fn expected_after_edit_key(key: KeyStroke) -> String {
     let mut ids = FakeIdGenerator::new(1_725_300_000_000);
     let clock = FakeClock::new(Timestamp::from_millis(2));
     let mut app = BoardApp::new(
         AppState::new(expected_board(FirstRunEnvironment::Standalone)),
         RopeEditorFactory,
     );
-    for input in [UiKey::Character('j'), UiKey::Enter, key] {
-        let _effects = app.handle(UiInput::Key(input), &mut ids, &clock);
+    for input in [
+        KeyStroke::press(LogicalKey::Character('j')),
+        KeyStroke::press(LogicalKey::Enter),
+        key,
+    ] {
+        let _effects = app.handle(UiInput::KeyStroke(input), &mut ids, &clock);
     }
     app.editor_snapshot().expect("editing instruction").content
 }
@@ -362,9 +366,18 @@ fn delete_undo_resume_continue_and_later_fresh_launches_never_reseed() {
 fn editing_instruction_demonstrates_list_line_and_sentence_actions_in_a_real_pty() {
     let binary = env!("CARGO_BIN_EXE_proqi");
     let cases = [
-        (r"\r", UiKey::Enter, "continue list"),
-        (r"\x1b\[117;9u", UiKey::DeleteLogicalLine, "delete line"),
-        (r"\x1b\[117;10u", UiKey::DeleteSentence, "delete sentence"),
+        (r"\r", KeyStroke::press(LogicalKey::Enter), "continue list"),
+        (
+            r"\x1b\[117;9u",
+            KeyStroke::press(LogicalKey::Character('u')).with_modifiers(LogicalModifiers::SUPER),
+            "delete line",
+        ),
+        (
+            r"\x1b\[117;10u",
+            KeyStroke::press(LogicalKey::Character('u'))
+                .with_modifiers(LogicalModifiers::SUPER.union(LogicalModifiers::SHIFT)),
+            "delete sentence",
+        ),
     ];
     let script = r#"
         log_user 0

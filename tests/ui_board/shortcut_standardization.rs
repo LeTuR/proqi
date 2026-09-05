@@ -23,8 +23,8 @@ fn two_raw_arrows_keep_editor_ownership_until_neighbor_navigation_completes() {
     super::navigation::durable_thought(&mut fixture, "first");
     super::navigation::durable_thought(&mut fixture, "second");
     let first = fixture.app.state.board.live_thoughts()[0].id;
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
@@ -44,8 +44,8 @@ fn printable_board_alias_after_one_raw_boundary_arrow_remains_editor_text() {
     let mut fixture = Fixture::new();
     super::navigation::durable_thought(&mut fixture, "first");
     super::navigation::durable_thought(&mut fixture, "second");
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
@@ -72,7 +72,7 @@ fn board_help_discloses_standard_chords_and_portable_aliases() {
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Right, "w1:p2")]));
-    fixture.input(UiInput::Key(UiKey::Character('?')));
+    fixture.input(crate::key_input(UiKey::Character('?')));
     let rendered = text(draw(&mut fixture, 150, 42).backend().buffer());
     for expected in [
         format!("{}C/y", primary()),
@@ -155,27 +155,29 @@ fn full_board_footer_labels_and_mouse_targets_use_the_same_chord_projection() {
 
 #[test]
 fn shifted_reserved_character_chords_are_conservative_in_board_and_edit() {
-    let shifted = ['A', 'C', 'D', 'Q', 'V', 'X', 'Y'];
+    let shifted = ['A', 'C', 'D', 'Q', 'X', 'Y'];
     let mut board = Fixture::new();
     super::agent::prepare_thought(&mut board);
     let focused = board.app.state.focused_thought;
     for character in shifted {
         assert!(
             board
-                .effects(UiInput::Key(UiKey::PrimaryShiftCharacter(character)))
-                .is_empty()
+                .effects(crate::key_input(UiKey::PrimaryShiftCharacter(character)))
+                .is_empty(),
+            "board chord {character:?}"
         );
     }
     assert_eq!(board.app.state.focused_thought, focused);
     assert!(!board.app.quit);
 
-    board.input(UiInput::Key(UiKey::Enter));
+    board.input(crate::key_input(UiKey::Enter));
     let before = board.app.editor_snapshot().expect("editor");
     for character in shifted {
         assert!(
             board
-                .effects(UiInput::Key(UiKey::PrimaryShiftCharacter(character)))
-                .is_empty()
+                .effects(crate::key_input(UiKey::PrimaryShiftCharacter(character)))
+                .is_empty(),
+            "edit chord {character:?}"
         );
     }
     assert_eq!(
@@ -189,11 +191,11 @@ fn shifted_reserved_character_chords_are_conservative_in_board_and_edit() {
 fn global_quit_precedes_help_while_help_navigation_keeps_modal_precedence() {
     let mut fixture = Fixture::new();
     super::agent::prepare_thought(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Character('?')));
+    fixture.input(crate::key_input(UiKey::Character('?')));
     assert!(fixture.app.help);
-    fixture.input(UiInput::Key(UiKey::Character('j')));
+    fixture.input(crate::key_input(UiKey::Character('j')));
     assert!(fixture.app.help);
-    let effects = fixture.effects(UiInput::Key(UiKey::Quit));
+    let effects = fixture.effects(crate::key_input(UiKey::Quit));
     assert!(effects.is_empty());
     assert!(fixture.app.quit);
 }

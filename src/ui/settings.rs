@@ -158,118 +158,7 @@ impl Default for KeyBindings {
     }
 }
 
-#[cfg(test)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum BoardCommand {
-    New,
-    Edit,
-    Delete,
-    Copy,
-    Cut,
-    SubmitRemove,
-    SubmitKeep,
-    Undo,
-    FocusUp,
-    FocusDown,
-    RangeUp,
-    RangeDown,
-    Collapse,
-    Select,
-    Transform,
-    SelectAll,
-    RangeSelect,
-    Search,
-    Commands,
-    Help,
-    Quit,
-    ScreenshotInbox,
-    PasteExact,
-    PasteReflow,
-}
-
 impl KeyBindings {
-    #[cfg(test)]
-    pub(super) fn command(&self, character: char) -> Option<BoardCommand> {
-        self.explicit_command(character).or_else(|| {
-            if character == self.paste {
-                Some(BoardCommand::PasteExact)
-            } else if opposite_ascii_case(self.paste) == Some(character) {
-                Some(BoardCommand::PasteReflow)
-            } else {
-                None
-            }
-        })
-    }
-
-    #[cfg(test)]
-    fn explicit_command(&self, character: char) -> Option<BoardCommand> {
-        let bindings = [
-            (self.new, BoardCommand::New),
-            (self.edit, BoardCommand::Edit),
-            (self.delete, BoardCommand::Delete),
-            (self.copy, BoardCommand::Copy),
-            (self.cut, BoardCommand::Cut),
-            (self.submit_remove, BoardCommand::SubmitRemove),
-            (self.submit_keep, BoardCommand::SubmitKeep),
-            (self.undo, BoardCommand::Undo),
-            (self.focus_up, BoardCommand::FocusUp),
-            (self.focus_down, BoardCommand::FocusDown),
-            (self.range_up, BoardCommand::RangeUp),
-            (self.range_down, BoardCommand::RangeDown),
-            (self.collapse, BoardCommand::Collapse),
-            (self.select, BoardCommand::Select),
-            (self.select_all, BoardCommand::SelectAll),
-            (self.range_select, BoardCommand::RangeSelect),
-            (self.search, BoardCommand::Search),
-            (self.commands, BoardCommand::Commands),
-            (self.help, BoardCommand::Help),
-            (self.quit, BoardCommand::Quit),
-            (self.screenshot_inbox, BoardCommand::ScreenshotInbox),
-            (self.transform, BoardCommand::Transform),
-        ];
-        bindings
-            .into_iter()
-            .find_map(|(binding, command)| (binding == character).then_some(command))
-    }
-
-    #[cfg(test)]
-    pub(super) fn paste_exact_fallbacks(&self) -> Vec<char> {
-        self.paste_fallback(self.paste, BoardCommand::PasteExact)
-    }
-
-    #[cfg(test)]
-    pub(super) fn paste_reflow_fallbacks(&self) -> Vec<char> {
-        opposite_ascii_case(self.paste).map_or_else(Vec::new, |character| {
-            self.paste_fallback(character, BoardCommand::PasteReflow)
-        })
-    }
-
-    #[cfg(test)]
-    fn paste_fallback(&self, character: char, command: BoardCommand) -> Vec<char> {
-        (self.command(character) == Some(command))
-            .then_some(character)
-            .into_iter()
-            .collect()
-    }
-
-    /// Resolve a normalized key through the Board command map.
-    ///
-    /// Unmodified physical Delete is an invariant spelling of the remappable
-    /// delete command. The typed submission intentions are invariant aliases
-    /// for the corresponding remappable Board submission commands. Modified
-    /// Delete and Backspace remain unassigned in Board.
-    #[cfg(test)]
-    pub(super) fn command_for_key(&self, key: super::UiKey) -> Option<BoardCommand> {
-        match key {
-            super::UiKey::Delete => Some(BoardCommand::Delete),
-            super::UiKey::Submit => Some(BoardCommand::SubmitRemove),
-            super::UiKey::SubmitKeep => Some(BoardCommand::SubmitKeep),
-            super::UiKey::UnmodifiedSpace => self.command(' '),
-            super::UiKey::Character(character) => self.command(character),
-            _ => None,
-        }
-    }
-
     pub(crate) fn delete_label(&self) -> String {
         format!("{}/Del", key_label(self.delete))
     }
@@ -352,17 +241,6 @@ impl KeyBindings {
             }
         }
         Ok(())
-    }
-}
-
-#[cfg(test)]
-fn opposite_ascii_case(character: char) -> Option<char> {
-    if character.is_ascii_lowercase() {
-        Some(character.to_ascii_uppercase())
-    } else if character.is_ascii_uppercase() {
-        Some(character.to_ascii_lowercase())
-    } else {
-        None
     }
 }
 

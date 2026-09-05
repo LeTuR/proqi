@@ -8,8 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::ui::settings::KeyBindings;
 
 use super::model::{
-    ShortcutActionId as Action, ShortcutContext as Context, ShortcutDescriptor, ShortcutIntention,
-    ShortcutSafety,
+    ShortcutActionId as Action, ShortcutContext as Context, ShortcutDescriptor, ShortcutSafety,
 };
 use bindings::{alias_claims, default_claims};
 
@@ -99,6 +98,8 @@ pub(super) const ESCAPE_CONTEXTS: &[Context] = &[
     Context::Invocation,
     Context::InvocationQuery,
     Context::Transfer,
+    Context::GlobalDeliveryQuery,
+    Context::GlobalDeliveryDisposition,
     Context::Browser,
     Context::BrowserQuery,
     Context::Rename,
@@ -169,8 +170,8 @@ fn descriptor(
         help,
         footer: metadata::footer_metadata(action),
         commands: command,
+        command_execution: super::command_execution::execution_for(action),
         diagnostics: action.diagnostics_id(),
-        intention: intention(action, command),
     }
 }
 
@@ -186,41 +187,5 @@ const fn safety(action: Action) -> ShortcutSafety {
         | Action::DeleteLogicalLine
         | Action::DeleteSentence => ShortcutSafety::TextEditing,
         _ => ShortcutSafety::Ordinary,
-    }
-}
-
-fn intention(action: Action, command: Option<super::model::CommandMetadata>) -> ShortcutIntention {
-    if DIRECT_ACTIONS.contains(&action) {
-        match action {
-            Action::New
-            | Action::Edit
-            | Action::Delete
-            | Action::Collapse
-            | Action::Select
-            | Action::ContextualTransform
-            | Action::RangeSelect
-            | Action::OpenSearch
-            | Action::OpenCommands
-            | Action::Help
-            | Action::ScreenshotInbox
-            | Action::BrowserTrash
-            | Action::RetryStorage
-            | Action::ExportRecovery => ShortcutIntention::TypedAction,
-            Action::FocusPrevious
-            | Action::FocusNext
-            | Action::ExtendPrevious
-            | Action::ExtendNext
-            | Action::MoveUp
-            | Action::MoveDown
-            | Action::ChooseLeft
-            | Action::ChooseDown
-            | Action::ChooseUp
-            | Action::ChooseRight => ShortcutIntention::Contextual,
-            _ => ShortcutIntention::Existing,
-        }
-    } else if command.is_some() {
-        ShortcutIntention::CommandsOnly
-    } else {
-        ShortcutIntention::Existing
     }
 }

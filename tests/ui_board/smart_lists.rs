@@ -7,6 +7,9 @@ fn revision(effects: &[Effect]) -> &proqi::domain::ThoughtRevision {
     revision
 }
 
+#[path = "smart_lists/handoff.rs"]
+mod handoff;
+
 #[test]
 fn enter_continues_each_required_list_form_as_one_persistent_revision() {
     for (before, after) in [
@@ -17,7 +20,7 @@ fn enter_continues_each_required_list_form_as_one_persistent_revision() {
     ] {
         let mut fixture = Fixture::new();
         fixture.paste(before);
-        let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+        let effects = fixture.effects(crate::key_input(UiKey::Enter));
         let revision = revision(&effects);
         assert_eq!(revision.before_content, before, "{before:?}");
         assert_eq!(revision.after_content, after, "{before:?}");
@@ -34,10 +37,10 @@ fn enter_continues_each_required_list_form_as_one_persistent_revision() {
 fn empty_item_exit_and_continuation_are_separate_restart_safe_undo_steps() {
     let mut fixture = Fixture::new();
     fixture.paste("- first");
-    let continuation = fixture.effects(UiInput::Key(UiKey::Enter));
+    let continuation = fixture.effects(crate::key_input(UiKey::Enter));
     assert_eq!(revision(&continuation).after_content, "- first\n- ");
 
-    let exit = fixture.effects(UiInput::Key(UiKey::Enter));
+    let exit = fixture.effects(crate::key_input(UiKey::Enter));
     assert_eq!(revision(&exit).before_content, "- first\n- ");
     assert_eq!(revision(&exit).after_content, "- first\n");
     assert_eq!(
@@ -45,12 +48,12 @@ fn empty_item_exit_and_continuation_are_separate_restart_safe_undo_steps() {
         proqi::domain::TextPosition::new(1, 0)
     );
 
-    assert_eq!(fixture.effects(UiInput::Key(UiKey::Undo)).len(), 1);
+    assert_eq!(fixture.effects(crate::key_input(UiKey::Undo)).len(), 1);
     assert_eq!(
         fixture.app.editor_snapshot().expect("editor").content,
         "- first\n- "
     );
-    assert_eq!(fixture.effects(UiInput::Key(UiKey::Undo)).len(), 1);
+    assert_eq!(fixture.effects(crate::key_input(UiKey::Undo)).len(), 1);
     assert_eq!(
         fixture.app.editor_snapshot().expect("editor").content,
         "- first"
@@ -61,21 +64,21 @@ fn empty_item_exit_and_continuation_are_separate_restart_safe_undo_steps() {
 fn nested_empty_enter_outdents_then_exits_as_separate_persistent_revisions() {
     let mut fixture = Fixture::new();
     fixture.paste("- parent\n  - ");
-    let outdent = fixture.effects(UiInput::Key(UiKey::Enter));
+    let outdent = fixture.effects(crate::key_input(UiKey::Enter));
     assert_eq!(revision(&outdent).after_content, "- parent\n- ");
     assert_eq!(
         revision(&outdent).after_cursor,
         proqi::domain::TextPosition::new(1, 2)
     );
 
-    let exit = fixture.effects(UiInput::Key(UiKey::Enter));
+    let exit = fixture.effects(crate::key_input(UiKey::Enter));
     assert_eq!(revision(&exit).after_content, "- parent\n");
-    assert_eq!(fixture.effects(UiInput::Key(UiKey::Undo)).len(), 1);
+    assert_eq!(fixture.effects(crate::key_input(UiKey::Undo)).len(), 1);
     assert_eq!(
         fixture.app.editor_snapshot().expect("editor").content,
         "- parent\n- "
     );
-    assert_eq!(fixture.effects(UiInput::Key(UiKey::Undo)).len(), 1);
+    assert_eq!(fixture.effects(crate::key_input(UiKey::Undo)).len(), 1);
     assert_eq!(
         fixture.app.editor_snapshot().expect("editor").content,
         "- parent\n  - "
@@ -90,18 +93,18 @@ fn tab_and_backtab_use_one_configured_unit_per_persistent_revision() {
     };
     let mut fixture = Fixture::with_settings(settings);
     fixture.paste("10. parent\r\n11. child\r\n12. later");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualUp,
         extend_selection: false,
     }));
-    let indent = fixture.effects(UiInput::Key(UiKey::Tab));
+    let indent = fixture.effects(crate::key_input(UiKey::Tab));
     assert_eq!(
         revision(&indent).after_content,
         "10. parent\r\n   11. child\r\n12. later"
     );
     assert!(!fixture.app.has_pending_edit());
 
-    let outdent = fixture.effects(UiInput::Key(UiKey::BackTab));
+    let outdent = fixture.effects(crate::key_input(UiKey::BackTab));
     assert_eq!(
         revision(&outdent).after_content,
         "10. parent\r\n11. child\r\n12. later"
@@ -117,23 +120,23 @@ fn maximum_width_selected_list_round_trips_as_two_persistent_revisions() {
         ..UiSettings::default()
     });
     fixture.paste(before);
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentEnd,
         extend_selection: true,
     }));
 
-    let indent = fixture.effects(UiInput::Key(UiKey::Tab));
+    let indent = fixture.effects(crate::key_input(UiKey::Tab));
     assert_eq!(
         revision(&indent).after_content,
         "        - parent\r\n        9. child\r\n        100. tail"
     );
     assert!(!fixture.app.has_pending_edit());
 
-    let outdent = fixture.effects(UiInput::Key(UiKey::BackTab));
+    let outdent = fixture.effects(crate::key_input(UiKey::BackTab));
     assert_eq!(revision(&outdent).after_content, before);
     assert!(!fixture.app.has_pending_edit());
 }
@@ -156,17 +159,17 @@ fn selected_line_indentation_excludes_a_column_zero_endpoint_and_preserves_annot
         PastePayload::annotated(content.clone(), vec![annotation.clone()])
             .expect("valid attachment payload"),
     ));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..2 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::VisualDown,
             extend_selection: true,
         }));
     }
-    let effects = fixture.effects(UiInput::Key(UiKey::Tab));
+    let effects = fixture.effects(crate::key_input(UiKey::Tab));
     let revision = revision(&effects);
     assert_eq!(
         revision.after_content,
@@ -194,18 +197,26 @@ fn ordinary_tab_is_exact_while_backtab_and_disabled_smart_lists_preserve_text() 
         ..UiSettings::default()
     });
     ordinary.paste("ordinary");
-    let tab = ordinary.effects(UiInput::Key(UiKey::Tab));
+    let tab = ordinary.effects(crate::key_input(UiKey::Tab));
     assert_eq!(revision(&tab).after_content, "ordinary   ");
-    assert!(ordinary.effects(UiInput::Key(UiKey::BackTab)).is_empty());
+    assert!(
+        ordinary
+            .effects(crate::key_input(UiKey::BackTab))
+            .is_empty()
+    );
 
     let mut disabled = Fixture::with_settings(UiSettings {
         smart_lists: false,
         ..UiSettings::default()
     });
     disabled.paste("- item");
-    let tab = disabled.effects(UiInput::Key(UiKey::Tab));
+    let tab = disabled.effects(crate::key_input(UiKey::Tab));
     assert_eq!(revision(&tab).after_content, "- item  ");
-    assert!(disabled.effects(UiInput::Key(UiKey::BackTab)).is_empty());
+    assert!(
+        disabled
+            .effects(crate::key_input(UiKey::BackTab))
+            .is_empty()
+    );
 }
 
 #[test]
@@ -216,7 +227,7 @@ fn disabled_setting_and_selection_replacement_keep_plain_newline_behavior() {
     };
     let mut disabled = Fixture::with_settings(settings);
     disabled.paste("- first");
-    assert!(disabled.effects(UiInput::Key(UiKey::Enter)).is_empty());
+    assert!(disabled.effects(crate::key_input(UiKey::Enter)).is_empty());
     assert_eq!(
         disabled.app.editor_snapshot().expect("editor").content,
         "- first\n"
@@ -224,8 +235,8 @@ fn disabled_setting_and_selection_replacement_keep_plain_newline_behavior() {
 
     let mut selected = Fixture::new();
     selected.paste("- first");
-    selected.input(UiInput::Key(UiKey::SelectAll));
-    assert!(selected.effects(UiInput::Key(UiKey::Enter)).is_empty());
+    selected.input(crate::key_input(UiKey::SelectAll));
+    assert!(selected.effects(crate::key_input(UiKey::Enter)).is_empty());
     assert_eq!(
         selected.app.editor_snapshot().expect("editor").content,
         "\n"
@@ -257,7 +268,7 @@ fn paste_is_exact_and_smart_newlines_preserve_annotations_through_resize() {
         PastePayload::annotated(content, vec![annotation.clone()])
             .expect("valid attachment payload"),
     ));
-    let effects = annotated.effects(UiInput::Key(UiKey::Enter));
+    let effects = annotated.effects(crate::key_input(UiKey::Enter));
     assert_eq!(revision(&effects).after_annotations, vec![annotation]);
     let cursor = annotated.app.editor_snapshot().expect("editor").cursor;
     for (width, height) in [(12, 4), (80, 8), (7, 12), (40, 3)] {
@@ -273,17 +284,17 @@ fn paste_is_exact_and_smart_newlines_preserve_annotations_through_resize() {
 fn command_palette_inserts_a_plain_newline_without_a_modifier_by_keyboard_and_mouse() {
     let mut keyboard = Fixture::new();
     keyboard.paste("- item");
-    keyboard.input(UiInput::Key(UiKey::Escape));
-    keyboard.input(UiInput::Key(UiKey::Character(':')));
+    keyboard.input(crate::key_input(UiKey::Escape));
+    keyboard.input(crate::key_input(UiKey::Character(':')));
     for character in "plain newline".chars() {
-        keyboard.input(UiInput::Key(UiKey::Character(character)));
+        keyboard.input(crate::key_input(UiKey::Character(character)));
     }
-    let effects = keyboard.effects(UiInput::Key(UiKey::Enter));
+    let effects = keyboard.effects(crate::key_input(UiKey::Enter));
     assert_eq!(revision(&effects).after_content, "- item\n");
 
     let mut mouse = Fixture::new();
     mouse.paste("9) item");
-    mouse.input(UiInput::Key(UiKey::Escape));
+    mouse.input(crate::key_input(UiKey::Escape));
     let commands = mouse
         .app
         .prepare_frame(Rect::new(0, 0, 80, 8))
@@ -297,7 +308,7 @@ fn command_palette_inserts_a_plain_newline_without_a_modifier_by_keyboard_and_mo
         PointerKind::Down(PointerButton::Left),
     );
     for character in "plain newline".chars() {
-        mouse.input(UiInput::Key(UiKey::Character(character)));
+        mouse.input(crate::key_input(UiKey::Character(character)));
     }
     let item = mouse
         .app
@@ -318,15 +329,15 @@ fn command_palette_inserts_a_plain_newline_without_a_modifier_by_keyboard_and_mo
 fn command_palette_indents_by_keyboard_and_outdents_by_mouse() {
     let mut fixture = Fixture::new();
     fixture.paste("- parent\n- child");
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "indent line".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    let indent = fixture.effects(UiInput::Key(UiKey::Enter));
+    let indent = fixture.effects(crate::key_input(UiKey::Enter));
     assert_eq!(revision(&indent).after_content, "- parent\n  - child");
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let commands = fixture
         .app
         .prepare_frame(Rect::new(0, 0, 80, 8))
@@ -340,7 +351,7 @@ fn command_palette_indents_by_keyboard_and_outdents_by_mouse() {
         PointerKind::Down(PointerButton::Left),
     );
     for character in "outdent line".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let item = fixture
         .app
@@ -362,23 +373,23 @@ fn keyboard_palette_restores_a_column_zero_multiline_selection_once() {
     let before = "- parent\n- child\n- untouched";
     let mut fixture = Fixture::new();
     fixture.paste(before);
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..2 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::VisualDown,
             extend_selection: true,
         }));
     }
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "indent line".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     assert_eq!(
         revision(&effects).after_content,
         "  - parent\n  - child\n- untouched"
@@ -391,7 +402,7 @@ fn keyboard_palette_restores_a_column_zero_multiline_selection_once() {
             end: proqi::domain::TextPosition::new(2, 0),
         })
     );
-    assert_eq!(fixture.effects(UiInput::Key(UiKey::Undo)).len(), 1);
+    assert_eq!(fixture.effects(crate::key_input(UiKey::Undo)).len(), 1);
     assert_eq!(
         fixture.app.editor_snapshot().expect("editor").content,
         before
@@ -402,21 +413,21 @@ fn keyboard_palette_restores_a_column_zero_multiline_selection_once() {
 fn mouse_palette_restores_a_reverse_multiline_selection() {
     let mut fixture = Fixture::new();
     fixture.paste("  - parent\n  - child\n- untouched");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..2 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::VisualDown,
             extend_selection: false,
         }));
     }
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: true,
     }));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 
     let commands = fixture
         .app
@@ -431,7 +442,7 @@ fn mouse_palette_restores_a_reverse_multiline_selection() {
         PointerKind::Down(PointerButton::Left),
     );
     for character in "outdent line".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let item = fixture
         .app
@@ -458,42 +469,4 @@ fn mouse_palette_restores_a_reverse_multiline_selection() {
             end: proqi::domain::TextPosition::new(2, 0),
         })
     );
-}
-
-#[test]
-fn cancelling_the_palette_discards_the_selection_handoff() {
-    let mut fixture = Fixture::new();
-    fixture.paste("- parent\n- child\n- untouched");
-    fixture.input(UiInput::Key(UiKey::SelectAll));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
-    for character in "indent line".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
-    }
-
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
-    assert_eq!(
-        revision(&effects).after_content,
-        "- parent\n- child\n  - untouched"
-    );
-}
-
-#[test]
-fn board_navigation_discards_the_selection_handoff() {
-    let mut fixture = Fixture::new();
-    fixture.paste("- first");
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.paste("- second");
-    fixture.input(UiInput::Key(UiKey::SelectAll));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
-    for character in "indent line".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
-    }
-
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
-    assert_eq!(revision(&effects).after_content, "  - first");
 }

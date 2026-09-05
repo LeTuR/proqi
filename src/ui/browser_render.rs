@@ -241,7 +241,9 @@ fn render_footer(
         );
         return;
     }
-    for control in super::browser::browser_footer_controls(layout.footer) {
+    for control in
+        super::browser::browser_footer_controls(layout.footer, &browser.shortcut_registry)
+    {
         frame.render_widget(
             Paragraph::new(Line::from(vec![
                 Span::styled(control.key, Style::default().fg(theme.accent)),

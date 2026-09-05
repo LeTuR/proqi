@@ -125,17 +125,6 @@ pub enum UiKey {
         /// Edge resolved from the current rendered projection.
         edge: VisualRowEdge,
     },
-    /// A mode-aware vertical chord with distinct editor and board intentions.
-    ///
-    /// The UI mode translator resolves this before command dispatch. This lets
-    /// Alt and Primary accelerate editing without changing established board
-    /// or overlay navigation.
-    EditNavigation {
-        /// Movement applied while directly editing a thought.
-        editor_movement: CursorMovement,
-        /// Existing movement retained in board mode and overlays.
-        board_movement: CursorMovement,
-    },
     /// Vertical movement reported with both Primary and Shift modifiers.
     ///
     /// Board mode interprets this as thought reordering. Edit mode preserves
@@ -179,12 +168,9 @@ impl UiKey {
     /// Resolve the equivalent arrow and Vim spellings used by non-text lists.
     pub(crate) const fn list_navigation(self) -> Option<ListNavigation> {
         match self {
-            Self::Move { movement, .. }
-            | Self::EditNavigation {
-                board_movement: movement,
-                ..
+            Self::Move { movement, .. } | Self::PrimaryShiftMove { movement } => {
+                list_movement(movement)
             }
-            | Self::PrimaryShiftMove { movement } => list_movement(movement),
             _ => None,
         }
     }
@@ -192,12 +178,9 @@ impl UiKey {
     /// Resolve the equivalent arrow and Vim spellings used by direction choosers.
     pub(crate) const fn direction(self) -> Option<Direction> {
         match self {
-            Self::Move { movement, .. }
-            | Self::EditNavigation {
-                board_movement: movement,
-                ..
+            Self::Move { movement, .. } | Self::PrimaryShiftMove { movement } => {
+                movement_direction(movement)
             }
-            | Self::PrimaryShiftMove { movement } => movement_direction(movement),
             _ => None,
         }
     }
@@ -237,10 +220,11 @@ const fn movement_direction(movement: CursorMovement) -> Option<Direction> {
 /// Input translated from a concrete terminal backend.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum UiInput {
+    /// Resolved semantic input used only by owner-level unit tests.
+    #[cfg(test)]
+    Key(UiKey),
     /// Neutral logical keyboard event awaiting registry dispatch.
     KeyStroke(KeyStroke),
-    /// One normalized key command.
-    Key(UiKey),
     /// One complete bracketed or clipboard paste.
     Paste(String),
     /// One complete paste with adapter-derived presentation provenance.
@@ -269,6 +253,37 @@ impl UiInput {
     #[must_use]
     pub const fn is_deliberate_interaction(&self) -> bool {
         match self {
+            #[cfg(test)]
+            Self::Key(_) => true,
+            Self::KeyStroke(stroke) => !matches!(stroke.phase, KeyPhase::Release),
+            Self::Paste(_) | Self::PasteAnnotated(_) => true,
+            Self::Pointer(pointer) => matches!(
+                pointer.kind,
+                PointerKind::Down(_)
+                    | PointerKind::Drag(_)
+                    | PointerKind::ScrollUp
+                    | PointerKind::ScrollDown
+            ),
+            Self::Resize { .. } | Self::HostFocusGained | Self::HostFocusLost => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum RoutedInput {
+    KeyStroke(KeyStroke),
+    Key(UiKey),
+    Paste(String),
+    PasteAnnotated(PastePayload),
+    Resize { width: u16, height: u16 },
+    HostFocusGained,
+    HostFocusLost,
+    Pointer(PointerInput),
+}
+
+impl RoutedInput {
+    pub(crate) const fn is_deliberate_interaction(&self) -> bool {
+        match self {
             Self::KeyStroke(stroke) => !matches!(stroke.phase, KeyPhase::Release),
             Self::Key(_) | Self::Paste(_) | Self::PasteAnnotated(_) => true,
             Self::Pointer(pointer) => matches!(
@@ -279,6 +294,22 @@ impl UiInput {
                     | PointerKind::ScrollDown
             ),
             Self::Resize { .. } | Self::HostFocusGained | Self::HostFocusLost => false,
+        }
+    }
+}
+
+impl From<UiInput> for RoutedInput {
+    fn from(input: UiInput) -> Self {
+        match input {
+            #[cfg(test)]
+            UiInput::Key(key) => Self::Key(key),
+            UiInput::KeyStroke(stroke) => Self::KeyStroke(stroke),
+            UiInput::Paste(value) => Self::Paste(value),
+            UiInput::PasteAnnotated(payload) => Self::PasteAnnotated(payload),
+            UiInput::Resize { width, height } => Self::Resize { width, height },
+            UiInput::HostFocusGained => Self::HostFocusGained,
+            UiInput::HostFocusLost => Self::HostFocusLost,
+            UiInput::Pointer(pointer) => Self::Pointer(pointer),
         }
     }
 }
@@ -346,13 +377,6 @@ mod tests {
                 },
                 ListNavigation::Previous,
             ),
-            (
-                UiKey::EditNavigation {
-                    editor_movement: CursorMovement::VisualJumpDown,
-                    board_movement: CursorMovement::VisualDown,
-                },
-                ListNavigation::Next,
-            ),
         ] {
             assert_eq!(key.list_navigation(), Some(expected));
         }
@@ -403,13 +427,6 @@ mod tests {
                     movement: CursorMovement::DocumentEnd,
                 },
                 Direction::Down,
-            ),
-            (
-                UiKey::EditNavigation {
-                    editor_movement: CursorMovement::VisualJumpUp,
-                    board_movement: CursorMovement::VisualUp,
-                },
-                Direction::Up,
             ),
         ] {
             assert_eq!(key.direction(), Some(expected));

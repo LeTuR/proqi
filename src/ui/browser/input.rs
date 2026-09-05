@@ -2,14 +2,16 @@
 
 use unicode_segmentation::UnicodeSegmentation as _;
 
-use crate::ui::{PointerButton, PointerInput, PointerKind, UiInput, UiKey};
+use crate::ui::input::{RoutedInput as UiInput, UiKey};
+use crate::ui::{PointerButton, PointerInput, PointerKind, UiInput as ExternalInput};
 
 use super::{BrowserAction, BrowserAvailability, BrowserHit, SessionBrowser, SessionBrowserItem};
 
 impl SessionBrowser {
     /// Apply one normalized terminal event.
-    pub fn handle(&mut self, input: UiInput) -> BrowserAction {
+    pub fn handle(&mut self, input: ExternalInput) -> BrowserAction {
         self.status = None;
+        let input = UiInput::from(input);
         let Some(input) = self.resolve_shortcut_input(input) else {
             return BrowserAction::Continue;
         };
@@ -33,10 +35,7 @@ impl SessionBrowser {
                 .shortcut_registry
                 .dispatch(&contexts, stroke)
                 .map(|resolved| UiInput::Key(resolved.intention)),
-            UiInput::Key(key) => Some(UiInput::Key(
-                self.shortcut_registry
-                    .normalize_existing_intention(&contexts, key),
-            )),
+            UiInput::Key(key) => Some(UiInput::Key(key)),
             input => Some(input),
         }
     }
@@ -148,7 +147,7 @@ impl SessionBrowser {
         let Some(layout) = &self.layout else {
             return BrowserAction::Continue;
         };
-        match layout.hit_test(pointer.column, pointer.row) {
+        match layout.hit_test(pointer.column, pointer.row, &self.shortcut_registry) {
             BrowserHit::Cancel => BrowserAction::Cancel,
             BrowserHit::Rename => self.begin_rename(),
             BrowserHit::Trash => self.trash_selected(),

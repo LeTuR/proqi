@@ -8,7 +8,7 @@ use proqi::{
             InvocationReferenceDiscovery, InvocationReferenceProvider, LiveAgentReference,
         },
     },
-    ui::{ThemePreference, UiInput, UiKey},
+    ui::{ThemePreference, UiKey},
 };
 
 use super::{Fixture, assert_platform_snapshot, snapshot};
@@ -17,19 +17,19 @@ use super::{Fixture, assert_platform_snapshot, snapshot};
 fn existing_invocation_command_opens_terminal_independent_live_reference_picker() {
     let mut fixture = Fixture::new();
     fixture.paste("Coordinate with another agent");
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "Insert discovered invocation".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     complete_live_reference(&mut fixture, &effects);
 
     assert_platform_snapshot!(
         "existing_invocation_command_opens_terminal_independent_live_reference_picker",
         snapshot(&mut fixture, 72, 12, ThemePreference::Dark)
     );
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert_platform_snapshot!(
         "inline_herdr_reference",
         snapshot(&mut fixture, 72, 8, ThemePreference::Dark)

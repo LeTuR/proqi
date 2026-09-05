@@ -7,8 +7,8 @@ use crate::{
     domain::{InstallationKind, Session, SessionBoard, StableVersion, Timestamp},
     ports::environment::IdGenerator as _,
     ui::{
-        FastNavigation, PointerButton, PointerInput, PointerKind, Theme, ThemePreference, UiInput,
-        UiKey, render,
+        FastNavigation, KeyStroke, LogicalKey, LogicalModifiers, PointerButton, PointerInput,
+        PointerKind, Theme, ThemePreference, UiInput, UiKey, render,
     },
 };
 use ratatui_core::{backend::TestBackend, layout::Rect, terminal::Terminal};
@@ -127,41 +127,35 @@ fn keyboard_choices_emit_one_explicit_update_intent() {
 
 #[test]
 fn update_list_uses_identical_arrow_and_jk_navigation() {
+    let primary = if cfg!(target_os = "macos") {
+        LogicalModifiers::SUPER
+    } else {
+        LogicalModifiers::CONTROL
+    };
     for (arrow, vim) in [
         (
-            UiKey::Move {
-                movement: crate::ports::editor::CursorMovement::VisualDown,
-                extend_selection: true,
-            },
-            UiKey::PrimaryCharacter('J'),
+            KeyStroke::press(LogicalKey::Down).with_modifiers(LogicalModifiers::SHIFT),
+            KeyStroke::press(LogicalKey::Character('J')).with_modifiers(primary),
         ),
         (
-            UiKey::PrimaryShiftMove {
-                movement: crate::ports::editor::CursorMovement::DocumentStart,
-            },
-            UiKey::Character('K'),
+            KeyStroke::press(LogicalKey::Up).with_modifiers(primary.union(LogicalModifiers::SHIFT)),
+            KeyStroke::press(LogicalKey::Character('K')),
         ),
         (
-            UiKey::EditNavigation {
-                editor_movement: crate::ports::editor::CursorMovement::VisualJumpDown,
-                board_movement: crate::ports::editor::CursorMovement::VisualDown,
-            },
-            UiKey::Character('j'),
+            KeyStroke::press(LogicalKey::Down).with_modifiers(LogicalModifiers::HYPER),
+            KeyStroke::press(LogicalKey::Character('j')),
         ),
         (
-            UiKey::Move {
-                movement: crate::ports::editor::CursorMovement::VisualUp,
-                extend_selection: false,
-            },
-            UiKey::Character('k'),
+            KeyStroke::press(LogicalKey::Up),
+            KeyStroke::press(LogicalKey::Character('k')),
         ),
     ] {
         let (mut arrow_app, mut arrow_ids, clock) = app();
         let (mut vim_app, mut vim_ids, _) = app();
         arrow_app.present_update(version(), InstallationKind::HomebrewFormula, 3);
         vim_app.present_update(version(), InstallationKind::HomebrewFormula, 3);
-        arrow_app.handle(UiInput::Key(arrow), &mut arrow_ids, &clock);
-        vim_app.handle(UiInput::Key(vim), &mut vim_ids, &clock);
+        arrow_app.handle(UiInput::KeyStroke(arrow), &mut arrow_ids, &clock);
+        vim_app.handle(UiInput::KeyStroke(vim), &mut vim_ids, &clock);
         assert_eq!(arrow_app.update_prompt_view(), vim_app.update_prompt_view());
     }
 }

@@ -14,6 +14,10 @@ use ratatui_core::{
     layout::Rect,
     terminal::{Terminal, TerminalOptions, Viewport},
 };
+
+#[path = "support/keyboard.rs"]
+mod keyboard_support;
+use keyboard_support::key_input;
 use ratatui_crossterm::CrosstermBackend;
 
 #[test]
@@ -37,7 +41,7 @@ fn emitted_escape_stream_reflows_without_stale_cells() {
         &mut ids,
         &clock,
     );
-    let _effects = app.handle(UiInput::Key(UiKey::Escape), &mut ids, &clock);
+    let _effects = app.handle(crate::key_input(UiKey::Escape), &mut ids, &clock);
 
     let mut bytes = Vec::new();
     {

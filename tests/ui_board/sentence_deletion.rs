@@ -9,12 +9,12 @@ const DELETE_SENTENCE_KEY: UiKey = UiKey::PrimaryShiftCharacter('U');
 fn default_sentence_chord_commits_one_immediate_editor_revision() {
     let mut fixture = Fixture::new();
     fixture.paste("First sentence. Second sentence.");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
 
-    let effects = fixture.effects(UiInput::Key(DELETE_SENTENCE_KEY));
+    let effects = fixture.effects(crate::key_input(DELETE_SENTENCE_KEY));
     let [Effect::CommitRevision(revision)] = effects.as_slice() else {
         panic!("expected one durable sentence revision: {effects:?}");
     };
@@ -30,11 +30,11 @@ fn default_sentence_chord_commits_one_immediate_editor_revision() {
 fn primary_u_still_deletes_only_the_current_logical_line() {
     let mut fixture = Fixture::new();
     fixture.paste("First sentence.\nSecond sentence.");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::DeleteLogicalLine));
+    fixture.input(crate::key_input(UiKey::DeleteLogicalLine));
     assert_eq!(
         fixture.app.editor_snapshot().expect("editor").content,
         "Second sentence."
@@ -48,17 +48,19 @@ fn configured_primary_shift_suffix_discovers_the_same_action() {
         settings.keybindings.delete_sentence = 'G';
         let mut fixture = Fixture::with_settings(settings);
         fixture.paste("One. Two.");
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::DocumentStart,
             extend_selection: false,
         }));
 
-        fixture.input(UiInput::Key(UiKey::PrimaryCharacter('g')));
+        fixture.input(crate::key_input(UiKey::PrimaryCharacter('g')));
         assert_eq!(
             fixture.app.editor_snapshot().expect("editor").content,
             "One. Two."
         );
-        fixture.input(UiInput::Key(UiKey::PrimaryShiftCharacter(shifted_report)));
+        fixture.input(crate::key_input(UiKey::PrimaryShiftCharacter(
+            shifted_report,
+        )));
         assert_eq!(
             fixture.app.editor_snapshot().expect("editor").content,
             "Two.",
@@ -84,31 +86,31 @@ fn remapped_sentence_suffix_is_discoverable_in_contextual_help() {
 fn palette_restores_a_selection_and_deletes_every_touched_sentence() {
     let mut fixture = Fixture::new();
     fixture.paste("One. Two. Three. Four.");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..8 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeForward,
             extend_selection: false,
         }));
     }
     for _ in 0..7 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeForward,
             extend_selection: true,
         }));
     }
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "delete sentence".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let (_, entries, _) = fixture.app.palette_view().expect("palette");
     assert_eq!(entries, vec!["Delete sentence"]);
 
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert_eq!(
         fixture.app.editor_snapshot().expect("editor").content,
         "One. Four."
@@ -119,10 +121,10 @@ fn palette_restores_a_selection_and_deletes_every_touched_sentence() {
 fn sentence_palette_fallback_is_mouse_operable() {
     let mut fixture = Fixture::new();
     fixture.paste("One. Two.");
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "delete sentence".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let _terminal = draw(&mut fixture, 50, 10);
     let item = fixture
@@ -156,11 +158,11 @@ fn sentence_deletion_rebases_unrelated_fold_annotations_exactly() {
         PastePayload::annotated(content.to_owned(), vec![annotation])
             .expect("valid attachment annotation"),
     ));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(DELETE_SENTENCE_KEY));
+    fixture.input(crate::key_input(DELETE_SENTENCE_KEY));
 
     let thought = &fixture.app.state.board.live_thoughts()[0];
     assert_eq!(thought.content, "File /tmp/image.png remains. Last.");
@@ -193,14 +195,14 @@ fn sentence_with_a_fold_is_revealed_unchanged_then_deleted_on_repeat() {
         )
         .expect("valid attachment annotation"),
     ));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     let before = fixture.app.editor_snapshot().expect("editor");
     assert!(
         fixture
-            .effects(UiInput::Key(DELETE_SENTENCE_KEY))
+            .effects(crate::key_input(DELETE_SENTENCE_KEY))
             .is_empty()
     );
     assert_eq!(fixture.app.editor_snapshot().expect("editor"), before);
@@ -211,7 +213,7 @@ fn sentence_with_a_fold_is_revealed_unchanged_then_deleted_on_repeat() {
     assert!(text(draw(&mut fixture, 60, 8).backend().buffer()).contains(path));
     assert_eq!(fixture.app.state.board.live_thoughts()[0].content, content);
 
-    let effects = fixture.effects(UiInput::Key(DELETE_SENTENCE_KEY));
+    let effects = fixture.effects(crate::key_input(DELETE_SENTENCE_KEY));
     assert!(matches!(effects.as_slice(), [Effect::CommitRevision(_)]));
 
     let thought = &fixture.app.state.board.live_thoughts()[0];
@@ -237,20 +239,20 @@ fn every_intersecting_fold_is_revealed_while_an_unrelated_fold_stays_collapsed()
         })
         .collect::<Vec<_>>();
     let mut fixture = Fixture::with_annotated_thought(content, annotations);
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
 
-    fixture.input(UiInput::Key(DELETE_SENTENCE_KEY));
+    fixture.input(crate::key_input(DELETE_SENTENCE_KEY));
     let rendered = text(draw(&mut fixture, 80, 10).backend().buffer());
     assert!(rendered.contains("/tmp/a.png"));
     assert!(rendered.contains("/tmp/b.png"));
     assert!(rendered.contains("[Image"));
     assert!(!rendered.contains("/tmp/c.png"));
 
-    fixture.input(UiInput::Key(DELETE_SENTENCE_KEY));
+    fixture.input(crate::key_input(DELETE_SENTENCE_KEY));
     let thought = &fixture.app.state.board.live_thoughts()[0];
     assert_eq!(thought.content, "Keep /tmp/c.png.");
     assert_eq!(thought.annotations.len(), 1);
@@ -275,12 +277,12 @@ fn selection_reveals_every_touched_fold_before_deleting_any_sentence() {
         })
         .collect::<Vec<_>>();
     let mut fixture = Fixture::with_annotated_thought(content, annotations);
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentEnd,
         extend_selection: true,
     }));
@@ -288,7 +290,7 @@ fn selection_reveals_every_touched_fold_before_deleting_any_sentence() {
 
     assert!(
         fixture
-            .effects(UiInput::Key(DELETE_SENTENCE_KEY))
+            .effects(crate::key_input(DELETE_SENTENCE_KEY))
             .is_empty()
     );
     assert_eq!(fixture.app.editor_snapshot().expect("editor"), before);
@@ -314,13 +316,13 @@ fn semantic_emphasis_is_not_a_fold_and_rebases_or_dissolves_normally() {
         })
         .collect::<Vec<ContentAnnotation>>();
     let mut fixture = Fixture::with_annotated_thought(content, annotations);
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
 
-    let effects = fixture.effects(UiInput::Key(DELETE_SENTENCE_KEY));
+    let effects = fixture.effects(crate::key_input(DELETE_SENTENCE_KEY));
     assert!(matches!(effects.as_slice(), [Effect::CommitRevision(_)]));
     assert_eq!(fixture.app.status_text(), None);
     let thought = &fixture.app.state.board.live_thoughts()[0];
@@ -336,12 +338,12 @@ fn semantic_emphasis_is_not_a_fold_and_rebases_or_dissolves_normally() {
 fn persistent_undo_and_redo_restore_the_sentence_cursor_exactly() {
     let mut fixture = Fixture::new();
     fixture.paste("First sentence. Second sentence.");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..6 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeForward,
             extend_selection: false,
         }));
@@ -352,7 +354,7 @@ fn persistent_undo_and_redo_restore_the_sentence_cursor_exactly() {
         .expect("before deletion")
         .cursor;
 
-    fixture.input(UiInput::Key(DELETE_SENTENCE_KEY));
+    fixture.input(crate::key_input(DELETE_SENTENCE_KEY));
     let after = fixture
         .app
         .editor_snapshot()
@@ -360,12 +362,12 @@ fn persistent_undo_and_redo_restore_the_sentence_cursor_exactly() {
         .cursor;
     assert_eq!(after, TextPosition::new(0, 0));
 
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Undo));
     let undone = fixture.app.editor_snapshot().expect("after undo");
     assert_eq!(undone.content, "First sentence. Second sentence.");
     assert_eq!(undone.cursor, before);
 
-    fixture.input(UiInput::Key(UiKey::Redo));
+    fixture.input(crate::key_input(UiKey::Redo));
     let redone = fixture.app.editor_snapshot().expect("after redo");
     assert_eq!(redone.content, "Second sentence.");
     assert_eq!(redone.cursor, after);
@@ -375,10 +377,10 @@ fn persistent_undo_and_redo_restore_the_sentence_cursor_exactly() {
 fn board_and_search_keep_primary_shift_u_outside_sentence_dispatch() {
     let mut fixture = Fixture::new();
     fixture.paste("Keep this sentence.");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert!(
         fixture
-            .effects(UiInput::Key(DELETE_SENTENCE_KEY))
+            .effects(crate::key_input(DELETE_SENTENCE_KEY))
             .is_empty()
     );
     assert_eq!(
@@ -386,8 +388,8 @@ fn board_and_search_keep_primary_shift_u_outside_sentence_dispatch() {
         "Keep this sentence."
     );
 
-    fixture.input(UiInput::Key(UiKey::Character('/')));
-    fixture.input(UiInput::Key(DELETE_SENTENCE_KEY));
+    fixture.input(crate::key_input(UiKey::Character('/')));
+    fixture.input(crate::key_input(DELETE_SENTENCE_KEY));
     assert_eq!(fixture.app.search_view().expect("search").0, "");
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
 }

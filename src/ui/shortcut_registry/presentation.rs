@@ -1,8 +1,10 @@
 //! Registry-owned labels shared by Help, footer controls, and validation.
 
+mod browser;
 mod footer;
 mod help;
 
+pub(crate) use browser::browser_footer_projection;
 pub(crate) use footer::footer_projection;
 pub(crate) use help::{HelpItem, help_items};
 
@@ -33,6 +35,11 @@ pub(crate) fn redo_label() -> String {
         primary_label(Action::Redo)
     )
 }
+
+pub(crate) const FAST_NAVIGATION_HELP_LABEL: &str = "Alt+↑/↓";
+
+#[cfg(test)]
+pub(crate) const FAST_NAVIGATION_README_LABEL: &str = "Alt+↑ / ↓ or Page Up / Page Down";
 
 pub(crate) fn board_label(action: Action, keys: &KeyBindings) -> String {
     let primary = canonical_label(action);

@@ -67,14 +67,14 @@ fn manual_refresh_recovers_a_restored_unicode_path_and_is_present_in_commands() 
     fixture.app.complete_attachment_checks(completion);
     assert!(text(draw(&mut fixture, 60, 8).backend().buffer()).contains("inaccessible"));
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "refresh attachments".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let entries = fixture.app.palette_view().expect("palette").1;
     assert_eq!(entries, ["Refresh attachments"]);
-    let refresh = fixture.effects(UiInput::Key(UiKey::Enter));
+    let refresh = fixture.effects(crate::key_input(UiKey::Enter));
     let batch = attachment_batch(&refresh);
     fixture
         .app
@@ -101,7 +101,7 @@ fn resize_cursor_and_passive_pointer_events_never_repeat_filesystem_work() {
             width: 31,
             height: 8,
         },
-        UiInput::Key(UiKey::Move {
+        crate::key_input(UiKey::Move {
             movement: proqi::ports::editor::CursorMovement::GraphemeBack,
             extend_selection: false,
         }),
@@ -142,7 +142,7 @@ fn every_submit_variant_fails_before_journaling_delivery_or_removal() {
             submission_fixture()
         };
         if !query.contains("all") {
-            fixture.input(UiInput::Key(UiKey::Character('k')));
+            fixture.input(crate::key_input(UiKey::Character('k')));
         }
         let effects = execute_palette(&mut fixture, query);
         let preflight = attachment_batch(&effects);
@@ -179,8 +179,8 @@ fn every_submit_variant_fails_before_journaling_delivery_or_removal() {
 #[test]
 fn persistence_failure_prevents_attachment_preflight_and_releases_sources() {
     let mut fixture = restarted_submission_fixture();
-    fixture.input(UiInput::Key(UiKey::Character('e')));
-    fixture.input(UiInput::Key(UiKey::Character('!')));
+    fixture.input(crate::key_input(UiKey::Character('e')));
+    fixture.input(crate::key_input(UiKey::Character('!')));
     let (commit, submission) = execute_palette_from_edit(&mut fixture, "submit all");
     assert!(submission.is_empty());
     let sequence = commit
@@ -283,7 +283,7 @@ fn accessible_preflight_preserves_direct_herdr_submission_and_source_changes_fai
     );
 }
 
-fn submission_fixture() -> Fixture {
+pub(super) fn submission_fixture() -> Fixture {
     let mut fixture = Fixture::new();
     let path = "/private/TemporaryItems/expired.png";
     let effects = fixture.effects(UiInput::PasteAnnotated(attachment_payload(path, true)));
@@ -297,9 +297,9 @@ fn submission_fixture() -> Fixture {
     fixture
         .app
         .complete_attachment_checks(complete(background, Ok(())));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.paste("second source");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.acknowledge_all_persistence();
     fixture
         .app
@@ -310,10 +310,10 @@ fn submission_fixture() -> Fixture {
 fn restarted_submission_fixture() -> Fixture {
     let mut fixture = Fixture::new();
     fixture.paste("first source");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let path = "/private/var/folders/TemporaryItems/expired.png";
     fixture.input(UiInput::PasteAnnotated(attachment_payload(path, true)));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.acknowledge_all_persistence();
 
     let board = fixture.app.state.board.clone();
@@ -350,7 +350,7 @@ fn restarted_submission_fixture() -> Fixture {
 }
 
 fn execute_palette_from_edit(fixture: &mut Fixture, query: &str) -> (Vec<Effect>, Vec<Effect>) {
-    let commit = fixture.effects(UiInput::Key(UiKey::Escape));
+    let commit = fixture.effects(crate::key_input(UiKey::Escape));
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 80, 12));
     let commands = layout
         .controls
@@ -364,18 +364,18 @@ fn execute_palette_from_edit(fixture: &mut Fixture, query: &str) -> (Vec<Effect>
         extend_selection: false,
     }));
     for character in query.chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    let submission = fixture.effects(UiInput::Key(UiKey::Enter));
+    let submission = fixture.effects(crate::key_input(UiKey::Enter));
     (commit, submission)
 }
 
 fn execute_palette(fixture: &mut Fixture, query: &str) -> Vec<Effect> {
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in query.chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    fixture.effects(UiInput::Key(UiKey::Enter))
+    fixture.effects(crate::key_input(UiKey::Enter))
 }
 
 fn attachment_payload(path: &str, image: bool) -> PastePayload {
@@ -393,7 +393,7 @@ fn attachment_payload(path: &str, image: bool) -> PastePayload {
     .expect("valid attachment payload")
 }
 
-fn attachment_batch(effects: &[Effect]) -> AttachmentCheckBatch {
+pub(super) fn attachment_batch(effects: &[Effect]) -> AttachmentCheckBatch {
     effects
         .iter()
         .find_map(|effect| match effect {
@@ -403,7 +403,7 @@ fn attachment_batch(effects: &[Effect]) -> AttachmentCheckBatch {
         .unwrap_or_else(|| panic!("attachment batch missing: {effects:?}"))
 }
 
-fn complete(
+pub(super) fn complete(
     batch: AttachmentCheckBatch,
     result: Result<(), AttachmentAccessFailure>,
 ) -> AttachmentCheckBatchResult {

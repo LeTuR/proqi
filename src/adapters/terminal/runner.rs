@@ -47,7 +47,7 @@ use crate::{
         runtime::InstanceInfo,
         store::Store as _,
     },
-    ui::{BoardApp, Theme, UiInput, UiKey, render_with_outcome},
+    ui::{BoardApp, Theme, render_with_outcome},
 };
 
 use super::{
@@ -309,10 +309,7 @@ fn drive(
             redraw = true;
         }
         if termination.is_admitted() && app.screenshot_retry_ready() {
-            let mut effects = app.handle(UiInput::Key(UiKey::Quit), ids, &clock);
-            if !app.quit && app.screenshot_retry_ready() {
-                effects.extend(app.handle(UiInput::Key(UiKey::Quit), ids, &clock));
-            }
+            let effects = app.handle_termination_request(ids, &clock);
             enqueue_effects(app, lanes, effects, &mut pending)?;
             redraw = true;
         }

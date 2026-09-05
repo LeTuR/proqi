@@ -82,8 +82,12 @@ const fn target_action(target: HitTarget) -> Option<ShortcutAction> {
 
 pub(crate) fn agent(target: &AgentTarget) -> ControlLabel {
     ControlLabel {
-        key: direction_symbol(target.direction).to_owned(),
-        text: format!(" {}", compact_agent_name(target.agent_kind.as_str())),
+        key: target
+            .adjacent_direction()
+            .map(direction_symbol)
+            .unwrap_or_default()
+            .to_owned(),
+        text: format!(" {}", compact_agent_name(target.agent_kind().as_str())),
     }
 }
 

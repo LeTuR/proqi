@@ -1,7 +1,7 @@
 //! Representative narrow final-row append after the top-boundary insertion inverse.
 
 use super::{
-    Fixture, ThemePreference, UiInput, UiKey, draw_theme,
+    Fixture, ThemePreference, UiKey, draw_theme,
     navigation::{durable_thought, visual},
 };
 
@@ -18,15 +18,15 @@ fn bottom_append_after_top_insertion_keeps_the_new_editor_at_the_durable_tail() 
         );
     }
     for _ in 1..6 {
-        fixture.input(UiInput::Key(UiKey::Character('k')));
+        fixture.input(crate::key_input(UiKey::Character('k')));
     }
     fixture.input(visual(CursorMovement::VisualUp, false));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Escape));
     for _ in 0..7 {
         fixture.input(visual(CursorMovement::VisualDown, false));
     }
-    fixture.input(UiInput::Key(UiKey::Character('j')));
+    fixture.input(crate::key_input(UiKey::Character('j')));
     fixture.input(visual(CursorMovement::VisualDown, false));
 
     let terminal = draw_theme(&mut fixture, 34, 9, ThemePreference::Dark);

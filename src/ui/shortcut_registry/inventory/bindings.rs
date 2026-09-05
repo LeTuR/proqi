@@ -217,7 +217,11 @@ fn owner_navigation(
     }
     if matches!(
         context,
-        Context::Help | Context::Update | Context::Screenshot | Context::ReleaseHighlights
+        Context::Help
+            | Context::Update
+            | Context::Screenshot
+            | Context::ReleaseHighlights
+            | Context::GlobalDeliveryDisposition
     ) {
         match key {
             LogicalKey::Character('j' | 'J') => return Some(Action::FocusNext),

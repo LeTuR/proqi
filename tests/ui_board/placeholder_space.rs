@@ -39,14 +39,14 @@ fn annotated(prefix: &str, value: &str, suffix: &str, kind: ContentAnnotationKin
 }
 
 fn move_key(movement: CursorMovement, extend_selection: bool) -> UiInput {
-    UiInput::Key(UiKey::Move {
+    crate::key_input(UiKey::Move {
         movement,
         extend_selection,
     })
 }
 
 fn select_forward(fixture: &mut Fixture, prefix: &str) {
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     fixture.input(move_key(CursorMovement::DocumentStart, false));
     for _ in prefix.graphemes(true) {
         fixture.input(move_key(CursorMovement::GraphemeForward, false));
@@ -71,7 +71,7 @@ fn select_forward(fixture: &mut Fixture, prefix: &str) {
 }
 
 fn select_reverse(fixture: &mut Fixture, suffix: &str) {
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     fixture.input(move_key(CursorMovement::DocumentEnd, false));
     for _ in suffix.graphemes(true) {
         fixture.input(move_key(CursorMovement::GraphemeBack, false));
@@ -96,7 +96,7 @@ fn select_reverse(fixture: &mut Fixture, suffix: &str) {
 }
 
 fn space_revision(fixture: &mut Fixture) -> proqi::domain::ThoughtRevision {
-    let effects = fixture.effects(UiInput::Key(UiKey::UnmodifiedSpace));
+    let effects = fixture.effects(crate::key_input(UiKey::UnmodifiedSpace));
     let [Effect::CommitRevision(revision)] = effects.as_slice() else {
         panic!("expected one durable revision, got {effects:?}");
     };
@@ -199,12 +199,12 @@ fn repeated_space_keeps_the_placeholder_and_ordinary_followup_spaces() {
     assert_eq!(first.after_content, format!(" {value}"));
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::UnmodifiedSpace))
+            .effects(crate::key_input(UiKey::UnmodifiedSpace))
             .is_empty()
     );
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::UnmodifiedSpace))
+            .effects(crate::key_input(UiKey::UnmodifiedSpace))
             .is_empty()
     );
     assert_eq!(
@@ -226,7 +226,7 @@ fn delete_backspace_enter_replacement_and_paste_keep_existing_semantics() {
     for key in [UiKey::Delete, UiKey::Backspace] {
         let mut fixture = annotated("a", "TOKEN", "z", attachment(false));
         select_forward(&mut fixture, "a");
-        fixture.input(UiInput::Key(key));
+        fixture.input(crate::key_input(key));
         let effects = fixture
             .app
             .flush_pending_edit(&mut fixture.ids, &fixture.clock);
@@ -239,7 +239,7 @@ fn delete_backspace_enter_replacement_and_paste_keep_existing_semantics() {
 
     let mut entered = annotated("a", "TOKEN", "z", attachment(false));
     select_forward(&mut entered, "a");
-    assert!(entered.effects(UiInput::Key(UiKey::Enter)).is_empty());
+    assert!(entered.effects(crate::key_input(UiKey::Enter)).is_empty());
     assert_eq!(
         entered.app.editor_snapshot().expect("editor").content,
         "aTOKENz"
@@ -247,8 +247,8 @@ fn delete_backspace_enter_replacement_and_paste_keep_existing_semantics() {
     assert!(text(draw(&mut entered, 40, 8).backend().buffer()).contains("TOKEN"));
 
     for input in [
-        UiInput::Key(UiKey::Character('x')),
-        UiInput::Key(UiKey::Character(' ')),
+        crate::key_input(UiKey::Character('x')),
+        UiInput::Paste(" ".to_owned()),
         UiInput::Paste("first\r\nsecond".to_owned()),
     ] {
         let mut fixture = annotated("a", "TOKEN", "z", attachment(false));
@@ -277,10 +277,10 @@ fn delete_backspace_enter_replacement_and_paste_keep_existing_semantics() {
 #[test]
 fn partial_wide_multi_expanded_inline_and_plain_selections_are_not_eligible() {
     let mut partial = annotated("", "TOKEN", "", attachment(false));
-    partial.input(UiInput::Key(UiKey::Enter));
+    partial.input(crate::key_input(UiKey::Enter));
     partial.input(move_key(CursorMovement::DocumentStart, false));
     partial.input(move_key(CursorMovement::GraphemeForward, true));
-    partial.input(UiInput::Key(UiKey::UnmodifiedSpace));
+    partial.input(crate::key_input(UiKey::UnmodifiedSpace));
     assert_eq!(
         partial.app.editor_snapshot().expect("editor").content,
         " OKEN"
@@ -302,18 +302,18 @@ fn partial_wide_multi_expanded_inline_and_plain_selections_are_not_eligible() {
             substitution(attachment(false), 5, 5 + second.len()),
         ],
     );
-    wide.input(UiInput::Key(UiKey::Enter));
+    wide.input(crate::key_input(UiKey::Enter));
     wide.input(move_key(CursorMovement::DocumentStart, false));
     wide.input(move_key(CursorMovement::DocumentEnd, true));
-    wide.input(UiInput::Key(UiKey::UnmodifiedSpace));
+    wide.input(crate::key_input(UiKey::UnmodifiedSpace));
     assert_eq!(wide.app.editor_snapshot().expect("editor").content, " ");
 
     let mut expanded = annotated("", "TOKEN", "", attachment(false));
     select_forward(&mut expanded, "");
-    expanded.input(UiInput::Key(UiKey::Enter));
+    expanded.input(crate::key_input(UiKey::Enter));
     expanded.input(move_key(CursorMovement::DocumentStart, false));
     expanded.input(move_key(CursorMovement::DocumentEnd, true));
-    expanded.input(UiInput::Key(UiKey::UnmodifiedSpace));
+    expanded.input(crate::key_input(UiKey::UnmodifiedSpace));
     assert_eq!(expanded.app.editor_snapshot().expect("editor").content, " ");
 
     let inline: ContentAnnotation = serde_json::from_value(serde_json::json!({
@@ -326,9 +326,9 @@ fn partial_wide_multi_expanded_inline_and_plain_selections_are_not_eligible() {
         ("https://example.test", Vec::new()),
     ] {
         let mut fixture = Fixture::with_annotated_thought(content, annotations);
-        fixture.input(UiInput::Key(UiKey::Enter));
-        fixture.input(UiInput::Key(UiKey::SelectAll));
-        fixture.input(UiInput::Key(UiKey::UnmodifiedSpace));
+        fixture.input(crate::key_input(UiKey::Enter));
+        fixture.input(crate::key_input(UiKey::SelectAll));
+        fixture.input(crate::key_input(UiKey::UnmodifiedSpace));
         assert_eq!(fixture.app.editor_snapshot().expect("editor").content, " ");
     }
 }
@@ -339,7 +339,7 @@ fn board_compose_and_search_retain_their_space_behavior() {
         Fixture::with_annotated_thought("TOKEN", vec![substitution(attachment(false), 0, 5)]);
     assert!(
         board
-            .effects(UiInput::Key(UiKey::UnmodifiedSpace))
+            .effects(crate::key_input(UiKey::UnmodifiedSpace))
             .is_empty()
     );
     assert!(
@@ -349,7 +349,7 @@ fn board_compose_and_search_retain_their_space_behavior() {
     );
 
     let mut compose = Fixture::new();
-    let effects = compose.effects(UiInput::Key(UiKey::UnmodifiedSpace));
+    let effects = compose.effects(crate::key_input(UiKey::UnmodifiedSpace));
     assert!(matches!(
         effects.as_slice(),
         [Effect::CommitBoardOperation(_)]
@@ -358,9 +358,9 @@ fn board_compose_and_search_retain_their_space_behavior() {
 
     let mut search = Fixture::new();
     search.paste("alpha beta");
-    search.input(UiInput::Key(UiKey::Escape));
-    search.input(UiInput::Key(UiKey::Character('/')));
-    search.input(UiInput::Key(UiKey::UnmodifiedSpace));
+    search.input(crate::key_input(UiKey::Escape));
+    search.input(crate::key_input(UiKey::Character('/')));
+    search.input(crate::key_input(UiKey::UnmodifiedSpace));
     assert_eq!(search.app.search_view().expect("search").0, " ");
 }
 
@@ -404,7 +404,7 @@ fn inaccessible_mouse_selection_survives_resize_and_shifts_without_recheck() {
         height: 5,
     });
     let _narrow = draw_theme(&mut fixture, 22, 5, ThemePreference::Dark);
-    let effects = fixture.effects(UiInput::Key(UiKey::UnmodifiedSpace));
+    let effects = fixture.effects(crate::key_input(UiKey::UnmodifiedSpace));
     assert!(
         effects
             .iter()
@@ -436,14 +436,14 @@ fn failure_retry_undo_and_redo_keep_one_revision_and_exact_metadata() {
         format!("a {value}z")
     );
     assert_eq!(
-        fixture.effects(UiInput::Key(UiKey::Character('r'))),
+        fixture.effects(crate::key_input(UiKey::Character('r'))),
         vec![Effect::RetryPersistence {
             sequence: revision.sequence,
         }]
     );
     fixture.app.acknowledge_persistence(revision.sequence, true);
 
-    let undo = fixture.effects(UiInput::Key(UiKey::Undo));
+    let undo = fixture.effects(crate::key_input(UiKey::Undo));
     assert!(matches!(
         undo.as_slice(),
         [Effect::CommitHistoryMove { undo: true, .. }]
@@ -457,7 +457,7 @@ fn failure_retry_undo_and_redo_keep_one_revision_and_exact_metadata() {
         .and_then(|batch| batch.sequence())
         .expect("undo sequence");
     fixture.app.acknowledge_persistence(undo_sequence, true);
-    let redo = fixture.effects(UiInput::Key(UiKey::Redo));
+    let redo = fixture.effects(crate::key_input(UiKey::Redo));
     assert!(matches!(
         redo.as_slice(),
         [Effect::CommitHistoryMove { undo: false, .. }]

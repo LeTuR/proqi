@@ -3,7 +3,9 @@
 use crate::domain::Timestamp;
 use ratatui_core::layout::Rect;
 
-use super::{BoardApp, PointerButton, PointerInput, PointerKind, pointer::MULTI_CLICK_MILLIS};
+use super::{
+    BoardApp, PointerButton, PointerInput, PointerKind, UiInput, pointer::MULTI_CLICK_MILLIS,
+};
 
 #[derive(Clone, Copy)]
 pub(super) struct OverlayActivation {
@@ -14,18 +16,14 @@ pub(super) struct OverlayActivation {
 }
 
 impl BoardApp {
-    pub(super) fn reset_overlay_activation_for_input(
-        &mut self,
-        input: &crate::ui::UiInput,
-        now: Timestamp,
-    ) {
+    pub(super) fn reset_overlay_activation_for_input(&mut self, input: &UiInput, now: Timestamp) {
         let preserves = match input {
-            crate::ui::UiInput::Pointer(pointer)
+            UiInput::Pointer(pointer)
                 if matches!(pointer.kind, PointerKind::Down(PointerButton::Left)) =>
             {
                 true
             }
-            crate::ui::UiInput::Pointer(pointer)
+            UiInput::Pointer(pointer)
                 if matches!(
                     pointer.kind,
                     PointerKind::Up(PointerButton::Left) | PointerKind::Move
@@ -34,14 +32,14 @@ impl BoardApp {
                 self.overlay_activation
                     .is_some_and(|activation| activation.matches(*pointer, now))
             }
-            crate::ui::UiInput::Key(_)
-            | crate::ui::UiInput::KeyStroke(_)
-            | crate::ui::UiInput::Pointer(_)
-            | crate::ui::UiInput::Paste(_)
-            | crate::ui::UiInput::PasteAnnotated(_)
-            | crate::ui::UiInput::Resize { .. }
-            | crate::ui::UiInput::HostFocusGained
-            | crate::ui::UiInput::HostFocusLost => false,
+            UiInput::Key(_)
+            | UiInput::KeyStroke(_)
+            | UiInput::Pointer(_)
+            | UiInput::Paste(_)
+            | UiInput::PasteAnnotated(_)
+            | UiInput::Resize { .. }
+            | UiInput::HostFocusGained
+            | UiInput::HostFocusLost => false,
         };
         if !preserves {
             self.overlay_activation = None;

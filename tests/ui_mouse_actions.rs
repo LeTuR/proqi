@@ -9,6 +9,10 @@ use proqi::{
 };
 use ratatui_core::layout::{Rect, Size};
 
+#[path = "support/keyboard.rs"]
+mod keyboard_support;
+use keyboard_support::key_input;
+
 struct Fixture {
     app: BoardApp,
     ids: FakeIdGenerator,
@@ -199,7 +203,7 @@ fn editor_and_recovery_controls_are_mouse_operable() {
         fixture
             .app
             .handle(
-                UiInput::Key(proqi::ui::UiKey::Enter),
+                crate::key_input(proqi::ui::UiKey::Enter),
                 &mut fixture.ids,
                 &fixture.clock,
             )

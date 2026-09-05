@@ -3,10 +3,10 @@
 use crate::{
     application::{Effect, ScreenshotIntent},
     ports::environment::{Clock, IdGenerator},
-    ui::{ListNavigation, UiInput, UiKey},
+    ui::ListNavigation,
 };
 
-use super::super::BoardApp;
+use super::super::{BoardApp, UiInput, UiKey};
 use super::ScreenshotState;
 
 impl BoardApp {

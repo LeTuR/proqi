@@ -22,9 +22,9 @@ fn focus_content(fixture: &Fixture) -> &str {
         .content
 }
 
-fn assert_focus_up(key: UiKey) {
+fn assert_focus_up(input: UiInput) {
     let mut fixture = populated();
-    fixture.input(UiInput::Key(key));
+    fixture.input(input);
     assert_eq!(focus_content(&fixture), "second");
     assert!(super::movement_symmetry::selected(&fixture).is_empty());
 }
@@ -32,19 +32,16 @@ fn assert_focus_up(key: UiKey) {
 #[test]
 fn unsupported_board_modifiers_keep_the_base_focus_intention() {
     for key in [
-        UiKey::PrimaryCharacter('k'),
-        UiKey::EditNavigation {
-            editor_movement: CursorMovement::VisualJumpUp,
-            board_movement: CursorMovement::VisualUp,
-        },
-        UiKey::Move {
+        crate::key_input(UiKey::PrimaryCharacter('k')),
+        UiInput::KeyStroke(KeyStroke::press(LogicalKey::Up).with_modifiers(LogicalModifiers::ALT)),
+        crate::key_input(UiKey::Move {
             movement: CursorMovement::VisualJumpUp,
             extend_selection: false,
-        },
-        UiKey::Move {
+        }),
+        crate::key_input(UiKey::Move {
             movement: CursorMovement::DocumentStart,
             extend_selection: false,
-        },
+        }),
     ] {
         assert_focus_up(key);
     }
@@ -64,7 +61,7 @@ fn shifted_and_primary_shifted_spellings_keep_range_and_reorder() {
         UiKey::Character('K'),
     ] {
         let mut fixture = populated();
-        fixture.input(UiInput::Key(key));
+        fixture.input(crate::key_input(key));
         assert_eq!(
             super::movement_symmetry::selected(&fixture),
             ["second", "third"]
@@ -86,7 +83,7 @@ fn shifted_and_primary_shifted_spellings_keep_range_and_reorder() {
         UiKey::PrimaryShiftCharacter('k'),
     ] {
         let mut fixture = populated();
-        fixture.input(UiInput::Key(key));
+        fixture.input(crate::key_input(key));
         assert!(super::movement_symmetry::selected(&fixture).is_empty());
         assert_eq!(
             super::movement_symmetry::order(&fixture),
@@ -113,12 +110,12 @@ fn insertion_row_rejects_thought_only_range_and_reorder_intentions() {
         fixture.input(visual(CursorMovement::VisualDown, false));
         assert!(fixture.app.insertion_focused());
 
-        fixture.input(UiInput::Key(key));
+        fixture.input(crate::key_input(key));
         fixture.input(visual(CursorMovement::VisualDown, false));
         assert_eq!(fixture.app.state.board.live_thoughts().len(), 3);
         assert!(fixture.app.insertion_focused());
 
-        fixture.input(UiInput::Key(UiKey::Character('j')));
+        fixture.input(crate::key_input(UiKey::Character('j')));
         assert_eq!(fixture.app.state.board.live_thoughts().len(), 4);
     }
 }
@@ -127,11 +124,10 @@ fn insertion_row_rejects_thought_only_range_and_reorder_intentions() {
 fn insertion_boundary_accepts_mixed_unsupported_focus_modifiers() {
     let mut fixture = populated();
     fixture.input(visual(CursorMovement::VisualDown, false));
-    fixture.input(UiInput::Key(UiKey::PrimaryCharacter('j')));
-    fixture.input(UiInput::Key(UiKey::EditNavigation {
-        editor_movement: CursorMovement::VisualJumpDown,
-        board_movement: CursorMovement::VisualDown,
-    }));
+    fixture.input(crate::key_input(UiKey::PrimaryCharacter('j')));
+    fixture.input(UiInput::KeyStroke(
+        KeyStroke::press(LogicalKey::Down).with_modifiers(LogicalModifiers::ALT),
+    ));
 
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 4);
     assert!(matches!(
@@ -152,15 +148,15 @@ fn remapped_vertical_bindings_share_the_same_modifier_ladder() {
         durable_thought(&mut fixture, content);
     }
 
-    fixture.input(UiInput::Key(UiKey::PrimaryCharacter('i')));
+    fixture.input(crate::key_input(UiKey::PrimaryCharacter('i')));
     assert_eq!(focus_content(&fixture), "second");
-    fixture.input(UiInput::Key(UiKey::Character('I')));
+    fixture.input(crate::key_input(UiKey::Character('I')));
     assert_eq!(
         super::movement_symmetry::selected(&fixture),
         ["first", "second"]
     );
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::PrimaryCharacter('I')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::PrimaryCharacter('I')));
     assert_eq!(
         super::movement_symmetry::order(&fixture),
         ["second", "third", "first"]

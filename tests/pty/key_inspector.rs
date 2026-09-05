@@ -75,7 +75,7 @@ fn keypress_inspector_reports_raw_and_normalized_input_then_restores() {
             eof {exit 96}
         }
         expect {
-            -exact "Matched action: selection.select_all" {}
+            -exact "Matched action: Character('a')" {}
             timeout {exit 97}
             eof {exit 98}
         }
@@ -96,14 +96,22 @@ fn alt_arrow_is_forwarded_through_the_real_pty_and_crossterm_parser() {
     inspect_sequence(
         r"\x1b\[1;3A",
         "Up, modifiers: KeyModifiers(ALT)",
-        "list.previous",
+        "FastNavigation { direction: Previous, extend_selection: false }",
     );
 }
 
 #[test]
-fn page_keys_keep_their_fast_navigation_identity_in_the_inspector_board_context() {
-    inspect_sequence(r"\x1b\[5~", "PageUp", "navigation.fast_previous");
-    inspect_sequence(r"\x1b\[6~", "PageDown", "navigation.fast_next");
+fn page_keys_are_forwarded_as_the_same_fast_intention_in_the_real_pty() {
+    inspect_sequence(
+        r"\x1b\[5~",
+        "PageUp",
+        "FastNavigation { direction: Previous, extend_selection: false }",
+    );
+    inspect_sequence(
+        r"\x1b\[6~",
+        "PageDown",
+        "FastNavigation { direction: Next, extend_selection: false }",
+    );
 }
 
 #[test]
@@ -112,13 +120,13 @@ fn platform_primary_arrow_is_forwarded_through_the_real_pty_and_restores() {
         inspect_sequence(
             r"\x1b\[1;9B",
             "Down, modifiers: KeyModifiers(SUPER)",
-            "list.next",
+            "EditNavigation { editor_movement: DocumentEnd, board_movement: VisualDown }",
         );
     } else {
         inspect_sequence(
             r"\x1b\[1;5B",
             "Down, modifiers: KeyModifiers(CONTROL)",
-            "list.next",
+            "EditNavigation { editor_movement: DocumentEnd, board_movement: VisualDown }",
         );
     }
 }
@@ -133,12 +141,12 @@ fn primary_enter_variants_are_distinct_in_the_real_pty() {
     inspect_sequence(
         submit,
         &format!("Enter, modifiers: KeyModifiers({modifier})"),
-        "submission.submit_remove",
+        "Submit",
     );
     inspect_sequence(
         keep,
         &format!("Enter, modifiers: KeyModifiers(SHIFT | {modifier})"),
-        "submission.submit_keep",
+        "SubmitKeep",
     );
 }
 
@@ -148,17 +156,17 @@ fn macos_super_meta_and_raw_control_remain_distinct_in_the_real_pty() {
         inspect_sequence(
             r"\x1b\[97;9u",
             "Char('a'), modifiers: KeyModifiers(SUPER)",
-            "selection.select_all",
+            "SelectAll",
         );
         inspect_sequence(
             r"\x1b\[97;33u",
             "Char('a'), modifiers: KeyModifiers(META)",
-            "selection.select_all",
+            "SelectAll",
         );
         inspect_sequence(
             r"\x1b\[97;5u",
             "Char('a'), modifiers: KeyModifiers(CONTROL)",
-            "text.input_or_unbound",
+            "none",
         );
     }
 }
@@ -198,7 +206,7 @@ fn kitty_repeat_event_is_dispatched_but_release_is_not() {
             eof {exit 98}
         }
         expect {
-            -exact "Matched action: list.next" {}
+            -exact "Matched action: Character('j')" {}
             timeout {exit 99}
             eof {exit 100}
         }
@@ -220,32 +228,37 @@ fn macos_primary_shift_horizontal_arrows_have_exact_distinct_pty_encodings() {
         inspect_sequence(
             r"\x1b\[1;9D",
             "Left, modifiers: KeyModifiers(SUPER)",
-            "text.input_or_unbound",
+            "MoveVisualRow { edge: Start }",
         );
         inspect_sequence(
             r"\x1b\[1;9C",
             "Right, modifiers: KeyModifiers(SUPER)",
-            "text.input_or_unbound",
+            "MoveVisualRow { edge: End }",
         );
         inspect_sequence(
             r"\x1b\[1;10D",
             "Left, modifiers: KeyModifiers(SHIFT | SUPER)",
-            "text.input_or_unbound",
+            "ExtendVisualRow { edge: Start }",
         );
         inspect_sequence(
             r"\x1b\[1;10C",
             "Right, modifiers: KeyModifiers(SHIFT | SUPER)",
-            "text.input_or_unbound",
+            "ExtendVisualRow { edge: End }",
         );
     }
 }
 
 #[test]
 fn control_shift_horizontal_arrow_uses_platform_word_or_base_selection() {
+    let action = if cfg!(target_os = "macos") {
+        "Move { movement: GraphemeBack, extend_selection: true }"
+    } else {
+        "Move { movement: WordBack, extend_selection: true }"
+    };
     inspect_sequence(
         r"\x1b\[1;6D",
         "Left, modifiers: KeyModifiers(SHIFT | CONTROL)",
-        "text.input_or_unbound",
+        action,
     );
 }
 
@@ -255,17 +268,17 @@ fn macos_raw_control_v_is_not_a_second_primary_paste_chord() {
         inspect_sequence(
             r"\x16",
             "Char('v'), modifiers: KeyModifiers(CONTROL)",
-            "text.input_or_unbound",
+            "none",
         );
         inspect_sequence(
             r"\x1b\[118;5u",
             "Char('v'), modifiers: KeyModifiers(CONTROL)",
-            "text.input_or_unbound",
+            "none",
         );
         inspect_sequence(
             r"\x1b\[118;6u",
             "Char('v'), modifiers: KeyModifiers(SHIFT | CONTROL)",
-            "text.input_or_unbound",
+            "none",
         );
     }
 }
@@ -280,7 +293,7 @@ fn distinctly_shifted_primary_v_is_reflow_in_the_real_pty() {
     inspect_sequence(
         sequence,
         &format!("Char('v'), modifiers: KeyModifiers(SHIFT | {modifier})"),
-        "clipboard.paste_reflow",
+        "PasteClipboardReflow",
     );
 }
 
@@ -289,17 +302,17 @@ fn macos_cmd_shift_z_encoding_is_redo_in_the_real_pty() {
     inspect_sequence(
         r"\x1b\[90;10u",
         "Char('Z'), modifiers: KeyModifiers(SHIFT | SUPER)",
-        "history.redo",
+        "Redo",
     );
 }
 
 #[test]
 fn delete_and_backspace_are_distinct_in_the_real_pty() {
-    inspect_sequence(r"\x1b\[3~", "Delete", "thought.delete");
+    inspect_sequence(r"\x1b\[3~", "Delete", "Delete");
     inspect_sequence(
         r"\x1b\[3;2~",
         "Delete, modifiers: KeyModifiers(SHIFT)",
-        "text.input_or_unbound",
+        "ModifiedDelete",
     );
-    inspect_sequence(r"\x7f", "Backspace", "text.input_or_unbound");
+    inspect_sequence(r"\x7f", "Backspace", "Backspace");
 }

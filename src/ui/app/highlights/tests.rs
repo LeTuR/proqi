@@ -10,8 +10,8 @@ use crate::{
     },
     ports::environment::IdGenerator as _,
     ui::{
-        FastNavigation, PointerButton, PointerInput, PointerKind, Theme, ThemePreference, UiInput,
-        UiKey, render, render_with_outcome,
+        FastNavigation, KeyStroke, LogicalKey, LogicalModifiers, PointerButton, PointerInput,
+        PointerKind, Theme, ThemePreference, UiInput, UiKey, render, render_with_outcome,
     },
 };
 use ratatui_core::{backend::TestBackend, layout::Rect, terminal::Terminal};
@@ -305,29 +305,24 @@ fn release_highlights_fast_navigation_moves_exactly_five_visible_rows() {
 
 #[test]
 fn overlay_navigation_uses_the_canonical_arrow_and_vim_modifier_parity() {
-    use crate::ports::editor::CursorMovement;
-
     let (mut app, mut ids, clock) = app();
     install_automatic(&mut app, 0);
     app.arm_release_highlights(0);
     app.prepare_frame(Rect::new(0, 0, 38, 8));
+    let primary = if cfg!(target_os = "macos") {
+        LogicalModifiers::SUPER
+    } else {
+        LogicalModifiers::CONTROL
+    };
     let inputs = [
-        UiKey::Move {
-            movement: CursorMovement::VisualDown,
-            extend_selection: true,
-        },
-        UiKey::PrimaryShiftMove {
-            movement: CursorMovement::VisualDown,
-        },
-        UiKey::EditNavigation {
-            editor_movement: CursorMovement::VisualJumpDown,
-            board_movement: CursorMovement::VisualDown,
-        },
-        UiKey::Character('J'),
-        UiKey::PrimaryCharacter('j'),
+        KeyStroke::press(LogicalKey::Down).with_modifiers(LogicalModifiers::SHIFT),
+        KeyStroke::press(LogicalKey::Down).with_modifiers(primary.union(LogicalModifiers::SHIFT)),
+        KeyStroke::press(LogicalKey::Down).with_modifiers(LogicalModifiers::HYPER),
+        KeyStroke::press(LogicalKey::Character('J')),
+        KeyStroke::press(LogicalKey::Character('j')).with_modifiers(primary),
     ];
-    for (index, key) in inputs.into_iter().enumerate() {
-        let _ = app.handle(UiInput::Key(key), &mut ids, &clock);
+    for (index, stroke) in inputs.into_iter().enumerate() {
+        let _ = app.handle(UiInput::KeyStroke(stroke), &mut ids, &clock);
         assert_eq!(
             app.release_highlights_view(36, 6).expect("overlay").scroll,
             index + 1

@@ -244,7 +244,13 @@ fn passive_motion_and_resize_do_not_consume_deliberate_replay_capacity() {
         .filter(|deferred| deferred.input.is_deliberate_interaction())
         .map(|deferred| deferred.input.clone())
         .collect::<Vec<_>>();
-    assert_eq!(queued, deliberate);
+    assert_eq!(
+        queued,
+        deliberate
+            .into_iter()
+            .map(crate::ui::input::RoutedInput::from)
+            .collect::<Vec<_>>()
+    );
     let effects = app.complete_screenshot_capture(Ok(created(&capture)), &mut ids, &clock);
     assert!(app.screenshot.deferred_inputs.is_empty());
     assert_eq!(

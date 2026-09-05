@@ -9,16 +9,16 @@ fn reentered_paste_placeholder_expands_and_untouched_exit_refolds_it() {
         .join("\n");
     fixture.input(UiInput::Paste(content.clone()));
     let _folded = draw(&mut fixture, 60, 8);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let _board = draw(&mut fixture, 60, 8);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let _reentered = draw(&mut fixture, 60, 8);
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let expanded = draw(&mut fixture, 60, 8);
     let rendered = text(expanded.backend().buffer());
     let thought = &fixture.app.prepare_frame(Rect::new(0, 0, 60, 8)).thoughts[0];
@@ -31,7 +31,7 @@ fn reentered_paste_placeholder_expands_and_untouched_exit_refolds_it() {
         content
     );
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let collapsed = text(draw(&mut fixture, 60, 8).backend().buffer());
     assert!(collapsed.contains("[Pasted text · 14 lines · 213 characters]"));
     assert!(!collapsed.contains("context line 13"));

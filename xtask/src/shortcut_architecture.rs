@@ -2,6 +2,10 @@
 
 use std::{collections::BTreeSet, path::Path};
 
+mod cfg_policy;
+
+use cfg_policy::has_test_only_configuration;
+
 const REGISTRY_ROOT: &str = "src/ui/shortcut_registry/";
 const TERMINAL_TRANSLATION: &str = "src/adapters/terminal/input/translation.rs";
 const KEYSTROKE_MODEL: &str = "src/ui/input/keystroke.rs";
@@ -44,6 +48,10 @@ pub(crate) fn check_source(path: &Path, source: &str) -> Vec<String> {
     };
     let mut visitor = ShortcutVisitor::default();
     syn::visit::Visit::visit_file(&mut visitor, &file);
+    ownership_findings(path, &path_text, &visitor)
+}
+
+fn ownership_findings(path: &Path, path_text: &str, visitor: &ShortcutVisitor) -> Vec<String> {
     let mut findings = Vec::new();
 
     if visitor.detected.contains(&Detected::CrosstermKeyTypes) && path_text != TERMINAL_TRANSLATION
@@ -56,7 +64,7 @@ pub(crate) fn check_source(path: &Path, source: &str) -> Vec<String> {
     let owns_logical_keys = path_text.starts_with(REGISTRY_ROOT)
         || path_text == TERMINAL_TRANSLATION
         || path_text == KEYSTROKE_MODEL
-        || UI_REEXPORTS.contains(&path_text.as_str());
+        || UI_REEXPORTS.contains(&path_text);
     if visitor.detected.contains(&Detected::LogicalKey) && !owns_logical_keys {
         findings.push(format!(
             "{}: raw LogicalKey interpretation is outside the shortcut registry dispatcher",
@@ -94,9 +102,19 @@ pub(crate) fn check_source(path: &Path, source: &str) -> Vec<String> {
             path.display()
         ));
     }
+    if visitor
+        .detected
+        .contains(&Detected::SemanticKeyPresentation)
+        && !path_text.starts_with(REGISTRY_ROOT)
+    {
+        findings.push(format!(
+            "{}: semantic shortcut presentation is outside the shortcut registry",
+            path.display()
+        ));
+    }
     if visitor.detected.contains(&Detected::KeybindingsAccess)
         && !path_text.starts_with(REGISTRY_ROOT)
-        && !KEYBINDING_PROJECTION_OWNERS.contains(&path_text.as_str())
+        && !KEYBINDING_PROJECTION_OWNERS.contains(&path_text)
     {
         findings.push(format!(
             "{}: configured keybinding access is outside registry loading or presentation",
@@ -119,32 +137,39 @@ enum Detected {
     ShortcutBinding,
     CommandsInventory,
     SemanticCharacterLiteral,
+    SemanticKeyPresentation,
     KeybindingsAccess,
 }
 
 impl<'ast> syn::visit::Visit<'ast> for ShortcutVisitor {
     fn visit_item_mod(&mut self, item: &'ast syn::ItemMod) {
-        if !has_test_configuration(&item.attrs) {
+        if !has_test_only_configuration(&item.attrs) {
             syn::visit::visit_item_mod(self, item);
         }
     }
 
     fn visit_item_fn(&mut self, item: &'ast syn::ItemFn) {
-        if !has_test_configuration(&item.attrs) {
+        if !has_test_only_configuration(&item.attrs) {
             syn::visit::visit_item_fn(self, item);
         }
     }
 
     fn visit_impl_item_fn(&mut self, item: &'ast syn::ImplItemFn) {
-        if !has_test_configuration(&item.attrs) {
+        if !has_test_only_configuration(&item.attrs) {
             syn::visit::visit_impl_item_fn(self, item);
+        }
+    }
+
+    fn visit_item_impl(&mut self, item: &'ast syn::ItemImpl) {
+        if !has_test_only_configuration(&item.attrs) {
+            syn::visit::visit_item_impl(self, item);
         }
     }
 
     fn visit_path(&mut self, path: &'ast syn::Path) {
         for segment in &path.segments {
             match segment.ident.to_string().as_str() {
-                "KeyCode" | "KeyModifiers" | "KeyEventKind" => {
+                "KeyCode" | "KeyEvent" | "KeyEventKind" | "KeyEventState" | "KeyModifiers" => {
                     self.detected.insert(Detected::CrosstermKeyTypes);
                 }
                 "LogicalKey" => {
@@ -161,7 +186,7 @@ impl<'ast> syn::visit::Visit<'ast> for ShortcutVisitor {
 
     fn visit_ident(&mut self, ident: &'ast syn::Ident) {
         match ident.to_string().as_str() {
-            "KeyCode" | "KeyModifiers" | "KeyEventKind" => {
+            "KeyCode" | "KeyEvent" | "KeyEventKind" | "KeyEventState" | "KeyModifiers" => {
                 self.detected.insert(Detected::CrosstermKeyTypes);
             }
             "LogicalKey" => {
@@ -228,12 +253,153 @@ impl<'ast> syn::visit::Visit<'ast> for ShortcutVisitor {
         syn::visit::visit_expr_match(self, expression);
     }
 
+    fn visit_expr_if(&mut self, expression: &'ast syn::ExprIf) {
+        let mut bindings = Vec::new();
+        collect_condition_semantic_bindings(&expression.cond, &mut bindings);
+        self.semantic_character_bindings.push(bindings);
+        syn::visit::visit_expr_if(self, expression);
+        self.semantic_character_bindings.pop();
+    }
+
+    fn visit_expr_while(&mut self, expression: &'ast syn::ExprWhile) {
+        let mut bindings = Vec::new();
+        collect_condition_semantic_bindings(&expression.cond, &mut bindings);
+        self.semantic_character_bindings.push(bindings);
+        syn::visit::visit_expr_while(self, expression);
+        self.semantic_character_bindings.pop();
+    }
+
+    fn visit_expr_binary(&mut self, expression: &'ast syn::ExprBinary) {
+        if matches!(expression.op, syn::BinOp::Eq(_) | syn::BinOp::Ne(_))
+            && ((self.is_semantic_character_binding(&expression.left)
+                && is_character_literal(&expression.right))
+                || (self.is_semantic_character_binding(&expression.right)
+                    && is_character_literal(&expression.left)))
+        {
+            self.detected.insert(Detected::SemanticCharacterLiteral);
+        }
+        syn::visit::visit_expr_binary(self, expression);
+    }
+
+    fn visit_expr_macro(&mut self, expression: &'ast syn::ExprMacro) {
+        if expression.mac.path.is_ident("matches")
+            && token_stream_contains_character_literal(&expression.mac.tokens)
+            && (token_stream_contains_semantic_variant(&expression.mac.tokens)
+                || self
+                    .semantic_character_bindings
+                    .iter()
+                    .flatten()
+                    .any(|binding| token_stream_contains_ident(&expression.mac.tokens, binding)))
+        {
+            self.detected.insert(Detected::SemanticCharacterLiteral);
+        }
+        syn::visit::visit_expr_macro(self, expression);
+    }
+
+    fn visit_expr_array(&mut self, expression: &'ast syn::ExprArray) {
+        if expression
+            .elems
+            .iter()
+            .any(is_semantic_key_presentation_tuple)
+        {
+            self.detected.insert(Detected::SemanticKeyPresentation);
+        }
+        syn::visit::visit_expr_array(self, expression);
+    }
+
     fn visit_expr_field(&mut self, field: &'ast syn::ExprField) {
         if matches!(&field.member, syn::Member::Named(identifier) if identifier == "keybindings") {
             self.detected.insert(Detected::KeybindingsAccess);
         }
         syn::visit::visit_expr_field(self, field);
     }
+}
+
+impl ShortcutVisitor {
+    fn is_semantic_character_binding(&self, expression: &syn::Expr) -> bool {
+        let syn::Expr::Path(path) = expression else {
+            return false;
+        };
+        let Some(identifier) = path.path.get_ident() else {
+            return false;
+        };
+        self.semantic_character_bindings
+            .iter()
+            .flatten()
+            .any(|binding| identifier == binding)
+    }
+}
+
+fn collect_condition_semantic_bindings(expression: &syn::Expr, bindings: &mut Vec<String>) {
+    match expression {
+        syn::Expr::Let(let_expression) => {
+            collect_semantic_character_bindings(&let_expression.pat, bindings);
+        }
+        syn::Expr::Binary(binary) => {
+            collect_condition_semantic_bindings(&binary.left, bindings);
+            collect_condition_semantic_bindings(&binary.right, bindings);
+        }
+        syn::Expr::Group(group) => collect_condition_semantic_bindings(&group.expr, bindings),
+        syn::Expr::Paren(paren) => collect_condition_semantic_bindings(&paren.expr, bindings),
+        _ => {}
+    }
+}
+
+fn is_character_literal(expression: &syn::Expr) -> bool {
+    matches!(expression, syn::Expr::Lit(literal) if matches!(literal.lit, syn::Lit::Char(_)))
+}
+
+fn token_stream_contains_character_literal(tokens: &proc_macro2::TokenStream) -> bool {
+    tokens.clone().into_iter().any(|token| match token {
+        proc_macro2::TokenTree::Literal(literal) => {
+            matches!(
+                syn::parse_str::<syn::Lit>(&literal.to_string()),
+                Ok(syn::Lit::Char(_))
+            )
+        }
+        proc_macro2::TokenTree::Group(group) => {
+            token_stream_contains_character_literal(&group.stream())
+        }
+        _ => false,
+    })
+}
+
+fn token_stream_contains_semantic_variant(tokens: &proc_macro2::TokenStream) -> bool {
+    ["Character", "PrimaryCharacter", "PrimaryShiftCharacter"]
+        .iter()
+        .any(|identifier| token_stream_contains_ident(tokens, identifier))
+}
+
+fn token_stream_contains_ident(tokens: &proc_macro2::TokenStream, expected: &str) -> bool {
+    tokens.clone().into_iter().any(|token| match token {
+        proc_macro2::TokenTree::Ident(identifier) => identifier == expected,
+        proc_macro2::TokenTree::Group(group) => {
+            token_stream_contains_ident(&group.stream(), expected)
+        }
+        _ => false,
+    })
+}
+
+fn is_semantic_key_presentation_tuple(expression: &syn::Expr) -> bool {
+    let syn::Expr::Tuple(tuple) = expression else {
+        return false;
+    };
+    let mut elements = tuple.elems.iter();
+    let Some(syn::Expr::Path(owner)) = elements.next() else {
+        return false;
+    };
+    if !owner.path.segments.iter().any(|segment| {
+        matches!(
+            segment.ident.to_string().as_str(),
+            "BrowserHit" | "HitTarget"
+        )
+    }) {
+        return false;
+    }
+    let Some(syn::Expr::Lit(key)) = elements.next() else {
+        return false;
+    };
+    matches!(&key.lit, syn::Lit::Str(value) if value.value().chars().count() <= 8)
 }
 
 fn collect_semantic_character_bindings(pattern: &syn::Pat, bindings: &mut Vec<String>) {
@@ -277,16 +443,6 @@ fn pattern_contains_character_literal(pattern: &syn::Pat) -> bool {
     }
 }
 
-fn has_test_configuration(attributes: &[syn::Attribute]) -> bool {
-    attributes.iter().any(|attribute| {
-        matches!(
-            &attribute.meta,
-            syn::Meta::List(list)
-                if list.path.is_ident("cfg") && list.tokens.to_string().contains("test")
-        )
-    })
-}
-
 fn is_test_fixture(path: &str) -> bool {
     path.ends_with("/tests.rs")
         || path.contains("/tests/")
@@ -299,97 +455,5 @@ fn slash_path(path: &Path) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn canonical_owners_and_explicit_test_fixtures_are_accepted() {
-        assert!(
-            check_source(
-                Path::new("src/ui/shortcut_registry/inventory.rs"),
-                "use crate::ui::LogicalKey; const KEY: LogicalKey = LogicalKey::Enter;",
-            )
-            .is_empty()
-        );
-        assert!(
-            check_source(
-                Path::new("src/adapters/terminal/input/translation.rs"),
-                "use crossterm::event::KeyCode; fn decode(code: KeyCode) {}",
-            )
-            .is_empty()
-        );
-        assert!(
-            check_source(
-                Path::new("src/ui/tests/shortcut_fixture.rs"),
-                "use crate::ui::{LogicalKey, ShortcutBinding};",
-            )
-            .is_empty()
-        );
-    }
-
-    #[test]
-    fn raw_terminal_and_logical_key_routes_outside_their_owners_are_rejected() {
-        let terminal = check_source(
-            Path::new("src/ui/app.rs"),
-            "use crossterm::event::{KeyCode, KeyModifiers};",
-        );
-        assert!(terminal[0].contains("terminal translation boundary"));
-
-        let logical = check_source(
-            Path::new("src/ui/app/help.rs"),
-            "use crate::ui::LogicalKey; fn route(key: LogicalKey) {}",
-        );
-        assert!(logical[0].contains("registry dispatcher"));
-    }
-
-    #[test]
-    fn parallel_bindings_metadata_and_commands_inventories_are_rejected() {
-        let binding = check_source(
-            Path::new("src/ui/settings.rs"),
-            "use crate::ui::ShortcutBinding; fn bind(value: ShortcutBinding) {}",
-        );
-        assert!(binding[0].contains("outside the shortcut registry"));
-
-        let metadata = check_source(Path::new("src/ui/shortcut_metadata.rs"), "fn label() {}");
-        assert!(metadata[0].contains("parallel shortcut metadata"));
-
-        let commands = check_source(
-            Path::new("src/ui/app/palette/command.rs"),
-            "struct Command; impl Command { const COMMANDS: [Self; 0] = []; }",
-        );
-        assert!(commands[0].contains("Commands inventory"));
-    }
-
-    #[test]
-    fn semantic_character_routes_and_configured_dispatch_outside_registry_are_rejected() {
-        let literal = check_source(
-            Path::new("src/ui/app/help.rs"),
-            "fn route(key: UiKey) { match key { UiKey::Character('j') => {}, _ => {} } }",
-        );
-        assert!(literal[0].contains("semantic character binding"));
-
-        let nested = check_source(
-            Path::new("src/ui/browser/management.rs"),
-            "fn route(key: UiKey) { match key { UiKey::Character(character) => match character { 'R' => rename(), _ => {} }, _ => {} } }",
-        );
-        assert!(nested[0].contains("semantic character binding"));
-
-        let configured = check_source(
-            Path::new("src/ui/app/help.rs"),
-            "fn route(app: &App, value: char) -> bool { value == app.settings.keybindings.help }",
-        );
-        assert!(configured[0].contains("configured keybinding access"));
-
-        let parallel_help = check_source(
-            Path::new("src/ui/shortcuts.rs"),
-            "fn label(app: &App) -> char { app.settings.keybindings.help }",
-        );
-        assert!(parallel_help[0].contains("configured keybinding access"));
-    }
-
-    #[test]
-    fn literal_text_insertion_and_typed_action_consumers_are_accepted() {
-        let source = "fn route(key: UiKey) { match key { UiKey::Character(character) => insert(character), UiKey::Shortcut(action) => execute(action), _ => {} } }";
-        assert!(check_source(Path::new("src/ui/app/query.rs"), source).is_empty());
-    }
-}
+#[path = "shortcut_architecture/tests.rs"]
+mod tests;

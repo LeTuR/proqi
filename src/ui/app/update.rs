@@ -3,10 +3,10 @@
 use crate::{
     application::{DurabilityState, Effect, UpdateIntent},
     domain::{InstallationKind, RequestId, StableVersion, Timestamp},
-    ui::{HitTarget, ListNavigation, PointerButton, PointerKind, UiInput, UiKey},
+    ui::{HitTarget, ListNavigation, PointerButton, PointerKind},
 };
 
-use super::BoardApp;
+use super::{BoardApp, UiInput, UiKey};
 
 pub(super) struct UpdateBarrier {
     operation_id: RequestId,

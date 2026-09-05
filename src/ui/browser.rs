@@ -118,58 +118,50 @@ pub(super) enum BrowserHit {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct BrowserFooterControl {
     pub(super) hit: BrowserHit,
-    pub(super) key: &'static str,
+    pub(super) key: String,
     pub(super) label: &'static str,
     pub(super) area: Rect,
 }
 
-pub(super) fn browser_footer_controls(area: Rect) -> Vec<BrowserFooterControl> {
+pub(super) fn browser_footer_controls(
+    area: Rect,
+    registry: &crate::ui::ShortcutRegistry,
+) -> Vec<BrowserFooterControl> {
     if area.width == 0 || area.height == 0 {
         return Vec::new();
     }
-    let items = if area.width >= 60 {
-        [
-            (BrowserHit::Rename, "R", "Rename"),
-            (BrowserHit::Trash, "D", "Trash"),
-            (BrowserHit::None, "↑↓", "Select"),
-            (BrowserHit::None, "Enter", "Open"),
-            (BrowserHit::Cancel, "Esc", "Cancel"),
-        ]
-        .as_slice()
-    } else if area.width >= 36 {
-        [
-            (BrowserHit::Rename, "R", "Rename"),
-            (BrowserHit::Trash, "D", "Trash"),
-            (BrowserHit::None, "Enter", "Open"),
-            (BrowserHit::Cancel, "Esc", "Back"),
-        ]
-        .as_slice()
-    } else {
-        [
-            (BrowserHit::Rename, "R", "Name"),
-            (BrowserHit::Trash, "D", "Trash"),
-            (BrowserHit::Cancel, "Esc", "Back"),
-        ]
-        .as_slice()
-    };
     let mut x = area.x.saturating_add(1);
-    items
-        .iter()
-        .map(|&(hit, key, label)| {
-            let width = crate::ports::text_layout::terminal_cell_width(key)
+    crate::ui::shortcut_registry::presentation::browser_footer_projection(registry, area.width)
+        .into_iter()
+        .map(|projection| {
+            let width = crate::ports::text_layout::terminal_cell_width(&projection.key)
                 .saturating_add(1)
-                .saturating_add(crate::ports::text_layout::terminal_cell_width(label));
+                .saturating_add(crate::ports::text_layout::terminal_cell_width(
+                    projection.label,
+                ));
             let width = u16::try_from(width).unwrap_or(u16::MAX);
             let control = BrowserFooterControl {
-                hit,
-                key,
-                label,
+                hit: browser_hit(projection.actions),
+                key: projection.key,
+                label: projection.label,
                 area: Rect::new(x, area.y, width.min(area.right().saturating_sub(x)), 1),
             };
             x = x.saturating_add(width).saturating_add(2);
             control
         })
         .collect()
+}
+
+fn browser_hit(actions: &[crate::ui::ShortcutActionId]) -> BrowserHit {
+    if actions.contains(&crate::ui::ShortcutActionId::RenameSession) {
+        BrowserHit::Rename
+    } else if actions.contains(&crate::ui::ShortcutActionId::BrowserTrash) {
+        BrowserHit::Trash
+    } else if actions.contains(&crate::ui::ShortcutActionId::Close) {
+        BrowserHit::Cancel
+    } else {
+        BrowserHit::None
+    }
 }
 
 /// Result of handling one browser input.
@@ -202,7 +194,7 @@ pub struct SessionBrowser {
     now: Timestamp,
     layout: Option<BrowserLayout>,
     rename: Option<management::RenameState>,
-    shortcut_registry: crate::ui::ShortcutRegistry,
+    pub(super) shortcut_registry: crate::ui::ShortcutRegistry,
     /// Visible explanation for blocked or ambiguous actions.
     pub status: Option<String>,
 }

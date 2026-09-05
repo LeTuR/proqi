@@ -40,7 +40,7 @@ pub(crate) use shortcut_registry::ShortcutRegistry;
 pub(crate) use shortcut_registry::{CommandAvailability, CommandLabel, CommandMetadata};
 pub use shortcut_registry::{
     ShortcutActionId, ShortcutBinding, ShortcutBindingClaim, ShortcutContext, ShortcutContextStack,
-    ShortcutDescriptor, ShortcutIntention, ShortcutModifiers, ShortcutSafety,
+    ShortcutDescriptor, ShortcutModifiers, ShortcutSafety,
 };
 pub use theme::{TerminalPalette, Theme, ThemePreference};
 pub(crate) use theme::{ThemeOverrides, ThemeRecipe};

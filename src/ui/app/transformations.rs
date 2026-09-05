@@ -9,7 +9,8 @@ use crate::{
     },
 };
 
-use super::{BoardApp, palette::command::Command, palette_handoff::EditorSelectionHandoff};
+use super::{BoardApp, palette_handoff::EditorSelectionHandoff};
+use crate::ui::shortcut_registry::PaletteTransformationCommand as TransformationCommand;
 
 impl BoardApp {
     pub(super) fn contextual_board_transformation(
@@ -59,17 +60,16 @@ impl BoardApp {
 
     pub(super) fn execute_transformation_command(
         &mut self,
-        command: Command,
+        command: TransformationCommand,
         handoff: Option<&EditorSelectionHandoff>,
         merge_handoff: Option<&[crate::domain::Thought]>,
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
-    ) -> Option<Vec<Effect>> {
+    ) -> Vec<Effect> {
         match command {
-            Command::SplitThought => Some(self.split_at_handoff(handoff, ids, clock)),
-            Command::ExtractSelection => Some(self.extract_handoff(handoff, ids, clock)),
-            Command::MergeThoughts => Some(self.merge_selection(merge_handoff, ids, clock)),
-            _ => None,
+            TransformationCommand::SplitThought => self.split_at_handoff(handoff, ids, clock),
+            TransformationCommand::ExtractSelection => self.extract_handoff(handoff, ids, clock),
+            TransformationCommand::MergeThoughts => self.merge_selection(merge_handoff, ids, clock),
         }
     }
 

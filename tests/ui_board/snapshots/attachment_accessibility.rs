@@ -39,11 +39,11 @@ fn expanded_inaccessible_attachment_keeps_a_plain_warning_snapshot() {
                 })
                 .collect(),
         });
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: proqi::ports::editor::CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
 
     insta::with_settings!({ snapshot_path => "." }, {
         assert_platform_snapshot!(snapshot(&mut fixture, 60, 8, ThemePreference::Dark));

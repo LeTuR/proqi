@@ -8,45 +8,43 @@ use crate::{
     },
 };
 
-use super::{Command, EditorSelectionHandoff};
+use super::EditorSelectionHandoff;
 use crate::ui::app::{BoardApp, UiKey};
+use crate::ui::shortcut_registry::PaletteEditorCommand as EditorCommand;
 
 impl BoardApp {
     pub(super) fn execute_editor_command(
         &mut self,
-        command: Command,
+        command: EditorCommand,
         selection_handoff: Option<EditorSelectionHandoff>,
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
-    ) -> Option<Vec<Effect>> {
-        if !editor_owned(command) {
-            return None;
-        }
+    ) -> Vec<Effect> {
         let mut effects = if matches!(self.state.mode, InteractionMode::Edit { .. }) {
             Vec::new()
         } else {
             self.expand_and_enter_edit(ids, clock)
         };
         self.restore_palette_selection_handoff(selection_handoff);
-        if command == Command::PlainNewline {
+        if command == EditorCommand::PlainNewline {
             effects.extend(self.insert_newline(false, ids, clock));
-            return Some(effects);
+            return effects;
         }
         if matches!(
             command,
-            Command::DeleteLogicalLine | Command::DeleteSentence
+            EditorCommand::DeleteLogicalLine | EditorCommand::DeleteSentence
         ) {
-            let key = if command == Command::DeleteLogicalLine {
+            let key = if command == EditorCommand::DeleteLogicalLine {
                 UiKey::DeleteLogicalLine
             } else {
                 UiKey::DeleteSentence
             };
             effects.extend(self.handle_edit_key(key, ids, clock));
-            return Some(effects);
+            return effects;
         }
         if let Some(edge) = visual_row_edge(command) {
             effects.extend(self.handle_edit_key(UiKey::ExtendVisualRow { edge }, ids, clock));
-            return Some(effects);
+            return effects;
         }
         if let Some(movement) = movement(command) {
             effects.extend(self.handle_edit_key(
@@ -57,44 +55,27 @@ impl BoardApp {
                 ids,
                 clock,
             ));
-            return Some(effects);
+            return effects;
         }
-        effects.extend(self.apply_indentation(command == Command::Outdent, ids, clock));
-        Some(effects)
+        effects.extend(self.apply_indentation(command == EditorCommand::Outdent, ids, clock));
+        effects
     }
 }
 
-fn editor_owned(command: Command) -> bool {
-    matches!(
-        command,
-        Command::PlainNewline
-            | Command::DeleteLogicalLine
-            | Command::DeleteSentence
-            | Command::JumpUp
-            | Command::JumpDown
-            | Command::SelectVisualRowStart
-            | Command::SelectVisualRowEnd
-            | Command::ThoughtStart
-            | Command::ThoughtEnd
-            | Command::Indent
-            | Command::Outdent
-    )
-}
-
-const fn visual_row_edge(command: Command) -> Option<crate::ui::VisualRowEdge> {
+const fn visual_row_edge(command: EditorCommand) -> Option<crate::ui::VisualRowEdge> {
     match command {
-        Command::SelectVisualRowStart => Some(crate::ui::VisualRowEdge::Start),
-        Command::SelectVisualRowEnd => Some(crate::ui::VisualRowEdge::End),
+        EditorCommand::SelectVisualRowStart => Some(crate::ui::VisualRowEdge::Start),
+        EditorCommand::SelectVisualRowEnd => Some(crate::ui::VisualRowEdge::End),
         _ => None,
     }
 }
 
-const fn movement(command: Command) -> Option<CursorMovement> {
+const fn movement(command: EditorCommand) -> Option<CursorMovement> {
     match command {
-        Command::JumpUp => Some(CursorMovement::VisualJumpUp),
-        Command::JumpDown => Some(CursorMovement::VisualJumpDown),
-        Command::ThoughtStart => Some(CursorMovement::DocumentStart),
-        Command::ThoughtEnd => Some(CursorMovement::DocumentEnd),
+        EditorCommand::JumpUp => Some(CursorMovement::VisualJumpUp),
+        EditorCommand::JumpDown => Some(CursorMovement::VisualJumpDown),
+        EditorCommand::ThoughtStart => Some(CursorMovement::DocumentStart),
+        EditorCommand::ThoughtEnd => Some(CursorMovement::DocumentEnd),
         _ => None,
     }
 }

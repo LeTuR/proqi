@@ -13,7 +13,7 @@ fn inaccessible_suffix_wrap_is_measured_from_the_visible_presentation() {
         attachment_batch(&effects),
         Err(AttachmentAccessFailure::Missing),
     ));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 
     let area = Rect::new(0, 0, 18, 12);
     let layout = fixture.app.prepare_frame(area);
@@ -45,7 +45,7 @@ fn public_layout_and_render_path_preserves_attachment_presentation() {
         attachment_batch(&effects),
         Err(AttachmentAccessFailure::Missing),
     ));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 
     let area = Rect::new(0, 0, 80, 8);
     let layout = proqi::ui::compute_layout(&fixture.app.state, None, area, 0, false, false);
@@ -78,9 +78,9 @@ fn collapsed_overflow_and_next_separator_use_health_aware_natural_rows() {
         attachment_batch(&effects),
         Err(AttachmentAccessFailure::Missing),
     ));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.paste("neighbor");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let first_id = fixture.app.state.board.live_thoughts()[0].id;
     fixture
         .app
@@ -120,7 +120,7 @@ fn health_transitions_resize_reflow_and_preserve_scroll_selection() {
     fixture
         .app
         .complete_attachment_checks(complete(attachment_batch(&effects), Ok(())));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let thought_id = fixture.app.state.board.live_thoughts()[0].id;
     fixture
         .app
@@ -129,7 +129,7 @@ fn health_transitions_resize_reflow_and_preserve_scroll_selection() {
         .thought_mut(thought_id)
         .expect("thought")
         .presentation = ThoughtPresentation::Expanded;
-    fixture.input(UiInput::Key(UiKey::UnmodifiedSpace));
+    fixture.input(crate::key_input(UiKey::UnmodifiedSpace));
 
     let narrow = Rect::new(0, 0, 18, 8);
     let _initial = draw(&mut fixture, narrow.width, narrow.height);
@@ -183,7 +183,7 @@ fn health_transitions_keep_the_same_post_attachment_row_at_the_viewport_edge() {
     fixture
         .app
         .complete_attachment_checks(complete(attachment_batch(&effects), Ok(())));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let thought_id = fixture.app.state.board.live_thoughts()[0].id;
     fixture
         .app
@@ -267,7 +267,7 @@ fn expanded_warning_suffix_rows_map_to_the_canonical_attachment_end() {
         collapsed_area.y,
         PointerKind::Down(PointerButton::Left),
     );
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 18, 10));
     let area = layout.thoughts[0].text_area;
     assert!(area.height >= 3, "expanded path and warning must wrap");
@@ -309,7 +309,7 @@ fn inaccessible_embedded_fixture(content: &str, range: std::ops::Range<usize>) -
         .app
         .complete_attachment_checks(complete(attachment_batch(&effects), Ok(())));
     complete_refresh(&mut fixture, Err(AttachmentAccessFailure::Missing));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture
 }
 

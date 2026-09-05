@@ -43,7 +43,6 @@ pub(super) fn command_for_key(
         | UiKey::Submit
         | UiKey::SubmitKeep
         | UiKey::FastNavigation { .. }
-        | UiKey::EditNavigation { .. }
         | UiKey::PrimaryCharacter(_)
         | UiKey::PrimaryShiftCharacter(_)
         | UiKey::PrimaryShiftMove { .. }

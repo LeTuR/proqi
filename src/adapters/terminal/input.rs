@@ -82,14 +82,9 @@ pub(crate) fn inspect_keypress(
         }
     };
     guard.finish()?;
-    let contexts = crate::ui::ShortcutContextStack::new([crate::ui::ShortcutContext::Board]);
     Ok(KeyInspection {
         raw_event,
-        matched_action: Some(
-            shortcut_registry
-                .diagnostics_id(&contexts, stroke)
-                .to_owned(),
-        ),
+        matched_action: shortcut_registry.legacy_keypress_action(stroke),
     })
 }
 

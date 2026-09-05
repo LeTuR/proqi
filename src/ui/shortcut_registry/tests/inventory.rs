@@ -12,7 +12,7 @@ use super::stroke;
 fn every_commands_entry_has_one_matching_registry_descriptor() {
     let registry = ShortcutRegistry::resolve(&KeyBindings::default(), ShortcutPlatform::Portable)
         .expect("valid registry");
-    assert_eq!(Action::COMMANDS.len(), 51);
+    assert_eq!(Action::COMMANDS.len(), 52);
     for (order, (action, label)) in Action::COMMANDS.into_iter().enumerate() {
         let descriptor = registry.descriptor(action).expect("Commands descriptor");
         assert_eq!(
@@ -54,6 +54,8 @@ fn every_discovered_keyboard_owner_is_qualified_by_a_descriptor() {
         Context::Invocation,
         Context::InvocationQuery,
         Context::Transfer,
+        Context::GlobalDeliveryQuery,
+        Context::GlobalDeliveryDisposition,
         Context::Browser,
         Context::BrowserQuery,
         Context::Rename,

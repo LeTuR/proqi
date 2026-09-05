@@ -14,6 +14,8 @@ pub(in crate::ui::shortcut_registry) const KEYBOARD_CONTEXTS: &[Context] = &[
     Context::Invocation,
     Context::InvocationQuery,
     Context::Transfer,
+    Context::GlobalDeliveryQuery,
+    Context::GlobalDeliveryDisposition,
     Context::Browser,
     Context::BrowserQuery,
     Context::Rename,
@@ -95,7 +97,7 @@ pub(super) fn is_editor_context(context: Context) -> bool {
 pub(super) fn is_query_cursor_context(context: Context) -> bool {
     matches!(
         context,
-        Context::Commands | Context::Search | Context::Transfer
+        Context::Commands | Context::Search | Context::Transfer | Context::GlobalDeliveryQuery
     )
 }
 
@@ -108,6 +110,8 @@ pub(super) fn is_list_context(context: Context) -> bool {
             | Context::Invocation
             | Context::InvocationQuery
             | Context::Transfer
+            | Context::GlobalDeliveryQuery
+            | Context::GlobalDeliveryDisposition
             | Context::Browser
             | Context::BrowserQuery
             | Context::Update
@@ -116,7 +120,7 @@ pub(super) fn is_list_context(context: Context) -> bool {
     )
 }
 
-pub(super) fn is_text_context(context: Context) -> bool {
+pub(in crate::ui::shortcut_registry) fn is_text_context(context: Context) -> bool {
     matches!(
         context,
         Context::Compose
@@ -126,6 +130,7 @@ pub(super) fn is_text_context(context: Context) -> bool {
             | Context::Search
             | Context::InvocationQuery
             | Context::Transfer
+            | Context::GlobalDeliveryQuery
             | Context::Browser
             | Context::BrowserQuery
             | Context::Rename

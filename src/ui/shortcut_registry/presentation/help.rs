@@ -104,7 +104,7 @@ fn editor_key_label(action: Action, mode: InteractionMode, keys: &KeyBindings) -
         Action::DeleteSentence => primary(&format!("Shift+{}", keys.delete_sentence)),
         Action::Redo => redo_label(),
         Action::ContextualTransform => primary(&transform_key_label(keys.transform)),
-        Action::FastNext => crate::ui::paging::FAST_NAVIGATION_SHORTCUT_KEY.to_owned(),
+        Action::FastNext => super::FAST_NAVIGATION_HELP_LABEL.to_owned(),
         Action::MoveDocumentStart => format!("{}/{}", primary("↑"), primary("↓")),
         Action::ExtendVisualRowStart => {
             visual_row_selection_shortcut(keys, cfg!(target_os = "macos"))

@@ -17,11 +17,19 @@ impl BoardApp {
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
     ) -> Option<Vec<Effect>> {
-        if matches!(input, UiInput::Key(UiKey::Quit)) && self.screenshot_retry_ready() {
-            return Some(self.handle_ready_capture_quit(ids, clock));
-        }
         if !matches!(input, UiInput::Key(UiKey::Quit)) {
             return None;
+        }
+        Some(self.request_global_quit(ids, clock))
+    }
+
+    fn request_global_quit(
+        &mut self,
+        ids: &mut impl IdGenerator,
+        clock: &impl Clock,
+    ) -> Vec<Effect> {
+        if self.screenshot_retry_ready() {
+            return self.handle_ready_capture_quit(ids, clock);
         }
         let flush = if matches!(self.state.durability, DurabilityState::Failed { .. }) {
             EditFlush::Complete(Vec::new())
@@ -30,10 +38,22 @@ impl BoardApp {
         };
         let effects = match flush {
             EditFlush::Complete(effects) => effects,
-            EditFlush::Blocked(effects) => return Some(effects),
+            EditFlush::Blocked(effects) => return effects,
         };
         self.request_quit();
-        Some(effects)
+        effects
+    }
+
+    pub(crate) fn handle_termination_request(
+        &mut self,
+        ids: &mut impl IdGenerator,
+        clock: &impl Clock,
+    ) -> Vec<Effect> {
+        let mut effects = self.request_global_quit(ids, clock);
+        if !self.quit && self.screenshot_retry_ready() {
+            effects.extend(self.request_global_quit(ids, clock));
+        }
+        effects
     }
 
     pub(super) fn handle_failed_recovery_input(

@@ -8,9 +8,9 @@ use proqi::{
 mod review_regressions;
 
 fn query_palette(fixture: &mut Fixture, query: &str) {
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in query.chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
 }
 
@@ -25,23 +25,23 @@ fn board_operation(effects: &[Effect]) -> &proqi::domain::BoardOperation {
 fn keyboard_palette_splits_at_exact_unicode_cursor_across_resize_and_undoes_once() {
     let mut fixture = Fixture::new();
     fixture.paste("A界\r\nB");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..2 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeForward,
             extend_selection: false,
         }));
     }
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     query_palette(&mut fixture, "split thought");
     fixture.input(UiInput::Resize {
         width: 23,
         height: 6,
     });
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     assert_eq!(board_operation(&effects).kind, BoardOperationKind::Split);
     let live = fixture.app.state.board.live_thoughts();
     assert_eq!(live[0].content, "A界");
@@ -56,7 +56,7 @@ fn keyboard_palette_splits_at_exact_unicode_cursor_across_resize_and_undoes_once
         proqi::domain::TextPosition::new(0, 0)
     );
 
-    let undo = fixture.effects(UiInput::Key(UiKey::Undo));
+    let undo = fixture.effects(crate::key_input(UiKey::Undo));
     assert!(matches!(
         undo.as_slice(),
         [Effect::CommitHistoryMove {
@@ -69,7 +69,7 @@ fn keyboard_palette_splits_at_exact_unicode_cursor_across_resize_and_undoes_once
         fixture.app.state.board.live_thoughts()[0].content,
         "A界\r\nB"
     );
-    let redo = fixture.effects(UiInput::Key(UiKey::Redo));
+    let redo = fixture.effects(crate::key_input(UiKey::Redo));
     assert!(matches!(
         redo.as_slice(),
         [Effect::CommitHistoryMove {
@@ -86,11 +86,11 @@ fn mouse_palette_extracts_a_reverse_selection_and_places_cursor_at_new_end() {
     let mut fixture = Fixture::new();
     let exact = "zero 日本\r\nend";
     fixture.paste(exact);
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: true,
     }));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     query_palette(&mut fixture, "extract selection");
     let item = fixture
         .app
@@ -135,11 +135,11 @@ fn split_uses_annotations_rebased_by_the_edit_flushed_on_exit() {
         )
         .expect("valid attachment payload"),
     ));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let _terminal = draw(&mut fixture, 50, 8);
     let area = fixture.app.prepare_frame(Rect::new(0, 0, 50, 8)).thoughts[0].text_area;
     fixture.pointer(
@@ -147,10 +147,10 @@ fn split_uses_annotations_rebased_by_the_edit_flushed_on_exit() {
         area.y,
         PointerKind::Down(PointerButton::Left),
     );
-    fixture.input(UiInput::Key(UiKey::Character('X')));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('X')));
+    fixture.input(crate::key_input(UiKey::Escape));
     query_palette(&mut fixture, "split thought");
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     assert_eq!(board_operation(&effects).kind, BoardOperationKind::Split);
     let live = fixture.app.state.board.live_thoughts();
     assert_eq!(live[0].content, "aX");
@@ -175,7 +175,7 @@ fn palette_rejects_annotation_only_staleness_with_actionable_feedback() {
         )
         .expect("valid folded payload"),
     ));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     query_palette(&mut fixture, "split thought");
     let thought_id = fixture.app.state.board.live_thoughts()[0].id;
     fixture
@@ -187,7 +187,7 @@ fn palette_rejects_annotation_only_staleness_with_actionable_feedback() {
         .annotations
         .clear();
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     assert!(effects.is_empty());
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
     assert_eq!(fixture.app.state.board.live_thoughts()[0].content, "folded");
@@ -202,14 +202,14 @@ fn palette_merge_uses_configured_separator_and_rejects_discontiguous_selection()
     });
     for content in ["one", "two", "三"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
         if content != "三" {
-            fixture.input(UiInput::Key(UiKey::Character('n')));
+            fixture.input(crate::key_input(UiKey::Character('n')));
         }
     }
-    fixture.input(UiInput::Key(UiKey::Character('a')));
+    fixture.input(crate::key_input(UiKey::Character('a')));
     query_palette(&mut fixture, "merge selected");
-    let merged = fixture.effects(UiInput::Key(UiKey::Enter));
+    let merged = fixture.effects(crate::key_input(UiKey::Enter));
     assert_eq!(board_operation(&merged).kind, BoardOperationKind::Merge);
     assert_eq!(
         fixture.app.state.board.live_thoughts()[0].content,
@@ -220,15 +220,15 @@ fn palette_merge_uses_configured_separator_and_rejects_discontiguous_selection()
     let mut fixture = Fixture::new();
     for content in ["first", "middle", "last"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
         if content != "last" {
-            fixture.input(UiInput::Key(UiKey::Character('n')));
+            fixture.input(crate::key_input(UiKey::Character('n')));
         }
     }
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     let before = fixture
         .app
         .state
@@ -238,7 +238,7 @@ fn palette_merge_uses_configured_separator_and_rejects_discontiguous_selection()
         .map(|thought| thought.content.clone())
         .collect::<Vec<_>>();
     query_palette(&mut fixture, "merge selected");
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     assert!(effects.is_empty());
     assert_eq!(
         fixture
@@ -259,17 +259,17 @@ fn palette_merge_uses_configured_separator_and_rejects_discontiguous_selection()
 fn primary_transform_splits_at_cursor_or_extracts_exact_reverse_selection() {
     let mut split = Fixture::new();
     split.paste("A界 B");
-    split.input(UiInput::Key(UiKey::Move {
+    split.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..2 {
-        split.input(UiInput::Key(UiKey::Move {
+        split.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeForward,
             extend_selection: false,
         }));
     }
-    let effects = split.effects(UiInput::Key(UiKey::PrimaryCharacter('t')));
+    let effects = split.effects(crate::key_input(UiKey::PrimaryCharacter('t')));
     assert_eq!(board_operation(&effects).kind, BoardOperationKind::Split);
     assert_eq!(
         split
@@ -285,11 +285,11 @@ fn primary_transform_splits_at_cursor_or_extracts_exact_reverse_selection() {
 
     let mut extract = Fixture::new();
     extract.paste("zero 日本\r\nend");
-    extract.input(UiInput::Key(UiKey::Move {
+    extract.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: true,
     }));
-    let effects = extract.effects(UiInput::Key(UiKey::PrimaryCharacter('t')));
+    let effects = extract.effects(crate::key_input(UiKey::PrimaryCharacter('t')));
     assert_eq!(board_operation(&effects).kind, BoardOperationKind::Extract);
     assert_eq!(extract.app.state.board.live_thoughts()[0].content, "");
     assert_eq!(
@@ -303,13 +303,13 @@ fn plain_transform_merges_selection_and_escape_transform_uses_one_shot_handoff()
     let mut merge = Fixture::new();
     for content in ["one", "two"] {
         merge.paste(content);
-        merge.input(UiInput::Key(UiKey::Escape));
+        merge.input(crate::key_input(UiKey::Escape));
         if content == "one" {
-            merge.input(UiInput::Key(UiKey::Character('n')));
+            merge.input(crate::key_input(UiKey::Character('n')));
         }
     }
-    merge.input(UiInput::Key(UiKey::Character('a')));
-    let effects = merge.effects(UiInput::Key(UiKey::Character('t')));
+    merge.input(crate::key_input(UiKey::Character('a')));
+    let effects = merge.effects(crate::key_input(UiKey::Character('t')));
     assert_eq!(board_operation(&effects).kind, BoardOperationKind::Merge);
     assert_eq!(
         merge.app.state.board.live_thoughts()[0].content,
@@ -318,12 +318,12 @@ fn plain_transform_merges_selection_and_escape_transform_uses_one_shot_handoff()
 
     let mut fallback = Fixture::new();
     fallback.paste("left right");
-    fallback.input(UiInput::Key(UiKey::Move {
+    fallback.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fallback.input(UiInput::Key(UiKey::Escape));
-    let effects = fallback.effects(UiInput::Key(UiKey::Character('t')));
+    fallback.input(crate::key_input(UiKey::Escape));
+    let effects = fallback.effects(crate::key_input(UiKey::Character('t')));
     assert_eq!(board_operation(&effects).kind, BoardOperationKind::Split);
     assert_eq!(fallback.app.state.board.live_thoughts()[0].content, "");
     assert_eq!(
@@ -331,7 +331,7 @@ fn plain_transform_merges_selection_and_escape_transform_uses_one_shot_handoff()
         "left right"
     );
 
-    fallback.input(UiInput::Key(UiKey::Character('t')));
+    fallback.input(crate::key_input(UiKey::Character('t')));
     assert_eq!(
         fallback
             .app
@@ -350,16 +350,16 @@ fn contextual_transform_is_remappable_and_does_not_claim_compose_primary_input()
     let mut fixture = Fixture::with_settings(settings);
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::PrimaryCharacter('g')))
+            .effects(crate::key_input(UiKey::PrimaryCharacter('g')))
             .is_empty()
     );
     assert_eq!(fixture.app.interaction_mode(), InteractionMode::Compose);
     fixture.paste("ab");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    let effects = fixture.effects(UiInput::Key(UiKey::PrimaryCharacter('g')));
+    let effects = fixture.effects(crate::key_input(UiKey::PrimaryCharacter('g')));
     assert_eq!(board_operation(&effects).kind, BoardOperationKind::Split);
 }
 
@@ -368,14 +368,14 @@ fn thought_transformations_are_discoverable_from_an_editor_selection() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste("keep this exact\r\nselection");
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: true,
     }));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "thought".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     insta::assert_snapshot!(super::snapshot_support::snapshot_buffer(
         draw_theme(&mut fixture, 72, 16, ThemePreference::Dark)

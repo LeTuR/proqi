@@ -13,12 +13,14 @@ use super::{
     BoardApp, UiInput, UiKey, palette_handoff::EditorSelectionHandoff, query::QueryEditor,
     screenshot::ScreenshotPaletteAction,
 };
-use crate::ui::{CommandAvailability, CommandLabel, CommandMetadata};
+use crate::ui::{
+    CommandAvailability, CommandLabel, CommandMetadata, shortcut_registry::CommandExecution,
+};
 
 use command::Command;
 
 pub(super) struct PaletteState {
-    commands: Vec<(Command, CommandMetadata)>,
+    commands: Vec<(Command, CommandMetadata, CommandExecution)>,
     query: QueryEditor,
     selected: usize,
     scroll: usize,
@@ -32,7 +34,7 @@ pub(super) struct PaletteState {
 
 impl PaletteState {
     fn new(
-        commands: Vec<(Command, CommandMetadata)>,
+        commands: Vec<(Command, CommandMetadata, CommandExecution)>,
         submit_supported: bool,
         plain_newline_supported: bool,
         screenshot_action: ScreenshotPaletteAction,
@@ -64,7 +66,7 @@ impl PaletteState {
             self.matches()
                 .into_iter()
                 .skip(self.scroll)
-                .map(|(_, label)| label.to_owned())
+                .map(|(_, label, _)| label.to_owned())
                 .collect(),
             self.selected.saturating_sub(self.scroll),
         )
@@ -81,14 +83,16 @@ impl PaletteState {
         )
     }
 
-    fn matches(&self) -> Vec<(Command, &'static str)> {
+    fn matches(&self) -> Vec<(Command, &'static str, CommandExecution)> {
         let query = self.query.text().to_lowercase();
         self.commands
             .iter()
             .copied()
-            .filter(|(_, metadata)| self.available(metadata.availability))
-            .map(|(command, metadata)| (command, self.command_label(metadata.label)))
-            .filter(|(_, label)| label.to_lowercase().contains(&query))
+            .filter(|(_, metadata, _)| self.available(metadata.availability))
+            .map(|(command, metadata, execution)| {
+                (command, self.command_label(metadata.label), execution)
+            })
+            .filter(|(_, label, _)| label.to_lowercase().contains(&query))
             .collect()
     }
 
@@ -167,6 +171,7 @@ impl BoardApp {
     pub(super) fn close_overlay(&mut self) {
         self.cancel_screenshot_takeover();
         self.palette = None;
+        self.global_delivery = None;
         self.search = None;
         self.transfer = None;
         self.close_invocation_picker();
@@ -183,7 +188,7 @@ impl BoardApp {
             .palette
             .as_ref()
             .and_then(|palette| palette.matches().get(index).copied())
-            .map(|(command, _)| command);
+            .map(|(_, _, execution)| execution);
         let selection_handoff = self
             .palette
             .as_mut()
@@ -193,9 +198,9 @@ impl BoardApp {
             .as_mut()
             .and_then(|palette| palette.merge_handoff.take());
         self.palette = None;
-        command.map_or_else(Vec::new, |command| {
+        command.map_or_else(Vec::new, |execution| {
             self.execute_command(
-                command,
+                execution,
                 selection_handoff,
                 merge_handoff.as_deref(),
                 ids,
@@ -331,73 +336,68 @@ impl BoardApp {
 
     fn execute_command(
         &mut self,
-        command: Command,
+        execution: CommandExecution,
         selection_handoff: Option<EditorSelectionHandoff>,
         merge_handoff: Option<&[crate::domain::Thought]>,
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
     ) -> Vec<Effect> {
-        if matches!(command, Command::PasteExact | Command::PasteReflow) {
-            return self.execute_palette_paste(command, selection_handoff, ids, clock);
+        use CommandExecution as Execution;
+        match execution {
+            Execution::Paste(command) => {
+                self.execute_palette_paste(command, selection_handoff, ids, clock)
+            }
+            Execution::Transformation(command) => self.execute_transformation_command(
+                command,
+                selection_handoff.as_ref(),
+                merge_handoff,
+                ids,
+                clock,
+            ),
+            Execution::Submission(command) => self.execute_submission_command(command, ids, clock),
+            Execution::Editor(command) => {
+                self.execute_editor_command(command, selection_handoff, ids, clock)
+            }
+            Execution::Entry(command) => self.execute_entry_command(command, ids, clock),
+            Execution::Selection(command) => self.execute_selection_command(command, ids, clock),
+            Execution::Runtime(command) => self.execute_runtime_command(command, ids, clock),
+            Execution::Board(command) => self.execute_board_command(command, ids, clock),
         }
-        if let Some(effects) = self.execute_transformation_command(
-            command,
-            selection_handoff.as_ref(),
-            merge_handoff,
-            ids,
-            clock,
-        ) {
-            return effects;
-        }
-        if let Some(effects) = self.execute_submission_command(command, ids, clock) {
-            return effects;
-        }
-        if let Some(effects) = self.execute_editor_command(command, selection_handoff, ids, clock) {
-            return effects;
-        }
-        if let Some(effects) = self.execute_entry_command(command, ids, clock) {
-            return effects;
-        }
-        if let Some(effects) = self.execute_selection_command(command, ids, clock) {
-            return effects;
-        }
-        if let Some(effects) = self.execute_runtime_command(command, ids, clock) {
-            return effects;
-        }
-        self.execute_board_command(command, ids, clock)
     }
 
     fn execute_board_command(
         &mut self,
-        command: Command,
+        command: crate::ui::shortcut_registry::PaletteBoardCommand,
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
     ) -> Vec<Effect> {
+        use crate::ui::shortcut_registry::PaletteBoardCommand as BoardCommand;
         match command {
-            Command::New => self.create(crate::ui::PastePayload::text(String::new()), ids, clock),
-            Command::RenameSession => {
+            BoardCommand::New => {
+                self.create(crate::ui::PastePayload::text(String::new()), ids, clock)
+            }
+            BoardCommand::RenameSession => {
                 self.begin_session_rename();
                 Vec::new()
             }
-            Command::CopySessionId => self.copy_session_id(ids),
-            Command::CopyResume => self.copy_resume_command(ids),
-            Command::SendSession => self.begin_session_transfer(false, ids, clock),
-            Command::SendSessionRemove => self.begin_session_transfer(true, ids, clock),
-            Command::Delete => self.delete(ids, clock),
-            Command::Copy => self.copy_active(ids),
-            Command::Cut => self.cut_active(ids, clock),
-            Command::Duplicate => self.duplicate(ids, clock),
-            Command::Undo => self.history(ids, clock, true),
-            Command::Redo => self.history(ids, clock, false),
-            Command::MoveUp => self.reorder(ids, clock, -1),
-            Command::MoveDown => self.reorder(ids, clock, 1),
-            Command::Collapse => self.collapse(ids, clock),
-            Command::Help => {
+            BoardCommand::CopySessionId => self.copy_session_id(ids),
+            BoardCommand::CopyResume => self.copy_resume_command(ids),
+            BoardCommand::SendSession => self.begin_session_transfer(false, ids, clock),
+            BoardCommand::SendSessionRemove => self.begin_session_transfer(true, ids, clock),
+            BoardCommand::Delete => self.delete(ids, clock),
+            BoardCommand::Copy => self.copy_active(ids),
+            BoardCommand::Cut => self.cut_active(ids, clock),
+            BoardCommand::Duplicate => self.duplicate(ids, clock),
+            BoardCommand::Undo => self.history(ids, clock, true),
+            BoardCommand::Redo => self.history(ids, clock, false),
+            BoardCommand::MoveUp => self.reorder(ids, clock, -1),
+            BoardCommand::MoveDown => self.reorder(ids, clock, 1),
+            BoardCommand::Collapse => self.collapse(ids, clock),
+            BoardCommand::Help => {
                 self.help = true;
                 Vec::new()
             }
-            Command::Quit => self.request_quit_after_edit_flush(ids, clock),
-            _ => Vec::new(),
+            BoardCommand::Quit => self.request_quit_after_edit_flush(ids, clock),
         }
     }
 }

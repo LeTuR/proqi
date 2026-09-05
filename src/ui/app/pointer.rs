@@ -29,10 +29,10 @@ impl BoardApp {
         self.pointer_click.map(|click| click.count)
     }
 
-    pub(super) fn reset_pointer_click_for_input(&mut self, input: &crate::ui::UiInput) {
+    pub(super) fn reset_pointer_click_for_input(&mut self, input: &super::UiInput) {
         if !matches!(
             input,
-            crate::ui::UiInput::Pointer(PointerInput {
+            super::UiInput::Pointer(PointerInput {
                 kind: PointerKind::Down(PointerButton::Left)
                     | PointerKind::Up(PointerButton::Left)
                     | PointerKind::Move,
@@ -219,6 +219,8 @@ impl BoardApp {
             self.execute_search_visible_index(index)
         } else if self.transfer.is_some() {
             self.choose_transfer_visible(index, ids)
+        } else if self.global_delivery.is_some() {
+            self.choose_global_delivery_visible(index, ids, clock)
         } else if self.execute_invocation_visible_index(index) {
             Vec::new()
         } else {

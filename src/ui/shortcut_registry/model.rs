@@ -30,6 +30,10 @@ pub enum ShortcutContext {
     InvocationQuery,
     /// Cross-session transfer query.
     Transfer,
+    /// Current-server agent target query.
+    GlobalDeliveryQuery,
+    /// Current-server submission disposition chooser.
+    GlobalDeliveryDisposition,
     /// Empty session-browser query, where management aliases remain active.
     Browser,
     /// Nonempty session-browser query.
@@ -101,6 +105,7 @@ pub enum ShortcutActionId {
     MergeThoughts,
     Delete,
     SubmitRemove,
+    SubmitToAgent,
     SubmitAllRemove,
     SubmitAllKeep,
     RefreshAgents,
@@ -181,7 +186,7 @@ pub enum ShortcutActionId {
 
 impl ShortcutActionId {
     /// Complete visible Commands inventory in its established order.
-    pub(crate) const COMMANDS: [(Self, &'static str); 51] = [
+    pub(crate) const COMMANDS: [(Self, &'static str); 52] = [
         (Self::New, "New thought"),
         (Self::RenameSession, "Rename session"),
         (Self::CopySessionId, "Copy session ID"),
@@ -222,6 +227,7 @@ impl ShortcutActionId {
         (Self::SelectAll, "Select all thoughts"),
         (Self::SubmitRemove, "Submit"),
         (Self::SubmitKeep, "Submit and keep"),
+        (Self::SubmitToAgent, "Submit to agent..."),
         (Self::SubmitAllRemove, "Submit all"),
         (Self::SubmitAllKeep, "Submit all and keep"),
         (Self::SendSession, "Send to another Proqi session"),
@@ -287,6 +293,7 @@ impl ShortcutActionId {
             MergeThoughts => "thought.merge",
             Delete => "thought.delete",
             SubmitRemove => "submission.submit_remove",
+            SubmitToAgent => "submission.submit_to_agent",
             SubmitAllRemove => "submission.submit_all_remove",
             SubmitAllKeep => "submission.submit_all_keep",
             RefreshAgents => "agents.refresh",
@@ -413,19 +420,6 @@ pub struct ShortcutBindingClaim {
     pub(crate) presentation: ShortcutBindingPresentation,
 }
 
-/// How a registry action reaches the existing terminal-independent UI contract.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ShortcutIntention {
-    /// The dispatcher maps this action to an existing `UiKey` intention.
-    Existing,
-    /// The dispatcher forwards the stable action identity itself.
-    TypedAction,
-    /// The exact intention depends on context or modifier ladder.
-    Contextual,
-    /// The action currently has no direct key and is selected through Commands.
-    CommandsOnly,
-}
-
 /// Registry metadata consumed by dispatch, diagnostics, and presentation parity tests.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ShortcutDescriptor {
@@ -439,6 +433,6 @@ pub struct ShortcutDescriptor {
     pub(crate) help: Vec<HelpMetadata>,
     pub(crate) footer: Option<FooterMetadata>,
     pub(crate) commands: Option<CommandMetadata>,
+    pub(crate) command_execution: Option<super::command_execution::CommandExecution>,
     pub(crate) diagnostics: &'static str,
-    pub(crate) intention: ShortcutIntention,
 }

@@ -12,7 +12,7 @@ use super::{
     inventory,
     model::{
         ShortcutActionId as Action, ShortcutBinding, ShortcutContext as Context,
-        ShortcutDescriptor, ShortcutModifiers,
+        ShortcutDescriptor, ShortcutModifiers, ShortcutSafety,
     },
 };
 
@@ -45,11 +45,18 @@ pub(crate) enum ShortcutRegistryError {
     MissingDiagnostics(Action),
     DuplicateDiagnostics(&'static str),
     StaleCommandsReference(Action),
+    MissingCommandExecution(Action),
+    StaleCommandExecution(Action),
+    UnexpectedCommandExecution(Action),
     StaleHelpReference(Action),
     StaleFooterReference(Action),
 }
 
 impl fmt::Display for ShortcutRegistryError {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "the closed typed validation error contract keeps every actionable message exhaustive"
+    )]
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidOverride(message) => formatter.write_str(message),
@@ -84,20 +91,23 @@ impl fmt::Display for ShortcutRegistryError {
                     "Escape must remain the close or cancel route in {context:?}"
                 )
             }
-            Self::UnreachableRecovery(action) => write!(
+            Self::UnreachableRecovery(action) => write_action_error(
                 formatter,
-                "required recovery action {} is unreachable",
-                action.diagnostics_id()
+                *action,
+                "required recovery action",
+                "is unreachable",
             ),
-            Self::MissingDescriptor(action) => write!(
+            Self::MissingDescriptor(action) => write_action_error(
                 formatter,
-                "shortcut action {} has no registry descriptor",
-                action.diagnostics_id()
+                *action,
+                "shortcut action",
+                "has no registry descriptor",
             ),
-            Self::DuplicateDescriptor(action) => write!(
+            Self::DuplicateDescriptor(action) => write_action_error(
                 formatter,
-                "shortcut action {} has duplicate registry descriptors",
-                action.diagnostics_id()
+                *action,
+                "shortcut action",
+                "has duplicate registry descriptors",
             ),
             Self::MissingDiagnostics(action) => write!(
                 formatter,
@@ -109,22 +119,56 @@ impl fmt::Display for ShortcutRegistryError {
                     "shortcut diagnostics identity {identity} is duplicated"
                 )
             }
-            Self::StaleCommandsReference(action) => write!(
+            Self::StaleCommandsReference(action) => write_action_error(
                 formatter,
-                "Commands references missing shortcut action {}",
-                action.diagnostics_id()
+                *action,
+                "Commands references missing shortcut action",
+                "",
             ),
-            Self::StaleHelpReference(action) => write!(
+            Self::MissingCommandExecution(action) => write_action_error(
                 formatter,
-                "Help references missing shortcut action {}",
-                action.diagnostics_id()
+                *action,
+                "Commands action",
+                "has no execution owner",
             ),
-            Self::StaleFooterReference(action) => write!(
+            Self::StaleCommandExecution(action) => write_action_error(
                 formatter,
-                "footer references missing shortcut action {}",
-                action.diagnostics_id()
+                *action,
+                "Commands action",
+                "has the wrong execution owner",
+            ),
+            Self::UnexpectedCommandExecution(action) => write_action_error(
+                formatter,
+                *action,
+                "non-Commands action",
+                "has a Commands execution owner",
+            ),
+            Self::StaleHelpReference(action) => write_action_error(
+                formatter,
+                *action,
+                "Help references missing shortcut action",
+                "",
+            ),
+            Self::StaleFooterReference(action) => write_action_error(
+                formatter,
+                *action,
+                "footer references missing shortcut action",
+                "",
             ),
         }
+    }
+}
+
+fn write_action_error(
+    formatter: &mut fmt::Formatter<'_>,
+    action: Action,
+    subject: &str,
+    problem: &str,
+) -> fmt::Result {
+    if problem.is_empty() {
+        write!(formatter, "{subject} {}", action.diagnostics_id())
+    } else {
+        write!(formatter, "{subject} {} {problem}", action.diagnostics_id())
     }
 }
 
@@ -268,27 +312,14 @@ fn validate_text_safety(
     );
     let established_browser_management = context == Context::Browser
         && matches!(action, Action::RenameSession | Action::BrowserTrash);
-    if is_text_context(context) && printable && unmodified && !established_browser_management {
+    if inventory::bindings::vocabulary::is_text_context(context)
+        && printable
+        && unmodified
+        && !established_browser_management
+    {
         return Err(ShortcutRegistryError::TextInputTheft { action, context });
     }
     Ok(())
-}
-
-const fn is_text_context(context: Context) -> bool {
-    matches!(
-        context,
-        Context::Compose
-            | Context::Edit
-            | Context::Commands
-            | Context::Search
-            | Context::Invocation
-            | Context::InvocationQuery
-            | Context::Transfer
-            | Context::Browser
-            | Context::BrowserQuery
-            | Context::Rename
-            | Context::BrowserRename
-    )
 }
 
 fn validate_escape(
@@ -297,7 +328,7 @@ fn validate_escape(
 ) -> Result<(), ShortcutRegistryError> {
     let Some(close) = descriptors
         .iter()
-        .find(|descriptor| descriptor.action == Action::Close)
+        .find(|descriptor| descriptor.safety == ShortcutSafety::InvariantClose)
     else {
         return Err(ShortcutRegistryError::MissingDescriptor(Action::Close));
     };
@@ -323,25 +354,24 @@ fn validate_recovery(
     descriptors: &[ShortcutDescriptor],
     platform: ShortcutPlatform,
 ) -> Result<(), ShortcutRegistryError> {
-    for action in [Action::Quit, Action::RetryStorage, Action::ExportRecovery] {
-        let reachable = descriptors
-            .iter()
-            .find(|descriptor| descriptor.action == action)
-            .is_some_and(|descriptor| {
-                let (defaults, aliases) = match platform {
-                    ShortcutPlatform::MacOs => {
-                        (&descriptor.macos_defaults, &descriptor.macos_aliases)
-                    }
-                    ShortcutPlatform::Portable => {
-                        (&descriptor.portable_defaults, &descriptor.portable_aliases)
-                    }
-                };
-                descriptor.contexts.contains(&Context::Recovery)
-                    && defaults
-                        .iter()
-                        .chain(aliases)
-                        .any(|claim| claim.contexts.contains(&Context::Recovery))
-            });
+    for descriptor in descriptors
+        .iter()
+        .filter(|descriptor| descriptor.safety == ShortcutSafety::RecoveryCritical)
+    {
+        let action = descriptor.action;
+        let reachable = {
+            let (defaults, aliases) = match platform {
+                ShortcutPlatform::MacOs => (&descriptor.macos_defaults, &descriptor.macos_aliases),
+                ShortcutPlatform::Portable => {
+                    (&descriptor.portable_defaults, &descriptor.portable_aliases)
+                }
+            };
+            descriptor.contexts.contains(&Context::Recovery)
+                && defaults
+                    .iter()
+                    .chain(aliases)
+                    .any(|claim| claim.contexts.contains(&Context::Recovery))
+        };
         if !reachable {
             return Err(ShortcutRegistryError::UnreachableRecovery(action));
         }
@@ -350,13 +380,30 @@ fn validate_recovery(
 }
 
 fn validate_commands(descriptors: &[ShortcutDescriptor]) -> Result<(), ShortcutRegistryError> {
+    let mut orders = BTreeSet::new();
     for (order, (action, label)) in Action::COMMANDS.into_iter().enumerate() {
         let expected = inventory::metadata::command_metadata(action, order, label);
-        let valid = descriptors
+        let Some(descriptor) = descriptors
             .iter()
-            .any(|descriptor| descriptor.action == action && descriptor.commands == Some(expected));
-        if !valid {
+            .find(|descriptor| descriptor.action == action)
+        else {
             return Err(ShortcutRegistryError::StaleCommandsReference(action));
+        };
+        if descriptor.commands != Some(expected) || !orders.insert(expected.order) {
+            return Err(ShortcutRegistryError::StaleCommandsReference(action));
+        }
+        let Some(execution) = descriptor.command_execution else {
+            return Err(ShortcutRegistryError::MissingCommandExecution(action));
+        };
+        if Some(execution) != super::command_execution::execution_for(action) {
+            return Err(ShortcutRegistryError::StaleCommandExecution(action));
+        }
+    }
+    for descriptor in descriptors {
+        if descriptor.commands.is_none() && descriptor.command_execution.is_some() {
+            return Err(ShortcutRegistryError::UnexpectedCommandExecution(
+                descriptor.action,
+            ));
         }
     }
     Ok(())

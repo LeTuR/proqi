@@ -1,11 +1,9 @@
 //! Mapping from stable action identities into existing UI intentions.
 
+use crate::ui::input::UiKey;
 use crate::{
     ports::editor::CursorMovement,
-    ui::{
-        FastNavigation, KeyStroke, LogicalModifiers, ShortcutContext as Context, UiKey,
-        VisualRowEdge,
-    },
+    ui::{FastNavigation, KeyStroke, LogicalModifiers, ShortcutContext as Context, VisualRowEdge},
 };
 
 use super::{dispatch::ResolvedShortcut, model::ShortcutActionId as Action};

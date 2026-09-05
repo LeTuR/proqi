@@ -6,11 +6,11 @@ use super::navigation::durable_thought;
 fn current_session_can_be_renamed_from_the_palette_and_footer() {
     let mut fixture = Fixture::new();
     durable_thought(&mut fixture, "existing");
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "rename session".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert_eq!(fixture.app.session_rename_view(), Some(""));
     let rename_layout = fixture.app.prepare_frame(Rect::new(0, 0, 70, 10));
     let rename_input = rename_layout.overlay.expect("rename overlay").area;
@@ -22,9 +22,9 @@ fn current_session_can_be_renamed_from_the_palette_and_footer() {
             .expect("surface")
     );
     for character in "Agent research".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     assert!(matches!(
         effects.as_slice(),
         [Effect::RenameSession { name: Some(name), .. }] if name == "Agent research"
@@ -92,7 +92,7 @@ fn footer_session_identity_sanitizes_tabs_and_controls_to_hit_geometry() {
 fn overlay_inputs_reserve_the_cursor_cell_inside_the_border() {
     let mut palette = Fixture::new();
     durable_thought(&mut palette, "existing");
-    palette.input(UiInput::Key(UiKey::Character(':')));
+    palette.input(crate::key_input(UiKey::Character(':')));
     let area = palette
         .app
         .prepare_frame(Rect::new(0, 0, 18, 8))
@@ -120,11 +120,11 @@ fn overlay_inputs_reserve_the_cursor_cell_inside_the_border() {
 
     let mut rename = Fixture::new();
     durable_thought(&mut rename, "existing");
-    rename.input(UiInput::Key(UiKey::Character(':')));
+    rename.input(crate::key_input(UiKey::Character(':')));
     for character in "rename session".chars() {
-        rename.input(UiInput::Key(UiKey::Character(character)));
+        rename.input(crate::key_input(UiKey::Character(character)));
     }
-    rename.input(UiInput::Key(UiKey::Enter));
+    rename.input(crate::key_input(UiKey::Enter));
     rename.input(UiInput::Paste("prefix界e\u{301}👩‍💻suffix".to_owned()));
     let area = rename
         .app
@@ -149,16 +149,16 @@ fn overlay_inputs_reserve_the_cursor_cell_inside_the_border() {
 fn session_rename_keeps_vim_letters_literal_and_delete_out_of_board_dispatch() {
     let mut fixture = Fixture::new();
     durable_thought(&mut fixture, "existing");
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "rename session".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     for character in "hjklx".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    fixture.input(UiInput::Key(UiKey::Delete));
-    fixture.input(UiInput::Key(UiKey::ModifiedDelete));
+    fixture.input(crate::key_input(UiKey::Delete));
+    fixture.input(crate::key_input(UiKey::ModifiedDelete));
 
     assert_eq!(fixture.app.session_rename_view(), Some("hjklx"));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
@@ -169,16 +169,16 @@ fn failed_session_rename_restores_the_previous_durable_name() {
     let mut fixture = Fixture::new();
     durable_thought(&mut fixture, "existing");
     fixture.app.state.board.session.name = Some("Durable".to_owned());
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "rename session".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     for _ in 0.."Durable".len() {
-        fixture.input(UiInput::Key(UiKey::Backspace));
+        fixture.input(crate::key_input(UiKey::Backspace));
     }
-    fixture.input(UiInput::Key(UiKey::Character('N')));
-    let _effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Character('N')));
+    let _effects = fixture.effects(crate::key_input(UiKey::Enter));
     fixture.app.complete_session_rename(
         Some("Durable".to_owned()),
         Err(proqi::ports::store::StoreError::Busy),
@@ -198,7 +198,7 @@ fn failed_session_rename_restores_the_previous_durable_name() {
     assert!(failed_text.contains("session rename failed"));
     assert!(!failed_text.contains("Durable · 1 thought · board · saving"));
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let restored = draw_theme(&mut fixture, 70, 10, ThemePreference::Dark);
     let restored_text = text(restored.backend().buffer());
     assert!(restored_text.contains("Durable"));

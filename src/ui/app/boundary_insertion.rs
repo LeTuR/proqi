@@ -7,10 +7,10 @@ use crate::{
         editor::{CursorMovement, EditorSnapshot},
         environment::{Clock, IdGenerator},
     },
-    ui::{PastePayload, UiInput},
+    ui::PastePayload,
 };
 
-use super::{BoardApp, BoundaryInsertion, InsertionConfirmation, InsertionFocus};
+use super::{BoardApp, BoundaryInsertion, InsertionConfirmation, InsertionFocus, UiInput};
 
 impl BoardApp {
     pub(super) fn reset_insertion_confirmation(&mut self, input: &UiInput) {

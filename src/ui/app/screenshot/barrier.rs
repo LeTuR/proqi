@@ -3,10 +3,10 @@
 use crate::{
     application::Effect,
     ports::environment::{Clock, IdGenerator},
-    ui::{PointerInput, PointerKind, UiInput},
+    ui::{PointerInput, PointerKind},
 };
 
-use super::super::BoardApp;
+use super::super::{BoardApp, UiInput};
 
 const DEFERRED_INPUT_LIMIT: usize = 64;
 
@@ -37,7 +37,9 @@ impl BoardApp {
                 kind: PointerKind::Move,
                 ..
             }) | UiInput::Resize { .. }
-            | UiInput::HostFocusLost) => return self.handle_primary_input(input, ids, clock),
+            | UiInput::HostFocusLost) => {
+                return self.handle_primary_input(input, false, ids, clock);
+            }
             deferred @ (UiInput::Pointer(_)
             | UiInput::Paste(_)
             | UiInput::PasteAnnotated(_)
@@ -71,7 +73,11 @@ impl BoardApp {
             if matches!(deferred.input, UiInput::Pointer(_)) {
                 self.layout = deferred.replay_layout.map(|layout| *layout);
             }
-            effects.extend(self.handle(deferred.input, ids, &ReceiptClock(deferred.received_at)));
+            effects.extend(self.handle_routed(
+                deferred.input,
+                ids,
+                &ReceiptClock(deferred.received_at),
+            ));
             if self.quit {
                 break;
             }
@@ -79,13 +85,13 @@ impl BoardApp {
         effects
     }
 
-    pub(crate) fn screenshot_barrier_accepts(&self, input: &UiInput) -> bool {
+    pub(crate) fn screenshot_barrier_accepts(&self, input: &crate::ui::input::UiInput) -> bool {
         !self.screenshot_save_in_flight()
             || matches!(
                 input,
-                UiInput::HostFocusGained
-                    | UiInput::Resize { .. }
-                    | UiInput::Pointer(PointerInput {
+                crate::ui::input::UiInput::HostFocusGained
+                    | crate::ui::input::UiInput::Resize { .. }
+                    | crate::ui::input::UiInput::Pointer(PointerInput {
                         kind: PointerKind::Move,
                         ..
                     })

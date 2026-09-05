@@ -103,6 +103,8 @@ const fn enter_action(context: Context) -> Option<Action> {
         | Context::Invocation
         | Context::InvocationQuery
         | Context::Transfer
+        | Context::GlobalDeliveryQuery
+        | Context::GlobalDeliveryDisposition
         | Context::Browser
         | Context::BrowserQuery
         | Context::Rename

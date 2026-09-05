@@ -1,7 +1,38 @@
 //! Keybinding validation and normalized Board command contracts.
 
-use super::{BoardCommand, KeyBindings};
-use crate::ui::UiKey;
+use super::KeyBindings;
+use crate::ui::shortcut_registry::{ShortcutPlatform, ShortcutRegistry};
+use crate::ui::{
+    KeyStroke, LogicalKey, LogicalModifiers, ShortcutActionId as Action, ShortcutContext,
+    ShortcutContextStack,
+};
+
+fn board_action(bindings: &KeyBindings, stroke: KeyStroke) -> Option<Action> {
+    ShortcutRegistry::resolve(bindings, ShortcutPlatform::Portable)
+        .expect("valid registry")
+        .dispatch(&ShortcutContextStack::new([ShortcutContext::Board]), stroke)
+        .and_then(|resolved| resolved.action)
+}
+
+fn board_character(bindings: &KeyBindings, character: char) -> Option<Action> {
+    board_action(bindings, KeyStroke::press(LogicalKey::Character(character)))
+}
+
+fn primary(key: LogicalKey, shifted: bool) -> KeyStroke {
+    let modifiers = if shifted {
+        LogicalModifiers::CONTROL.union(LogicalModifiers::SHIFT)
+    } else {
+        LogicalModifiers::CONTROL
+    };
+    KeyStroke::press(key).with_modifiers(modifiers)
+}
+
+fn effective_fallbacks(bindings: &KeyBindings, character: char, action: Action) -> Vec<char> {
+    (board_character(bindings, character) == Some(action))
+        .then_some(character)
+        .into_iter()
+        .collect()
+}
 
 #[test]
 fn board_submission_chords_resolve_to_the_configured_submission_commands() {
@@ -11,23 +42,26 @@ fn board_submission_chords_resolve_to_the_configured_submission_commands() {
         ..KeyBindings::default()
     };
     assert!(bindings.validate().is_ok());
-    for (key, command) in [
+    for (stroke, action) in [
         (
-            UiKey::Character(bindings.submit_remove),
-            BoardCommand::SubmitRemove,
+            KeyStroke::press(LogicalKey::Character(bindings.submit_remove)),
+            Action::SubmitRemove,
         ),
-        (UiKey::Submit, BoardCommand::SubmitRemove),
+        (primary(LogicalKey::Enter, false), Action::SubmitRemove),
         (
-            UiKey::Character(bindings.submit_keep),
-            BoardCommand::SubmitKeep,
+            KeyStroke::press(LogicalKey::Character(bindings.submit_keep)),
+            Action::SubmitKeep,
         ),
-        (UiKey::SubmitKeep, BoardCommand::SubmitKeep),
+        (primary(LogicalKey::Enter, true), Action::SubmitKeep),
     ] {
-        assert_eq!(bindings.command_for_key(key), Some(command));
+        assert_eq!(board_action(&bindings, stroke), Some(action));
     }
-    assert_eq!(bindings.command_for_key(UiKey::Character('s')), None);
-    assert_eq!(bindings.command_for_key(UiKey::Character('S')), None);
-    assert_eq!(bindings.command_for_key(UiKey::Enter), None);
+    assert_eq!(board_character(&bindings, 's'), None);
+    assert_eq!(board_character(&bindings, 'S'), None);
+    assert_eq!(
+        board_action(&bindings, KeyStroke::press(LogicalKey::Enter)),
+        Some(Action::Edit)
+    );
 }
 
 #[test]
@@ -55,28 +89,46 @@ fn established_board_binding_precedes_compatible_transform_collision() {
         ..KeyBindings::default()
     };
     assert!(bindings.validate().is_ok());
-    assert_eq!(bindings.command('t'), Some(BoardCommand::New));
+    assert_eq!(board_character(&bindings, 't'), Some(Action::New));
 }
 
 #[test]
 fn paste_pair_has_configurable_board_fallbacks_without_breaking_old_collisions() {
     let defaults = KeyBindings::default();
-    assert_eq!(defaults.command('p'), Some(BoardCommand::PasteExact));
-    assert_eq!(defaults.command('P'), Some(BoardCommand::PasteReflow));
-    assert_eq!(defaults.paste_exact_fallbacks(), vec!['p']);
-    assert_eq!(defaults.paste_reflow_fallbacks(), vec!['P']);
+    assert_eq!(board_character(&defaults, 'p'), Some(Action::PasteExact));
+    assert_eq!(board_character(&defaults, 'P'), Some(Action::PasteReflow));
+    assert_eq!(
+        effective_fallbacks(&defaults, 'p', Action::PasteExact),
+        vec!['p']
+    );
+    assert_eq!(
+        effective_fallbacks(&defaults, 'P', Action::PasteReflow),
+        vec!['P']
+    );
     let remapped: KeyBindings = toml::from_str("paste = 'g'").expect("remap");
-    assert_eq!(remapped.command('g'), Some(BoardCommand::PasteExact));
-    assert_eq!(remapped.command('G'), Some(BoardCommand::PasteReflow));
-    assert_eq!(remapped.paste_exact_fallbacks(), vec!['g']);
-    assert_eq!(remapped.paste_reflow_fallbacks(), vec!['G']);
+    assert_eq!(board_character(&remapped, 'g'), Some(Action::PasteExact));
+    assert_eq!(board_character(&remapped, 'G'), Some(Action::PasteReflow));
+    assert_eq!(
+        effective_fallbacks(&remapped, 'g', Action::PasteExact),
+        vec!['g']
+    );
+    assert_eq!(
+        effective_fallbacks(&remapped, 'G', Action::PasteReflow),
+        vec!['G']
+    );
 
     let old_collision: KeyBindings = toml::from_str("new = 'p'").expect("old config");
     assert_eq!(old_collision.validate(), Ok(()));
-    assert_eq!(old_collision.command('p'), Some(BoardCommand::New));
-    assert_eq!(old_collision.command('P'), Some(BoardCommand::PasteReflow));
-    assert!(old_collision.paste_exact_fallbacks().is_empty());
-    assert_eq!(old_collision.paste_reflow_fallbacks(), vec!['P']);
+    assert_eq!(board_character(&old_collision, 'p'), Some(Action::New));
+    assert_eq!(
+        board_character(&old_collision, 'P'),
+        Some(Action::PasteReflow)
+    );
+    assert!(effective_fallbacks(&old_collision, 'p', Action::PasteExact).is_empty());
+    assert_eq!(
+        effective_fallbacks(&old_collision, 'P', Action::PasteReflow),
+        vec!['P']
+    );
 }
 
 #[test]
@@ -84,10 +136,13 @@ fn explicit_opposite_case_binding_precedes_the_reflow_fallback() {
     let bindings: KeyBindings =
         toml::from_str("paste = 'g'\nsubmit_keep = 'G'").expect("collision");
     assert_eq!(bindings.validate(), Ok(()));
-    assert_eq!(bindings.command('g'), Some(BoardCommand::PasteExact));
-    assert_eq!(bindings.command('G'), Some(BoardCommand::SubmitKeep));
-    assert_eq!(bindings.paste_exact_fallbacks(), vec!['g']);
-    assert!(bindings.paste_reflow_fallbacks().is_empty());
+    assert_eq!(board_character(&bindings, 'g'), Some(Action::PasteExact));
+    assert_eq!(board_character(&bindings, 'G'), Some(Action::SubmitKeep));
+    assert_eq!(
+        effective_fallbacks(&bindings, 'g', Action::PasteExact),
+        vec!['g']
+    );
+    assert!(effective_fallbacks(&bindings, 'G', Action::PasteReflow).is_empty());
 }
 
 #[test]

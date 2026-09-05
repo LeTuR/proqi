@@ -1,6 +1,8 @@
 //! Unified terminal-independent shortcut registry and dispatcher.
 
+mod command_execution;
 mod context_policy;
+mod diagnostic_projection;
 mod dispatch;
 mod intentions;
 mod inventory;
@@ -8,6 +10,13 @@ mod model;
 pub(crate) mod presentation;
 mod validation;
 
+pub(crate) use command_execution::{
+    BoardCommand as PaletteBoardCommand, CommandExecution, EditorCommand as PaletteEditorCommand,
+    EntryCommand as PaletteEntryCommand, PasteCommand as PalettePasteCommand,
+    RuntimeCommand as PaletteRuntimeCommand, SelectionCommand as PaletteSelectionCommand,
+    SubmissionCommand as PaletteSubmissionCommand,
+    TransformationCommand as PaletteTransformationCommand,
+};
 pub(crate) use dispatch::ShortcutRegistry;
 #[cfg(test)]
 pub(crate) use dispatch::{ResolvedShortcut, ShortcutPlatform};
@@ -16,7 +25,7 @@ pub(crate) use model::{
 };
 pub use model::{
     ShortcutActionId, ShortcutBinding, ShortcutBindingClaim, ShortcutContext, ShortcutContextStack,
-    ShortcutDescriptor, ShortcutIntention, ShortcutModifiers, ShortcutSafety,
+    ShortcutDescriptor, ShortcutModifiers, ShortcutSafety,
 };
 
 #[cfg(test)]

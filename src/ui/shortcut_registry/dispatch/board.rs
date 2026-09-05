@@ -1,6 +1,6 @@
 //! Board compatibility intentions and modifier ladder.
 
-use crate::ui::UiKey;
+use crate::ui::input::UiKey;
 
 use super::ShortcutRegistry;
 use crate::ui::shortcut_registry::{
@@ -24,9 +24,6 @@ impl ShortcutRegistry {
                 movement,
                 extend_selection,
             } => board_navigation_action(movement, extend_selection, false),
-            UiKey::EditNavigation { board_movement, .. } => {
-                board_navigation_action(board_movement, false, false)
-            }
             UiKey::PrimaryShiftMove { movement } => board_navigation_action(movement, false, true),
             UiKey::PrimaryCharacter(character) => self.primary_board_character_action(character),
             UiKey::PrimaryShiftCharacter(character) => {

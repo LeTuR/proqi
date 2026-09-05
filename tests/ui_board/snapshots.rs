@@ -48,7 +48,7 @@ fn engaged_empty_compose_editor() {
 fn populated_board_with_folded_attachment() {
     let mut fixture = Fixture::new();
     fixture.input(UiInput::Paste("first prompt".to_owned()));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.input(UiInput::PasteAnnotated(
         PastePayload::annotated(
             "/private/tmp/Bild (18).png".to_owned(),
@@ -63,7 +63,7 @@ fn populated_board_with_folded_attachment() {
         )
         .expect("valid attachment payload"),
     ));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     insta::assert_snapshot!(snapshot(&mut fixture, 60, 12, ThemePreference::Dark));
 }
 
@@ -120,7 +120,7 @@ fn discovered_invocations_use_the_annotation_visual_role() {
     let editor = draw_theme(&mut fixture, 58, 8, ThemePreference::Dark);
     assert_invocation_styles(&editor, area, theme.annotation);
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let board = draw_theme(&mut fixture, 58, 8, ThemePreference::Dark);
     assert_invocation_styles(&board, area, theme.annotation);
     assert_eq!(fixture.app.state.board.live_thoughts()[0].content, content);
@@ -151,11 +151,11 @@ fn application_owned_shortcuts_use_semantic_inline_emphasis() {
 fn durable_blank_and_editing_surface() {
     let mut fixture = Fixture::new();
     super::navigation::durable_thought(&mut fixture, "temporary anchor");
-    fixture.input(UiInput::Key(UiKey::Character('n')));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('d')));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Character('n')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('d')));
+    fixture.input(crate::key_input(UiKey::Enter));
     insta::assert_snapshot!(snapshot(&mut fixture, 50, 9, ThemePreference::Light));
 }
 
@@ -229,11 +229,11 @@ fn contiguous_range_latch_has_a_complete_visible_board_state() {
     let mut fixture = Fixture::new();
     for content in ["alpha", "Grüße 👩‍💻", "第二行", "omega"] {
         fixture.input(UiInput::Paste(content.to_owned()));
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('v')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('v')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
     insta::assert_snapshot!(snapshot(&mut fixture, 52, 14, ThemePreference::Dark));
 }
 
@@ -257,7 +257,7 @@ fn double_clicked_word_has_a_visible_editor_selection() {
 fn four_direction_agent_controls_have_a_dedicated_footer_band() {
     let mut fixture = Fixture::new();
     fixture.input(UiInput::Paste("selected prompt".to_owned()));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.app.complete_agent_discovery(Ok(vec![
         adjacent_target(Direction::Up, "w1:p2", AgentState::Idle),
         adjacent_target(Direction::Right, "w1:p3", AgentState::Working),
@@ -271,12 +271,12 @@ fn four_direction_agent_controls_have_a_dedicated_footer_band() {
 fn mixed_claude_and_hermes_targets_have_equal_directional_controls() {
     let mut fixture = Fixture::new();
     fixture.input(UiInput::Paste("selected prompt".to_owned()));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let mut left = adjacent_target(Direction::Left, "w1:p2", AgentState::Idle);
-    left.agent_kind = HarnessKind::new("claude").expect("fixture harness");
+    left = left.with_agent_kind(HarnessKind::new("claude").expect("fixture harness"));
     left.agent_name = "Claude qualifier".to_owned();
     let mut right = adjacent_target(Direction::Right, "w1:p3", AgentState::Idle);
-    right.agent_kind = HarnessKind::new("hermes").expect("fixture harness");
+    right = right.with_agent_kind(HarnessKind::new("hermes").expect("fixture harness"));
     right.agent_name = "Hermes qualifier".to_owned();
     fixture.app.complete_agent_discovery(Ok(vec![left, right]));
     insta::assert_snapshot!(snapshot(&mut fixture, 88, 9, ThemePreference::Dark));
@@ -287,7 +287,7 @@ fn drag_preview_uses_the_existing_separator_without_reflow() {
     let mut fixture = Fixture::new();
     for content in ["first thought", "second thought", "third thought"] {
         fixture.input(UiInput::Paste(content.to_owned()));
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
     let _initial = draw(&mut fixture, 60, 14);
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 60, 14));
@@ -368,10 +368,10 @@ fn command_palette_has_a_complete_searchable_buffer() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste("review release readiness");
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "session".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     insta::assert_snapshot!(snapshot(&mut fixture, 72, 18, ThemePreference::Dark));
 }
@@ -385,10 +385,10 @@ fn command_palette_clears_wide_glyphs_crossing_its_border() {
             .join("\n"),
     );
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "dent line".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 72, 12));
     let overlay = layout.overlay.as_ref().expect("command palette");
@@ -406,16 +406,16 @@ fn command_palette_clears_wide_glyphs_crossing_its_border() {
 fn submit_all_palette_actions_are_complete_and_direct() {
     let mut fixture = Fixture::new();
     fixture.paste("first\nGrüße 👩‍💻");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(
             proqi::domain::Direction::Right,
             "w1:p2",
         )]));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "submit all".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     insta::assert_snapshot!(snapshot(&mut fixture, 72, 14, ThemePreference::Dark));
 }
@@ -436,7 +436,7 @@ fn expanded_debug_session_identity_preserves_footer_band_order() {
         .expect("session name");
     let first = fixture.paste("first thought");
     fixture.app.acknowledge_persistence(first, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let second = fixture.paste("second thought");
     fixture.app.acknowledge_persistence(second, true);
     assert_platform_snapshot!(snapshot(&mut fixture, 80, 11, ThemePreference::Dark));
@@ -447,10 +447,10 @@ fn plain_newline_fallback_is_visible_in_the_command_palette() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste("- list item");
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "plain newline".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     insta::assert_snapshot!(snapshot(&mut fixture, 72, 14, ThemePreference::Dark));
 }
@@ -459,9 +459,9 @@ fn plain_newline_fallback_is_visible_in_the_command_palette() {
 fn fast_navigation_fallbacks_are_visible_in_the_command_palette() {
     let mut fixture = Fixture::new();
     navigation::durable_thought(&mut fixture, "one\ntwo\nthree\nfour\nfive\nsix");
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "cursor".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     insta::assert_snapshot!(snapshot(&mut fixture, 72, 12, ThemePreference::Dark));
 }
@@ -488,10 +488,10 @@ fn indentation_fallbacks_are_visible_in_the_command_palette() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste("- parent\n  - child");
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "dent line".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     insta::assert_snapshot!(snapshot(&mut fixture, 72, 14, ThemePreference::Dark));
 }

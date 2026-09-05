@@ -135,6 +135,7 @@ fn every_text_owner_rejects_plain_and_shifted_printable_theft() {
         Context::Invocation,
         Context::InvocationQuery,
         Context::Transfer,
+        Context::GlobalDeliveryQuery,
         Context::Browser,
         Context::BrowserQuery,
         Context::Rename,
@@ -272,5 +273,45 @@ fn stale_commands_missing_descriptor_and_diagnostics_identity_are_rejected() {
     assert_eq!(
         validate_descriptors(&footer, ShortcutPlatform::Portable),
         Err(Error::StaleFooterReference(Action::Copy))
+    );
+}
+
+#[test]
+fn commands_execution_ownership_is_complete_and_independent() {
+    let mut missing = descriptors();
+    missing
+        .iter_mut()
+        .find(|item| item.action == Action::SubmitToAgent)
+        .expect("submit to agent")
+        .command_execution = None;
+    assert_eq!(
+        validate_descriptors(&missing, ShortcutPlatform::Portable),
+        Err(Error::MissingCommandExecution(Action::SubmitToAgent))
+    );
+
+    let mut stale = descriptors();
+    stale
+        .iter_mut()
+        .find(|item| item.action == Action::SubmitToAgent)
+        .expect("submit to agent")
+        .command_execution = Some(crate::ui::shortcut_registry::CommandExecution::Submission(
+        crate::ui::shortcut_registry::PaletteSubmissionCommand::Keep,
+    ));
+    assert_eq!(
+        validate_descriptors(&stale, ShortcutPlatform::Portable),
+        Err(Error::StaleCommandExecution(Action::SubmitToAgent))
+    );
+
+    let mut unexpected = descriptors();
+    unexpected
+        .iter_mut()
+        .find(|item| item.action == Action::Close)
+        .expect("close")
+        .command_execution = Some(crate::ui::shortcut_registry::CommandExecution::Board(
+        crate::ui::shortcut_registry::PaletteBoardCommand::Quit,
+    ));
+    assert_eq!(
+        validate_descriptors(&unexpected, ShortcutPlatform::Portable),
+        Err(Error::UnexpectedCommandExecution(Action::Close))
     );
 }

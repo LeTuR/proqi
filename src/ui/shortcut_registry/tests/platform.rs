@@ -77,6 +77,36 @@ fn primary_expands_only_to_control_on_portable_platforms() {
 }
 
 #[test]
+fn horizontal_primary_arrows_keep_platform_specific_movement_contracts() {
+    for modifier in [LogicalModifiers::SUPER, LogicalModifiers::META] {
+        assert_eq!(
+            action(ShortcutPlatform::MacOs, modifier, LogicalKey::Left),
+            Some(Action::MoveVisualRowStart)
+        );
+        assert_eq!(
+            action(ShortcutPlatform::MacOs, modifier, LogicalKey::Right),
+            Some(Action::MoveVisualRowEnd)
+        );
+    }
+    assert_eq!(
+        action(
+            ShortcutPlatform::Portable,
+            LogicalModifiers::CONTROL,
+            LogicalKey::Left
+        ),
+        Some(Action::MoveWordBack)
+    );
+    assert_eq!(
+        action(
+            ShortcutPlatform::Portable,
+            LogicalModifiers::CONTROL,
+            LogicalKey::Right
+        ),
+        Some(Action::MoveWordForward)
+    );
+}
+
+#[test]
 fn raw_modifiers_and_mixed_chords_remain_distinct() {
     for (platform, modifiers) in [
         (

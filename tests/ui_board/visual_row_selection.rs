@@ -14,6 +14,7 @@ fn extend(fixture: &mut Fixture, edge: VisualRowEdge) {
     fixture.input(crate::key_input(UiKey::ExtendVisualRow { edge }));
 }
 
+#[cfg(target_os = "macos")]
 fn move_to_edge(fixture: &mut Fixture, edge: VisualRowEdge) {
     fixture.input(crate::key_input(UiKey::MoveVisualRow { edge }));
 }
@@ -89,6 +90,7 @@ fn repeated_chords_extend_both_selection_directions_across_wrapped_unicode_rows(
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 fn unshifted_row_edge_movement_uses_the_current_wrapped_row_without_selection() {
     let mut fixture = Fixture::new();
     fixture.paste("0123456789 abcdefghijklmnopqrstuvwxyz");

@@ -13,8 +13,12 @@ use proqi::{
         environment::{Clock, IdGenerator},
         recovery::{RecoveryDocument, RecoveryExporter},
     },
-    ui::{BoardApp, UiInput, UiKey},
+    ui::{BoardApp, UiKey},
 };
+
+#[path = "support/keyboard.rs"]
+mod keyboard_support;
+use keyboard_support::key_input;
 
 fn state() -> (AppState, FakeIdGenerator, FakeClock) {
     let mut ids = FakeIdGenerator::new(1_725_100_000_000);
@@ -131,23 +135,23 @@ fn failed_ui_state_offers_retry_and_an_exact_recovery_effect() {
     let mut app = BoardApp::new(state, proqi::adapters::editor::RopeEditorFactory);
     app.sync_editor_from_state();
     assert!(
-        app.handle(UiInput::Key(UiKey::Character('x')), &mut ids, &clock)
+        app.handle(crate::key_input(UiKey::Character('x')), &mut ids, &clock)
             .is_empty()
     );
     app.acknowledge_persistence(sequence, false);
 
     assert!(
-        app.handle(UiInput::Key(UiKey::Character('q')), &mut ids, &clock)
+        app.handle(crate::key_input(UiKey::Character('q')), &mut ids, &clock)
             .is_empty()
     );
     assert!(!app.quit);
 
     assert_eq!(
-        app.handle(UiInput::Key(UiKey::Character('r')), &mut ids, &clock),
+        app.handle(crate::key_input(UiKey::Character('r')), &mut ids, &clock),
         vec![Effect::RetryPersistence { sequence }]
     );
     app.acknowledge_persistence(sequence, false);
-    let export = app.handle(UiInput::Key(UiKey::Character('w')), &mut ids, &clock);
+    let export = app.handle(crate::key_input(UiKey::Character('w')), &mut ids, &clock);
     let [
         Effect::ExportRecovery {
             request_id,
@@ -173,7 +177,7 @@ fn failed_ui_state_offers_retry_and_an_exact_recovery_effect() {
         }
     );
     app.complete_recovery_export(*request_id, Ok(std::env::temp_dir().join("recovered.json")));
-    app.handle(UiInput::Key(UiKey::Character('q')), &mut ids, &clock);
+    app.handle(crate::key_input(UiKey::Character('q')), &mut ids, &clock);
     assert!(app.quit);
 }
 
@@ -201,15 +205,15 @@ fn failed_recovery_uses_the_configured_quit_key() {
     let mut app =
         BoardApp::with_settings(state, settings, proqi::adapters::editor::RopeEditorFactory);
     app.acknowledge_persistence(sequence, false);
-    let export = app.handle(UiInput::Key(UiKey::Character('w')), &mut ids, &clock);
+    let export = app.handle(crate::key_input(UiKey::Character('w')), &mut ids, &clock);
     let [Effect::ExportRecovery { request_id, .. }] = export.as_slice() else {
         panic!("expected recovery effect");
     };
     app.complete_recovery_export(*request_id, Ok(std::env::temp_dir().join("recovered.json")));
 
-    app.handle(UiInput::Key(UiKey::Character('q')), &mut ids, &clock);
+    app.handle(crate::key_input(UiKey::Character('q')), &mut ids, &clock);
     assert!(!app.quit);
-    app.handle(UiInput::Key(UiKey::Character('z')), &mut ids, &clock);
+    app.handle(crate::key_input(UiKey::Character('z')), &mut ids, &clock);
     assert!(app.quit);
 }
 
@@ -232,14 +236,14 @@ fn stale_recovery_export_does_not_authorize_quit() {
     }
     let mut app = BoardApp::new(state, proqi::adapters::editor::RopeEditorFactory);
     app.acknowledge_persistence(OperationSequence::new(2), false);
-    let export = app.handle(UiInput::Key(UiKey::Character('w')), &mut ids, &clock);
+    let export = app.handle(crate::key_input(UiKey::Character('w')), &mut ids, &clock);
     let [Effect::ExportRecovery { request_id, .. }] = export.as_slice() else {
         panic!("expected recovery effect");
     };
     app.complete_recovery_export(*request_id, Ok(std::env::temp_dir().join("stale.json")));
     app.acknowledge_persistence(OperationSequence::new(1), false);
 
-    app.handle(UiInput::Key(UiKey::Character('q')), &mut ids, &clock);
+    app.handle(crate::key_input(UiKey::Character('q')), &mut ids, &clock);
     assert!(!app.quit);
     assert_eq!(
         app.status_text(),

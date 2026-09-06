@@ -22,7 +22,7 @@ fn modeled_macos_file_drop_is_neutral_while_fresh_submission_preflight_is_mandat
     assert_normal_attachment(&mut fixture, "[Image 1]");
     acknowledge_persistence(&mut fixture, &insertion);
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture
         .app
         .complete_agent_discovery(Ok(vec![target(Direction::Left, "w1:p2")]));
@@ -62,8 +62,8 @@ fn deleting_a_complete_placeholder_then_undoing_restores_neutral_pending_health(
         .complete_attachment_checks(complete(background, Ok(())));
     acknowledge_persistence(&mut fixture, &insertion);
 
-    fixture.input(UiInput::Key(UiKey::SelectAll));
-    fixture.input(UiInput::Key(UiKey::Delete));
+    fixture.input(crate::key_input(UiKey::SelectAll));
+    fixture.input(crate::key_input(UiKey::Delete));
     let deletion = fixture
         .app
         .flush_pending_edit(&mut fixture.ids, &fixture.clock);
@@ -74,7 +74,7 @@ fn deleting_a_complete_placeholder_then_undoing_restores_neutral_pending_health(
     );
     acknowledge_persistence(&mut fixture, &deletion);
 
-    let undo = fixture.effects(UiInput::Key(UiKey::Undo));
+    let undo = fixture.effects(crate::key_input(UiKey::Undo));
     let recheck = attachment_batch(&undo);
     assert_eq!(
         fixture.app.state.board.live_thoughts()[0].annotations.len(),
@@ -83,7 +83,7 @@ fn deleting_a_complete_placeholder_then_undoing_restores_neutral_pending_health(
     assert_normal_attachment(&mut fixture, "[Image 1]");
     acknowledge_persistence(&mut fixture, &undo);
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture
         .app
         .complete_agent_discovery(Ok(vec![target(Direction::Left, "w1:p2")]));
@@ -118,13 +118,13 @@ fn cutting_an_image_then_undoing_never_flashes_inaccessible_before_recheck() {
         .complete_attachment_checks(complete(background, Ok(())));
     acknowledge_persistence(&mut fixture, &insertion);
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let neighbor_sequence = fixture.paste("neighboring thought");
     fixture.app.acknowledge_persistence(neighbor_sequence, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('k')));
 
-    let cut = fixture.effects(UiInput::Key(UiKey::Cut));
+    let cut = fixture.effects(crate::key_input(UiKey::Cut));
     let [
         Effect::WriteClipboard {
             request_id,
@@ -145,7 +145,7 @@ fn cutting_an_image_then_undoing_never_flashes_inaccessible_before_recheck() {
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
     acknowledge_persistence(&mut fixture, &deletion);
 
-    let undo = fixture.effects(UiInput::Key(UiKey::Undo));
+    let undo = fixture.effects(crate::key_input(UiKey::Undo));
     let recheck = attachment_batch(&undo);
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 2);
     assert_normal_attachment(&mut fixture, "[Image 1]");

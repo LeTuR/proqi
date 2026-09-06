@@ -15,7 +15,7 @@ fn selected_contents(fixture: &Fixture) -> Vec<&str> {
 fn populate(fixture: &mut Fixture) {
     for content in ["first", "Grüße 👩‍💻", "第二行"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
 }
 
@@ -23,23 +23,23 @@ fn populate(fixture: &mut Fixture) {
 fn configurable_board_select_all_is_ordered_idempotent_and_escape_clears_it() {
     let mut fixture = Fixture::new();
     populate(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
 
-    fixture.input(UiInput::Key(UiKey::Character('a')));
+    fixture.input(crate::key_input(UiKey::Character('a')));
     assert_eq!(selected_contents(&fixture), ["first", "Grüße 👩‍💻", "第二行"]);
-    fixture.input(UiInput::Key(UiKey::Character('a')));
+    fixture.input(crate::key_input(UiKey::Character('a')));
     assert_eq!(selected_contents(&fixture), ["first", "Grüße 👩‍💻", "第二行"]);
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert!(selected_contents(&fixture).is_empty());
 
     let mut settings = UiSettings::default();
     settings.keybindings.select_all = 'z';
     let mut remapped = Fixture::with_settings(settings);
     populate(&mut remapped);
-    remapped.input(UiInput::Key(UiKey::Character('a')));
+    remapped.input(crate::key_input(UiKey::Character('a')));
     assert!(selected_contents(&remapped).is_empty());
-    remapped.input(UiInput::Key(UiKey::Character('z')));
+    remapped.input(crate::key_input(UiKey::Character('z')));
     assert_eq!(
         selected_contents(&remapped),
         ["first", "Grüße 👩‍💻", "第二行"]
@@ -51,12 +51,12 @@ fn forwarded_primary_a_selects_the_board_but_keeps_edit_mode_text_selection() {
     let mut fixture = Fixture::new();
     populate(&mut fixture);
 
-    fixture.input(UiInput::Key(UiKey::SelectAll));
+    fixture.input(crate::key_input(UiKey::SelectAll));
     assert_eq!(selected_contents(&fixture), ["first", "Grüße 👩‍💻", "第二行"]);
 
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert!(selected_contents(&fixture).is_empty());
-    fixture.input(UiInput::Key(UiKey::SelectAll));
+    fixture.input(crate::key_input(UiKey::SelectAll));
     let snapshot = fixture.app.editor_snapshot().expect("editor");
     let selection = snapshot.selection.expect("complete text selection");
     assert_eq!(selection.start, proqi::domain::TextPosition::default());
@@ -66,18 +66,18 @@ fn forwarded_primary_a_selects_the_board_but_keeps_edit_mode_text_selection() {
 #[test]
 fn select_all_works_from_the_insertion_row_and_is_empty_on_an_empty_board() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::SelectAll));
+    fixture.input(crate::key_input(UiKey::SelectAll));
     assert!(selected_contents(&fixture).is_empty());
 
     populate(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualDown,
         extend_selection: false,
     }));
     assert!(fixture.app.insertion_focused());
-    fixture.input(UiInput::Key(UiKey::SelectAll));
+    fixture.input(crate::key_input(UiKey::SelectAll));
     assert_eq!(selected_contents(&fixture), ["first", "Grüße 👩‍💻", "第二行"]);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert!(selected_contents(&fixture).is_empty());
 }
 
@@ -85,15 +85,15 @@ fn select_all_works_from_the_insertion_row_and_is_empty_on_an_empty_board() {
 fn command_palette_exposes_the_exact_select_all_thoughts_action() {
     let mut fixture = Fixture::new();
     populate(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "select all thoughts".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let (_, entries, selected) = fixture.app.palette_view().expect("palette");
     assert_eq!(entries, vec!["Select all thoughts"]);
     assert_eq!(selected, 0);
 
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
 
     assert_eq!(selected_contents(&fixture), ["first", "Grüße 👩‍💻", "第二行"]);
 }

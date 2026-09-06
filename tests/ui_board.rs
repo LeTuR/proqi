@@ -9,8 +9,8 @@ use proqi::{
     },
     ports::{editor::CursorMovement, environment::IdGenerator},
     ui::{
-        BoardApp, HitTarget, PastePayload, PointerButton, PointerInput, PointerKind, Theme,
-        ThemePreference, UiInput, UiKey, UiSettings, render,
+        BoardApp, HitTarget, KeyStroke, LogicalKey, LogicalModifiers, PastePayload, PointerButton,
+        PointerInput, PointerKind, Theme, ThemePreference, UiInput, UiKey, UiSettings, render,
     },
 };
 use ratatui_core::{
@@ -20,8 +20,12 @@ use ratatui_core::{
     terminal::Terminal,
 };
 
+#[path = "support/keyboard.rs"]
+mod keyboard_support;
 #[path = "support/snapshots.rs"]
 mod snapshot_support;
+
+use keyboard_support::key_input;
 
 struct Fixture {
     app: BoardApp,
@@ -132,7 +136,7 @@ fn empty_board_and_help_have_reviewable_complete_buffers() {
     assert!(!rendered.contains("compose"));
     assert!(rendered.contains("Esc Board"));
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 40, 8));
     let help = layout
         .controls
@@ -145,7 +149,7 @@ fn empty_board_and_help_have_reviewable_complete_buffers() {
     assert!(rendered.contains("proqi shortcuts"));
     assert!(rendered.contains("Copy"));
     for _ in 0..8 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::VisualDown,
             extend_selection: false,
         }));
@@ -183,7 +187,7 @@ fn multiline_unicode_is_rendered_as_lines_and_cursor_uses_cell_width() {
 fn cursor_uses_expanded_tab_cells() {
     let mut fixture = Fixture::new();
     fixture.paste("a\tb");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
@@ -214,7 +218,7 @@ fn exact_wrap_boundary_keeps_the_terminal_cursor_visible() {
 fn trailing_newlines_each_receive_their_own_terminal_cursor_row() {
     let mut fixture = Fixture::new();
     fixture.paste("line");
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
 
     let area = fixture.app.prepare_frame(Rect::new(0, 0, 20, 8)).thoughts[0].text_area;
     let mut terminal = draw(&mut fixture, 20, 8);
@@ -224,7 +228,7 @@ fn trailing_newlines_each_receive_their_own_terminal_cursor_row() {
         .expect("cursor after first newline");
     assert_eq!((cursor.x, cursor.y), (area.x, area.y + 1));
 
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let mut terminal = draw(&mut fixture, 20, 8);
     let cursor = terminal
         .backend_mut()
@@ -237,7 +241,7 @@ fn trailing_newlines_each_receive_their_own_terminal_cursor_row() {
 fn board_rendering_uses_the_editor_wrap_model_without_clipping_words() {
     let mut fixture = Fixture::new();
     fixture.paste("aaaaaa bbbbbb cccccc dddddd");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 12, 10));
     assert!(layout.thoughts[0].area.height >= 3);
     let terminal = draw(&mut fixture, 12, 10);
@@ -252,12 +256,12 @@ fn board_rendering_uses_the_editor_wrap_model_without_clipping_words() {
 fn repeated_resize_preserves_content_and_logical_cursor() {
     let mut fixture = Fixture::new();
     fixture.paste("one 👩‍💻 two combining e\u{301} three 第二行 four five six");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..12 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeForward,
             extend_selection: true,
         }));
@@ -313,7 +317,7 @@ fn mouse_can_create_focus_place_cursor_and_open_help() {
     let mut engaged = draw(&mut fixture, 40, 8);
     assert!(engaged.backend_mut().get_cursor_position().is_ok());
     fixture.input(UiInput::Paste("A界B".to_owned()));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 
     let _populated = draw(&mut fixture, 40, 8);
     let text_area = fixture.app.prepare_frame(Rect::new(0, 0, 40, 8)).thoughts[0].text_area;
@@ -327,7 +331,7 @@ fn mouse_can_create_focus_place_cursor_and_open_help() {
         proqi::domain::TextPosition::new(0, 1)
     );
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let _board = draw(&mut fixture, 40, 8);
     let help = fixture
         .app
@@ -345,7 +349,7 @@ fn mouse_drag_reorders_thoughts_through_the_visible_gutter() {
     let mut fixture = Fixture::new();
     for content in ["first", "second", "third"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
     let board = draw(&mut fixture, 40, 10);
     let rendered = text(board.backend().buffer());

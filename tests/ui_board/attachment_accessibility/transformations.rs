@@ -17,26 +17,26 @@ fn partial_attachment_transform_dissolves_annotation_and_preflight() {
         partial.app.status_text(),
         Some("all attachments are accessible")
     );
-    partial.input(UiInput::Key(UiKey::Move {
+    partial.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    partial.input(UiInput::Key(UiKey::Move {
+    partial.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: false,
     }));
-    partial.input(UiInput::Key(UiKey::Enter));
-    partial.input(UiInput::Key(UiKey::Move {
+    partial.input(crate::key_input(UiKey::Enter));
+    partial.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..6 {
-        partial.input(UiInput::Key(UiKey::Move {
+        partial.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeForward,
             extend_selection: false,
         }));
     }
-    let transformed = partial.effects(UiInput::Key(UiKey::PrimaryCharacter('t')));
+    let transformed = partial.effects(crate::key_input(UiKey::PrimaryCharacter('t')));
     assert_eq!(partial.app.status_text(), None);
     assert!(
         transformed
@@ -51,7 +51,7 @@ fn partial_attachment_transform_dissolves_annotation_and_preflight() {
         path
     );
     assert!(live.iter().all(|thought| thought.annotations.is_empty()));
-    partial.input(UiInput::Key(UiKey::Escape));
+    partial.input(crate::key_input(UiKey::Escape));
     partial.acknowledge_all_persistence();
     partial
         .app
@@ -88,11 +88,11 @@ fn intact_attachment_transform_preserves_annotation_and_preflight() {
         intact.app.status_text(),
         Some("all attachments are accessible")
     );
-    intact.input(UiInput::Key(UiKey::Move {
+    intact.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    let transformed = intact.effects(UiInput::Key(UiKey::PrimaryCharacter('t')));
+    let transformed = intact.effects(crate::key_input(UiKey::PrimaryCharacter('t')));
     assert_eq!(intact.app.status_text(), None);
     let moved_check = attachment_batch(&transformed);
     intact
@@ -102,7 +102,7 @@ fn intact_attachment_transform_preserves_annotation_and_preflight() {
     assert!(live[0].annotations.is_empty());
     assert_eq!(live[1].annotations.len(), 1);
     assert_eq!(live[1].content, path);
-    intact.input(UiInput::Key(UiKey::Escape));
+    intact.input(crate::key_input(UiKey::Escape));
     intact.acknowledge_all_persistence();
     intact
         .app

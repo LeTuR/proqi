@@ -5,17 +5,21 @@ use crate::{
     ports::environment::{Clock, IdGenerator},
 };
 
-use super::{BoardApp, Command};
+use super::BoardApp;
+use crate::ui::shortcut_registry::{
+    PaletteEntryCommand as EntryCommand, PaletteRuntimeCommand as RuntimeCommand,
+    PaletteSelectionCommand as SelectionCommand, PaletteSubmissionCommand as SubmissionCommand,
+};
 
 impl BoardApp {
     pub(super) fn execute_selection_command(
         &mut self,
-        command: Command,
+        command: SelectionCommand,
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
-    ) -> Option<Vec<Effect>> {
+    ) -> Vec<Effect> {
         match command {
-            Command::SelectAll => {
+            SelectionCommand::SelectAll => {
                 let effects = if matches!(
                     self.state.mode,
                     crate::application::InteractionMode::Edit { .. }
@@ -25,54 +29,52 @@ impl BoardApp {
                     Vec::new()
                 };
                 if self.pending_edit.is_some() {
-                    return Some(effects);
+                    return effects;
                 }
                 self.select_all_thoughts();
-                Some(effects)
+                effects
             }
-            Command::Select => {
+            SelectionCommand::Select => {
                 self.toggle_selection();
-                Some(Vec::new())
+                Vec::new()
             }
-            Command::RangeSelect => {
+            SelectionCommand::RangeSelect => {
                 self.activate_range_latch();
-                Some(Vec::new())
+                Vec::new()
             }
-            _ => None,
         }
     }
 
     pub(super) fn execute_runtime_command(
         &mut self,
-        command: Command,
+        command: RuntimeCommand,
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
-    ) -> Option<Vec<Effect>> {
+    ) -> Vec<Effect> {
         match command {
-            Command::RefreshAgents => Some(self.refresh_agents()),
-            Command::RefreshAttachments => Some(self.refresh_attachments(true)),
-            Command::RefreshInvocations => Some(self.refresh_invocations()),
-            Command::CheckUpdates => Some(vec![Effect::Update(
-                crate::application::UpdateIntent::CheckNow,
-            )]),
-            Command::WhatsNew => Some(self.open_installed_release_highlights()),
-            Command::ScreenshotInbox => Some(self.toggle_screenshot_inbox(ids, clock)),
-            Command::RetryScreenshotCapture => Some(self.retry_screenshot_capture(ids, clock)),
-            Command::RetryStorage => Some(self.retry_persistence()),
-            Command::ExportRecovery => Some(self.export_recovery(ids, clock)),
-            _ => None,
+            RuntimeCommand::RefreshAgents => self.refresh_agents(),
+            RuntimeCommand::RefreshAttachments => self.refresh_attachments(true),
+            RuntimeCommand::RefreshInvocations => self.refresh_invocations(),
+            RuntimeCommand::CheckUpdates => {
+                vec![Effect::Update(crate::application::UpdateIntent::CheckNow)]
+            }
+            RuntimeCommand::WhatsNew => self.open_installed_release_highlights(),
+            RuntimeCommand::ScreenshotInbox => self.toggle_screenshot_inbox(ids, clock),
+            RuntimeCommand::RetryScreenshotCapture => self.retry_screenshot_capture(ids, clock),
+            RuntimeCommand::RetryStorage => self.retry_persistence(),
+            RuntimeCommand::ExportRecovery => self.export_recovery(ids, clock),
         }
     }
 
     pub(super) fn execute_entry_command(
         &mut self,
-        command: Command,
+        command: EntryCommand,
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
-    ) -> Option<Vec<Effect>> {
+    ) -> Vec<Effect> {
         match command {
-            Command::Edit => Some(self.expand_and_enter_edit(ids, clock)),
-            Command::InsertInvocation => {
+            EntryCommand::Edit => self.expand_and_enter_edit(ids, clock),
+            EntryCommand::InsertInvocation => {
                 let effects =
                     if matches!(self.state.mode, crate::application::InteractionMode::Board) {
                         self.expand_and_enter_edit(ids, clock)
@@ -81,28 +83,24 @@ impl BoardApp {
                     };
                 let mut effects = effects;
                 effects.extend(self.open_invocation_picker());
-                Some(effects)
+                effects
             }
-            _ => None,
         }
     }
 
     pub(super) fn execute_submission_command(
         &mut self,
-        command: Command,
+        command: SubmissionCommand,
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
-    ) -> Option<Vec<Effect>> {
+    ) -> Vec<Effect> {
         use crate::ports::agent::SubmissionDisposition::{Keep, RemoveAfterSuccess};
         match command {
-            Command::SubmitToAgent => Some(self.begin_global_delivery(ids, clock)),
-            Command::SubmitRemove => Some(self.begin_delivery(RemoveAfterSuccess, ids, clock)),
-            Command::SubmitKeep => Some(self.begin_delivery(Keep, ids, clock)),
-            Command::SubmitAllRemove => {
-                Some(self.begin_delivery_all(RemoveAfterSuccess, ids, clock))
-            }
-            Command::SubmitAllKeep => Some(self.begin_delivery_all(Keep, ids, clock)),
-            _ => None,
+            SubmissionCommand::ToAgent => self.begin_global_delivery(ids, clock),
+            SubmissionCommand::Remove => self.begin_delivery(RemoveAfterSuccess, ids, clock),
+            SubmissionCommand::Keep => self.begin_delivery(Keep, ids, clock),
+            SubmissionCommand::AllRemove => self.begin_delivery_all(RemoveAfterSuccess, ids, clock),
+            SubmissionCommand::AllKeep => self.begin_delivery_all(Keep, ids, clock),
         }
     }
 }

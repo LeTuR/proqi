@@ -1,17 +1,15 @@
 //! Terminal-independent searchable session browser state and geometry.
 
 mod geometry;
+mod input;
 mod management;
 
 use ratatui_core::layout::Rect;
-use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
     domain::{SessionId, Timestamp},
     ports::{runtime::InstanceInfo, store::SessionHit},
 };
-
-use super::{PointerButton, PointerInput, PointerKind, UiInput, UiKey};
 
 /// Runtime availability shown beside one durable session.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -120,58 +118,50 @@ pub(super) enum BrowserHit {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct BrowserFooterControl {
     pub(super) hit: BrowserHit,
-    pub(super) key: &'static str,
+    pub(super) key: String,
     pub(super) label: &'static str,
     pub(super) area: Rect,
 }
 
-pub(super) fn browser_footer_controls(area: Rect) -> Vec<BrowserFooterControl> {
+pub(super) fn browser_footer_controls(
+    area: Rect,
+    registry: &crate::ui::ShortcutRegistry,
+) -> Vec<BrowserFooterControl> {
     if area.width == 0 || area.height == 0 {
         return Vec::new();
     }
-    let items = if area.width >= 60 {
-        [
-            (BrowserHit::Rename, "R", "Rename"),
-            (BrowserHit::Trash, "D", "Trash"),
-            (BrowserHit::None, "↑↓", "Select"),
-            (BrowserHit::None, "Enter", "Open"),
-            (BrowserHit::Cancel, "Esc", "Cancel"),
-        ]
-        .as_slice()
-    } else if area.width >= 36 {
-        [
-            (BrowserHit::Rename, "R", "Rename"),
-            (BrowserHit::Trash, "D", "Trash"),
-            (BrowserHit::None, "Enter", "Open"),
-            (BrowserHit::Cancel, "Esc", "Back"),
-        ]
-        .as_slice()
-    } else {
-        [
-            (BrowserHit::Rename, "R", "Name"),
-            (BrowserHit::Trash, "D", "Trash"),
-            (BrowserHit::Cancel, "Esc", "Back"),
-        ]
-        .as_slice()
-    };
     let mut x = area.x.saturating_add(1);
-    items
-        .iter()
-        .map(|&(hit, key, label)| {
-            let width = crate::ports::text_layout::terminal_cell_width(key)
+    crate::ui::shortcut_registry::presentation::browser_footer_projection(registry, area.width)
+        .into_iter()
+        .map(|projection| {
+            let width = crate::ports::text_layout::terminal_cell_width(&projection.key)
                 .saturating_add(1)
-                .saturating_add(crate::ports::text_layout::terminal_cell_width(label));
+                .saturating_add(crate::ports::text_layout::terminal_cell_width(
+                    projection.label,
+                ));
             let width = u16::try_from(width).unwrap_or(u16::MAX);
             let control = BrowserFooterControl {
-                hit,
-                key,
-                label,
+                hit: browser_hit(projection.actions),
+                key: projection.key,
+                label: projection.label,
                 area: Rect::new(x, area.y, width.min(area.right().saturating_sub(x)), 1),
             };
             x = x.saturating_add(width).saturating_add(2);
             control
         })
         .collect()
+}
+
+fn browser_hit(actions: &[crate::ui::ShortcutActionId]) -> BrowserHit {
+    if actions.contains(&crate::ui::ShortcutActionId::RenameSession) {
+        BrowserHit::Rename
+    } else if actions.contains(&crate::ui::ShortcutActionId::BrowserTrash) {
+        BrowserHit::Trash
+    } else if actions.contains(&crate::ui::ShortcutActionId::Close) {
+        BrowserHit::Cancel
+    } else {
+        BrowserHit::None
+    }
 }
 
 /// Result of handling one browser input.
@@ -204,6 +194,7 @@ pub struct SessionBrowser {
     now: Timestamp,
     layout: Option<BrowserLayout>,
     rename: Option<management::RenameState>,
+    pub(super) shortcut_registry: crate::ui::ShortcutRegistry,
     /// Visible explanation for blocked or ambiguous actions.
     pub status: Option<String>,
 }
@@ -222,8 +213,21 @@ impl SessionBrowser {
             now,
             layout: None,
             rename: None,
+            shortcut_registry: crate::ui::ShortcutRegistry::from_validated(
+                &crate::ui::KeyBindings::default(),
+            ),
             status: None,
         }
+    }
+
+    pub(crate) fn with_shortcut_registry(
+        items: Vec<SessionBrowserItem>,
+        now: Timestamp,
+        shortcut_registry: crate::ui::ShortcutRegistry,
+    ) -> Self {
+        let mut browser = Self::new(items, now);
+        browser.shortcut_registry = shortcut_registry;
+        browser
     }
 
     /// Current case-insensitive search text.
@@ -308,172 +312,4 @@ impl SessionBrowser {
         self.layout = Some(layout.clone());
         layout
     }
-
-    /// Apply one normalized terminal event.
-    pub fn handle(&mut self, input: UiInput) -> BrowserAction {
-        self.status = None;
-        if self.rename.is_some() {
-            return self.handle_rename(input);
-        }
-        match input {
-            UiInput::Key(UiKey::Quit | UiKey::Escape) => BrowserAction::Cancel,
-            UiInput::Key(UiKey::Enter) => self.activate(),
-            UiInput::Key(UiKey::FastNavigation { direction, .. }) => {
-                self.selected = direction.move_index(self.selected, self.filtered.len());
-                self.layout = None;
-                BrowserAction::Continue
-            }
-            UiInput::Key(UiKey::Backspace | UiKey::Delete | UiKey::ModifiedDelete) => {
-                if let Some((index, _)) = self.query.grapheme_indices(true).next_back() {
-                    self.query.truncate(index);
-                }
-                self.refilter();
-                BrowserAction::Continue
-            }
-            UiInput::Key(UiKey::Move { movement, .. }) => {
-                use crate::ports::editor::CursorMovement;
-                match movement {
-                    CursorMovement::VisualUp
-                    | CursorMovement::GraphemeBack
-                    | CursorMovement::WordBack
-                    | CursorMovement::LineStart
-                    | CursorMovement::DocumentStart => self.move_selection(-1),
-                    _ => self.move_selection(1),
-                }
-                BrowserAction::Continue
-            }
-            UiInput::Key(UiKey::Character(character)) => match character {
-                'R' if self.query.is_empty() => self.begin_rename(),
-                'D' if self.query.is_empty() => self.trash_selected(),
-                _ => {
-                    self.query.push(character);
-                    self.refilter();
-                    BrowserAction::Continue
-                }
-            },
-            UiInput::Key(UiKey::UnmodifiedSpace) => {
-                self.query.push(' ');
-                self.refilter();
-                BrowserAction::Continue
-            }
-            UiInput::Paste(text) => {
-                self.query.push_str(&text.replace(['\r', '\n'], " "));
-                self.refilter();
-                BrowserAction::Continue
-            }
-            UiInput::PasteAnnotated(payload) => {
-                self.query
-                    .push_str(&payload.content.replace(['\r', '\n'], " "));
-                self.refilter();
-                BrowserAction::Continue
-            }
-            UiInput::Pointer(pointer) => self.handle_pointer(pointer),
-            UiInput::Resize { .. }
-            | UiInput::HostFocusGained
-            | UiInput::HostFocusLost
-            | UiInput::Key(_) => BrowserAction::Continue,
-        }
-    }
-
-    fn refilter(&mut self) {
-        let query = self.query.to_lowercase();
-        self.filtered = self
-            .items
-            .iter()
-            .enumerate()
-            .filter_map(|(index, item)| {
-                let searchable = searchable_text(item).to_lowercase();
-                query
-                    .split_whitespace()
-                    .all(|word| searchable.contains(word))
-                    .then_some(index)
-            })
-            .collect();
-        self.selected = 0;
-        self.first_visible = 0;
-        self.layout = None;
-    }
-
-    fn move_selection(&mut self, amount: isize) {
-        let last = self.filtered.len().saturating_sub(1);
-        self.selected = self.selected.saturating_add_signed(amount).min(last);
-        self.layout = None;
-    }
-
-    fn handle_pointer(&mut self, pointer: PointerInput) -> BrowserAction {
-        if matches!(
-            pointer.kind,
-            PointerKind::ScrollUp | PointerKind::ScrollDown
-        ) {
-            self.move_selection(if matches!(pointer.kind, PointerKind::ScrollUp) {
-                -1
-            } else {
-                1
-            });
-            return BrowserAction::Continue;
-        }
-        if !matches!(pointer.kind, PointerKind::Down(PointerButton::Left)) {
-            return BrowserAction::Continue;
-        }
-        let Some(layout) = &self.layout else {
-            return BrowserAction::Continue;
-        };
-        match layout.hit_test(pointer.column, pointer.row) {
-            BrowserHit::Cancel => BrowserAction::Cancel,
-            BrowserHit::Rename => self.begin_rename(),
-            BrowserHit::Trash => self.trash_selected(),
-            BrowserHit::Item(item_index) => {
-                let Some(position) = self.filtered.iter().position(|index| *index == item_index)
-                else {
-                    return BrowserAction::Continue;
-                };
-                self.selected = position;
-                self.activate()
-            }
-            BrowserHit::None => BrowserAction::Continue,
-        }
-    }
-
-    fn activate(&mut self) -> BrowserAction {
-        let Some((_, item)) = self.selected_item() else {
-            self.status = Some("No matching session".to_owned());
-            return BrowserAction::Continue;
-        };
-        match &item.availability {
-            BrowserAvailability::Resumable | BrowserAvailability::Recovered => {
-                BrowserAction::Open(item.hit.id)
-            }
-            BrowserAvailability::Active(instance) => {
-                self.status = Some(format!("Session is active in process {}", instance.pid));
-                BrowserAction::Continue
-            }
-            BrowserAvailability::Trashed => {
-                self.status = Some("Restore this session before opening it".to_owned());
-                BrowserAction::Continue
-            }
-        }
-    }
-}
-
-fn searchable_text(item: &SessionBrowserItem) -> String {
-    let mut values = vec![
-        item.hit.id.to_string(),
-        item.hit.name.clone().unwrap_or_default(),
-        item.hit.origin_cwd.to_string_lossy().into_owned(),
-        item.hit.last_opened_cwd.to_string_lossy().into_owned(),
-        item.hit.excerpt.clone(),
-        item.hit.search_content.clone(),
-    ];
-    values.extend(item.hit.previews.iter().cloned());
-    if let Some(context) = &item.hit.integration_context {
-        values.extend([
-            context.provider.clone(),
-            context.agent_kind.clone(),
-            context.agent_name.clone(),
-            context.workspace_hint.clone().unwrap_or_default(),
-            context.tab_hint.clone().unwrap_or_default(),
-            context.pane_hint.clone().unwrap_or_default(),
-        ]);
-    }
-    values.join("\n")
 }

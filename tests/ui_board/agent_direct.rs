@@ -11,11 +11,11 @@ fn stage_removal_while_unrelated_edit_is_pending(
     let first_sequence = fixture.paste("submitted");
     let source = fixture.app.active_thought_id().expect("source");
     fixture.app.acknowledge_persistence(first_sequence, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let second_sequence = fixture.paste("unrelated");
     let unrelated = fixture.app.active_thought_id().expect("unrelated");
     fixture.app.acknowledge_persistence(second_sequence, true);
-    fixture.input(UiInput::Key(UiKey::Character('x')));
+    fixture.input(crate::key_input(UiKey::Character('x')));
     proqi::application::reduce(
         &mut fixture.app.state,
         proqi::application::Action::BeginSubmission {
@@ -42,14 +42,14 @@ fn stage_removal_while_unrelated_edit_is_pending(
 fn direct_edit_chords_submit_only_the_active_thought_and_preserve_mode_on_failure_or_keep() {
     let mut fixture = Fixture::new();
     super::agent::prepare_thought(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let thought_id = fixture.app.active_thought_id().expect("active thought");
     let target = super::agent::target(Direction::Right, "w1:p2");
     fixture
         .app
         .complete_agent_discovery(Ok(vec![target.clone()]));
 
-    let failed = fixture.effects(UiInput::Key(UiKey::Submit));
+    let failed = fixture.effects(crate::key_input(UiKey::Submit));
     let failed_request = super::agent::start_submission(&mut fixture, &failed);
     assert_eq!(failed_request.content, "exact prompt\nGrüße 第二行");
     assert!(
@@ -61,7 +61,7 @@ fn direct_edit_chords_submit_only_the_active_thought_and_preserve_mode_on_failur
         proqi::application::InteractionMode::Edit { thought_id }
     );
 
-    let keeping = fixture.effects(UiInput::Key(UiKey::SubmitKeep));
+    let keeping = fixture.effects(crate::key_input(UiKey::SubmitKeep));
     let request = super::agent::start_submission(&mut fixture, &keeping);
     let completion = super::agent::finish_submission(
         &mut fixture,
@@ -87,13 +87,13 @@ fn direct_edit_chords_submit_only_the_active_thought_and_preserve_mode_on_failur
 fn direct_submit_removal_waits_for_durability_and_retries_without_losing_edit_state() {
     let mut fixture = Fixture::new();
     super::agent::prepare_thought(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let thought_id = fixture.app.active_thought_id().expect("active thought");
     let target = super::agent::target(Direction::Right, "w1:p2");
     fixture.app.complete_agent_discovery(Ok(vec![target]));
     let before = fixture.app.editor_snapshot().expect("editor");
 
-    let removing = fixture.effects(UiInput::Key(UiKey::Submit));
+    let removing = fixture.effects(crate::key_input(UiKey::Submit));
     let request = super::agent::start_submission(&mut fixture, &removing);
     let journal = fixture.app.complete_submission(
         request.submission_id,
@@ -135,7 +135,7 @@ fn direct_submit_removal_waits_for_durability_and_retries_without_losing_edit_st
     );
     assert!(fixture.app.state.thought_locked(thought_id));
     assert!(matches!(
-        fixture.effects(UiInput::Key(UiKey::Character('r'))).as_slice(),
+        fixture.effects(crate::key_input(UiKey::Character('r'))).as_slice(),
         [Effect::RetryPersistence { sequence }] if *sequence == removal_sequence
     ));
 
@@ -154,7 +154,7 @@ fn direct_submit_removal_waits_for_durability_and_retries_without_losing_edit_st
     );
     assert!(fixture.app.compose_prompt_visible());
 
-    let next = fixture.effects(UiInput::Key(UiKey::Character('n')));
+    let next = fixture.effects(crate::key_input(UiKey::Character('n')));
     assert!(matches!(next.as_slice(), [Effect::CommitBoardOperation(_)]));
     assert_eq!(fixture.app.state.board.live_thoughts()[0].content, "n");
 }
@@ -163,17 +163,17 @@ fn direct_submit_removal_waits_for_durability_and_retries_without_losing_edit_st
 fn accepted_removal_freezes_content_until_its_durable_acknowledgement() {
     let mut fixture = Fixture::new();
     super::agent::prepare_thought(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Right, "w1:p2")]));
     let before = fixture.app.editor_snapshot().expect("editor");
-    let clipboard = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+    let clipboard = fixture.effects(crate::key_input(UiKey::PasteClipboard));
     let [Effect::ReadClipboard { request_id }] = clipboard.as_slice() else {
         panic!("expected clipboard read");
     };
     let clipboard_request = *request_id;
-    let removing = fixture.effects(UiInput::Key(UiKey::Submit));
+    let removing = fixture.effects(crate::key_input(UiKey::Submit));
     let request = super::agent::start_submission(&mut fixture, &removing);
     let journal = fixture.app.complete_submission(
         request.submission_id,
@@ -193,7 +193,7 @@ fn accepted_removal_freezes_content_until_its_durable_acknowledgement() {
 
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('!')))
+            .effects(crate::key_input(UiKey::Character('!')))
             .is_empty()
     );
     assert!(
@@ -214,10 +214,10 @@ fn accepted_removal_freezes_content_until_its_durable_acknowledgement() {
 fn direct_edit_submission_without_a_verified_target_keeps_the_complete_draft() {
     let mut fixture = Fixture::new();
     super::agent::prepare_thought(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let before = fixture.app.editor_snapshot().expect("editor");
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Submit));
+    let effects = fixture.effects(crate::key_input(UiKey::Submit));
 
     assert!(matches!(effects.as_slice(), [Effect::DiscoverAgents]));
     assert_eq!(fixture.app.editor_snapshot(), Some(before));
@@ -232,15 +232,15 @@ fn direct_edit_submission_without_a_verified_target_keeps_the_complete_draft() {
 fn escape_reaches_board_while_direct_submission_keeps_its_source_locked() {
     let mut fixture = Fixture::new();
     super::agent::prepare_thought(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let thought_id = fixture.app.active_thought_id().expect("active thought");
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Right, "w1:p2")]));
-    let effects = fixture.effects(UiInput::Key(UiKey::Submit));
+    let effects = fixture.effects(crate::key_input(UiKey::Submit));
     let _request = super::agent::start_submission(&mut fixture, &effects);
 
-    assert!(fixture.effects(UiInput::Key(UiKey::Escape)).is_empty());
+    assert!(fixture.effects(crate::key_input(UiKey::Escape)).is_empty());
     assert_eq!(
         fixture.app.interaction_mode(),
         proqi::application::InteractionMode::Board
@@ -257,7 +257,7 @@ fn staged_removal_cannot_discard_an_unrelated_pending_editor_revision() {
     let mut fixture = Fixture::new();
     let (unrelated, removal_sequence) = stage_removal_while_unrelated_edit_is_pending(&mut fixture);
 
-    assert!(fixture.effects(UiInput::Key(UiKey::Escape)).is_empty());
+    assert!(fixture.effects(crate::key_input(UiKey::Escape)).is_empty());
     assert_eq!(
         fixture.app.interaction_mode(),
         proqi::application::InteractionMode::Edit {
@@ -274,12 +274,12 @@ fn staged_removal_cannot_discard_an_unrelated_pending_editor_revision() {
     );
 
     fixture.app.acknowledge_persistence(removal_sequence, true);
-    let revision = fixture.effects(UiInput::Key(UiKey::Escape));
+    let revision = fixture.effects(crate::key_input(UiKey::Escape));
     let [Effect::CommitRevision(revision)] = revision.as_slice() else {
         panic!("expected pending revision after removal receipt");
     };
     fixture.app.acknowledge_persistence(revision.sequence, true);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert_eq!(
         fixture
             .app
@@ -306,7 +306,7 @@ fn staged_removal_blocks_stale_submit_undo_redo_and_quit_boundaries() {
             .app
             .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Right, "w1:p2")]));
 
-        assert!(fixture.effects(UiInput::Key(key)).is_empty());
+        assert!(fixture.effects(crate::key_input(key)).is_empty());
         assert!(!fixture.app.quit);
         assert!(!fixture.app.state.thought_locked(unrelated));
         assert_eq!(
@@ -330,7 +330,7 @@ fn staged_removal_blocks_stale_submit_undo_redo_and_quit_boundaries() {
 fn direct_submission_controls_follow_editor_controls_in_the_footer() {
     let mut fixture = Fixture::new();
     super::agent::prepare_thought(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Right, "w1:p2")]));

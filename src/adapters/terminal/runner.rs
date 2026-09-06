@@ -47,7 +47,7 @@ use crate::{
         runtime::InstanceInfo,
         store::Store as _,
     },
-    ui::{BoardApp, Theme, UiInput, UiKey, render_with_outcome},
+    ui::{BoardApp, Theme, render_with_outcome},
 };
 
 use super::{
@@ -147,8 +147,13 @@ pub(crate) fn run(resources: TerminalResources) -> Result<SessionId, TerminalErr
         &terminal_host,
     );
     let check_for_updates = settings.ui.check_for_updates;
-    let mut app =
-        BoardApp::with_settings_and_cwd(state, settings.ui, cwd.clone(), RopeEditorFactory);
+    let mut app = BoardApp::with_resolved_shortcuts(
+        state,
+        settings.ui,
+        cwd.clone(),
+        settings.shortcut_registry,
+        RopeEditorFactory,
+    );
     let control_ready = composition::publish_optional_control(
         &mut session_lease,
         &mut control,
@@ -304,10 +309,7 @@ fn drive(
             redraw = true;
         }
         if termination.is_admitted() && app.screenshot_retry_ready() {
-            let mut effects = app.handle(UiInput::Key(UiKey::Quit), ids, &clock);
-            if !app.quit && app.screenshot_retry_ready() {
-                effects.extend(app.handle(UiInput::Key(UiKey::Quit), ids, &clock));
-            }
+            let effects = app.handle_termination_request(ids, &clock);
             enqueue_effects(app, lanes, effects, &mut pending)?;
             redraw = true;
         }

@@ -3,7 +3,7 @@
 use proqi::{
     application::FirstRunEnvironment,
     domain::Direction,
-    ui::{Theme, ThemePreference, UiInput, UiKey},
+    ui::{Theme, ThemePreference, UiKey},
 };
 use ratatui_core::style::Modifier;
 
@@ -17,7 +17,7 @@ fn snapshot(
 ) -> String {
     let mut fixture = Fixture::first_run(environment);
     for _ in 0..navigation {
-        fixture.input(UiInput::Key(UiKey::Character('j')));
+        fixture.input(crate::key_input(UiKey::Character('j')));
     }
     let terminal = draw_theme(&mut fixture, width, height, ThemePreference::Dark);
     snapshot_buffer(terminal.backend().buffer())
@@ -61,9 +61,9 @@ fn editing_thought_demonstrates_line_and_sentence_deletion_at_its_initial_cursor
     );
 
     let mut line_fixture = Fixture::first_run(FirstRunEnvironment::Standalone);
-    line_fixture.input(UiInput::Key(UiKey::Character('j')));
-    line_fixture.input(UiInput::Key(UiKey::Enter));
-    line_fixture.input(UiInput::Key(UiKey::DeleteLogicalLine));
+    line_fixture.input(crate::key_input(UiKey::Character('j')));
+    line_fixture.input(crate::key_input(UiKey::Enter));
+    line_fixture.input(crate::key_input(UiKey::DeleteLogicalLine));
     assert_eq!(
         line_fixture
             .app
@@ -74,8 +74,8 @@ fn editing_thought_demonstrates_line_and_sentence_deletion_at_its_initial_cursor
     );
 
     let mut sentence_fixture = Fixture::first_run(FirstRunEnvironment::Standalone);
-    sentence_fixture.input(UiInput::Key(UiKey::Character('j')));
-    sentence_fixture.input(UiInput::Key(UiKey::Enter));
+    sentence_fixture.input(crate::key_input(UiKey::Character('j')));
+    sentence_fixture.input(crate::key_input(UiKey::Enter));
     assert_eq!(
         sentence_fixture
             .app
@@ -84,7 +84,7 @@ fn editing_thought_demonstrates_line_and_sentence_deletion_at_its_initial_cursor
             .content,
         format!("{first_line}\n\n{deletion_line}")
     );
-    sentence_fixture.input(UiInput::Key(UiKey::DeleteSentence));
+    sentence_fixture.input(crate::key_input(UiKey::DeleteSentence));
     assert_eq!(
         sentence_fixture
             .app
@@ -117,15 +117,15 @@ fn primary_label(suffix: &str) -> String {
 #[test]
 fn editing_thought_continues_its_unordered_list_at_the_initial_cursor() {
     let mut fixture = Fixture::first_run(FirstRunEnvironment::Standalone);
-    fixture.input(UiInput::Key(UiKey::Character('j')));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Character('j')));
+    fixture.input(crate::key_input(UiKey::Enter));
     let before = fixture
         .app
         .editor_snapshot()
         .expect("editing thought")
         .content;
 
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
 
     assert_eq!(
         fixture
@@ -142,7 +142,7 @@ fn canonical_herdr_url_uses_existing_link_styling_without_content_changes() {
     let mut fixture = Fixture::first_run(FirstRunEnvironment::HerdrManaged);
     let original_content = fixture.app.state.board.live_thoughts()[4].content.clone();
     for _ in 0..4 {
-        fixture.input(UiInput::Key(UiKey::Character('j')));
+        fixture.input(crate::key_input(UiKey::Character('j')));
     }
     let terminal = draw_theme(&mut fixture, 120, 40, ThemePreference::Dark);
     let buffer = terminal.backend().buffer();
@@ -172,7 +172,7 @@ fn canonical_herdr_url_uses_existing_link_styling_without_content_changes() {
 fn shared_plan_starter_is_emphasized_only_with_a_verified_compatible_target() {
     let mut fixture = Fixture::first_run(FirstRunEnvironment::HerdrManaged);
     for _ in 0..4 {
-        fixture.input(UiInput::Key(UiKey::Character('j')));
+        fixture.input(crate::key_input(UiKey::Character('j')));
     }
     let theme = Theme::resolve(ThemePreference::Dark, true);
     let plain = draw_theme(&mut fixture, 120, 30, ThemePreference::Dark);

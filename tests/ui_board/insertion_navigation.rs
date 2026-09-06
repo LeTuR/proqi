@@ -33,7 +33,7 @@ fn configured_next_and_arrow_down_share_the_insertion_confirmation() {
     fixture.input(super::navigation::visual(CursorMovement::VisualDown, false));
     assert!(fixture.app.insertion_focused());
 
-    fixture.input(UiInput::Key(UiKey::Character('g')));
+    fixture.input(crate::key_input(UiKey::Character('g')));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
     fixture.input(super::navigation::visual(CursorMovement::VisualDown, false));
 
@@ -47,10 +47,10 @@ fn configured_next_and_arrow_down_share_the_insertion_confirmation() {
 #[test]
 fn unrelated_input_resets_insertion_confirmation() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.input(super::navigation::visual(CursorMovement::VisualDown, false));
-    fixture.input(UiInput::Key(UiKey::Character('?')));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('?')));
+    fixture.input(crate::key_input(UiKey::Escape));
 
     fixture.input(super::navigation::visual(CursorMovement::VisualDown, false));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
@@ -62,7 +62,7 @@ fn unrelated_input_resets_insertion_confirmation() {
 #[test]
 fn shifted_down_does_not_arm_insertion_creation() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.input(super::navigation::visual(CursorMovement::VisualDown, true));
     fixture.input(super::navigation::visual(CursorMovement::VisualDown, false));
 
@@ -73,11 +73,11 @@ fn shifted_down_does_not_arm_insertion_creation() {
 fn board_top_accepts_up_previous_and_mixed_semantic_spellings() {
     for first in [
         visual(CursorMovement::VisualUp, false),
-        UiInput::Key(UiKey::Character('k')),
+        crate::key_input(UiKey::Character('k')),
     ] {
         for second in [
             visual(CursorMovement::VisualUp, false),
-            UiInput::Key(UiKey::Character('k')),
+            crate::key_input(UiKey::Character('k')),
         ] {
             let mut fixture = Fixture::new();
             durable_thought(&mut fixture, "former first");
@@ -109,8 +109,8 @@ fn board_top_confirmation_requires_two_consecutive_plain_intentions() {
     fixture.input(visual(CursorMovement::VisualUp, false));
     fixture.input(visual(CursorMovement::VisualUp, false));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 3);
-    fixture.input(UiInput::Key(UiKey::Character('?')));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('?')));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.input(visual(CursorMovement::VisualUp, false));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 3);
     fixture.input(visual(CursorMovement::VisualUp, true));
@@ -125,8 +125,8 @@ fn top_creation_clears_arbitrary_selection_and_round_trips_board_history() {
     let mut fixture = Fixture::new();
     durable_thought(&mut fixture, "first");
     durable_thought(&mut fixture, "second");
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     let selected = fixture
         .app
         .state
@@ -142,12 +142,12 @@ fn top_creation_clears_arbitrary_selection_and_round_trips_board_history() {
         .map(|thought| thought.id)
         .collect::<Vec<_>>();
 
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
     fixture.input(visual(CursorMovement::VisualUp, false));
     assert!(!fixture.app.thought_selected(selected));
     let blank = fixture.app.state.board.live_thoughts()[0].id;
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(
         fixture
             .app
@@ -159,7 +159,7 @@ fn top_creation_clears_arbitrary_selection_and_round_trips_board_history() {
             .collect::<Vec<_>>(),
         original
     );
-    fixture.input(UiInput::Key(UiKey::Redo));
+    fixture.input(crate::key_input(UiKey::Redo));
     assert_eq!(fixture.app.state.board.live_thoughts()[0].id, blank);
 }
 
@@ -171,15 +171,15 @@ fn edit_top_creates_before_the_source_only_after_blocked_up() {
         "Grüße 👩‍💻\tcontrol\u{7} and enough text to wrap across several visual rows",
     );
     let source = fixture.app.state.board.live_thoughts()[0].id;
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let _terminal = draw(&mut fixture, 24, 8);
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentEnd,
         extend_selection: false,
     }));
     fixture.input(visual(CursorMovement::VisualUp, false));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
@@ -196,9 +196,9 @@ fn edit_top_creates_before_the_source_only_after_blocked_up() {
 fn edit_top_flushes_source_before_create_and_empty_top_does_not_stack() {
     let mut fixture = Fixture::new();
     durable_thought(&mut fixture, "source");
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Character('!')));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Character('!')));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
@@ -222,19 +222,19 @@ fn edit_plain_k_remains_text_and_empty_boards_ignore_up() {
     fixture.input(visual(CursorMovement::VisualUp, false));
     fixture.input(visual(CursorMovement::VisualUp, false));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.input(visual(CursorMovement::VisualUp, false));
     fixture.input(visual(CursorMovement::VisualUp, false));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
 
     durable_thought(&mut fixture, "text");
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
     assert_eq!(
         fixture.app.editor_snapshot().expect("editor").content,
@@ -250,7 +250,7 @@ fn top_creation_preserves_collapse_and_clears_contiguous_selection() {
     }
     fixture.input(visual(CursorMovement::VisualUp, true));
     fixture.input(visual(CursorMovement::VisualUp, true));
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     let original = fixture
         .app
         .state
@@ -261,7 +261,7 @@ fn top_creation_preserves_collapse_and_clears_contiguous_selection() {
         .collect::<Vec<_>>();
 
     fixture.input(visual(CursorMovement::VisualUp, false));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
 
     let live = fixture.app.state.board.live_thoughts();
     assert_eq!(
@@ -284,7 +284,7 @@ fn top_creation_restores_follow_focus_after_manual_board_scroll() {
         durable_thought(&mut fixture, &format!("thought {index}"));
     }
     for _ in 1..12 {
-        fixture.input(UiInput::Key(UiKey::Character('k')));
+        fixture.input(crate::key_input(UiKey::Character('k')));
     }
     let former_first = fixture.app.state.focused_thought.expect("first thought");
     let area = Rect::new(0, 0, 42, 9);
@@ -302,7 +302,7 @@ fn top_creation_restores_follow_focus_after_manual_board_scroll() {
     );
 
     fixture.input(visual(CursorMovement::VisualUp, false));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
 
     let new_first = fixture.app.state.board.live_thoughts()[0].id;
     let mut terminal = draw(&mut fixture, area.width, area.height);
@@ -321,13 +321,13 @@ fn top_creation_restores_follow_focus_after_manual_board_scroll() {
 fn failed_persistence_rejects_top_creation_without_partial_state() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste("first");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.app.acknowledge_persistence(sequence, false);
 
     fixture.input(visual(CursorMovement::VisualUp, false));
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('k')))
+            .effects(crate::key_input(UiKey::Character('k')))
             .is_empty()
     );
     let live = fixture.app.state.board.live_thoughts();

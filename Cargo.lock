@@ -2806,6 +2806,7 @@ version = "0.8.0"
 dependencies = [
  "flate2",
  "ignore",
+ "proc-macro2",
  "proqi",
  "semver",
  "serde_json",

@@ -41,23 +41,23 @@ fn image_path_folds_immediately_but_every_exact_content_path_is_preserved() {
     assert!(!rendered.contains("screenshot.png"));
     assert!(!rendered.contains("/private/temporary"));
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert!(
         text(draw(&mut fixture, 60, 8).backend().buffer())
             .contains("/private/temporary/location/screenshot.png")
     );
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Copy));
+    let effects = fixture.effects(crate::key_input(UiKey::Copy));
     assert!(matches!(
         effects.as_slice(),
         [Effect::WriteClipboard { content, .. }] if content == path
     ));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert_eq!(fixture.app.editor_snapshot().expect("editor").content, path);
     assert!(text(draw(&mut fixture, 60, 8).backend().buffer()).contains("[Image 1]"));
 }
@@ -91,26 +91,26 @@ fn large_paste_is_folded_while_editing_and_editor_undo_restores_its_fold() {
     assert!(rendered.contains("[Pasted text · 14 lines · 213 characters]"));
     assert!(!rendered.contains("context line 13"));
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let expanded = text(draw(&mut fixture, 60, 8).backend().buffer());
     assert!(expanded.contains("context line 13"));
     assert!(!expanded.contains("[Pasted text"));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Character('!')));
-    let effects = fixture.effects(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Character('!')));
+    let effects = fixture.effects(crate::key_input(UiKey::Undo));
     assert_eq!(effects.len(), 2);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert_eq!(fixture.app.state.board.live_thoughts()[0].content, content);
     assert!(
         text(draw(&mut fixture, 60, 8).backend().buffer()).contains("[Pasted text · 14 lines ·")
@@ -140,7 +140,7 @@ fn fast_and_boundary_navigation_keep_a_collapsed_annotation_atomic() {
         )
         .expect("valid large-paste payload"),
     ));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
@@ -149,7 +149,7 @@ fn fast_and_boundary_navigation_keep_a_collapsed_annotation_atomic() {
         proqi::domain::TextPosition::new(0, 0)
     );
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualJumpDown,
         extend_selection: false,
     }));
@@ -162,7 +162,7 @@ fn fast_and_boundary_navigation_keep_a_collapsed_annotation_atomic() {
         })
     );
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentEnd,
         extend_selection: false,
     }));
@@ -176,7 +176,7 @@ fn collapsed_folds_are_atomic_for_selection_replacement_and_expansion() {
     let mut fixture = Fixture::new();
     let path = "/tmp/screenshot.png";
     insert_accessible(&mut fixture, image_payload(path));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
@@ -198,14 +198,14 @@ fn collapsed_folds_are_atomic_for_selection_replacement_and_expansion() {
                 .contains(ratatui_core::style::Modifier::REVERSED)
         );
     }
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
     let before = fixture.app.editor_snapshot().expect("editor");
     assert_eq!(before.cursor, proqi::domain::TextPosition::new(0, 0));
     assert!(before.selection.is_none());
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: false,
     }));
@@ -217,7 +217,7 @@ fn collapsed_folds_are_atomic_for_selection_replacement_and_expansion() {
             .selection
             .is_some()
     );
-    fixture.input(UiInput::Key(UiKey::Character('x')));
+    fixture.input(crate::key_input(UiKey::Character('x')));
     assert_eq!(fixture.app.editor_snapshot().expect("editor").content, "x");
 
     let mut fixture = Fixture::new();
@@ -237,12 +237,12 @@ fn collapsed_folds_are_atomic_for_selection_replacement_and_expansion() {
         })
     );
     assert!(text(draw(&mut fixture, 40, 8).backend().buffer()).contains("[Image 1]"));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert!(text(draw(&mut fixture, 40, 8).backend().buffer()).contains(path));
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Backspace));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Backspace));
     assert!(
         fixture
             .app
@@ -270,7 +270,7 @@ fn folded_editor_keeps_a_visible_terminal_cursor_at_the_token_boundary() {
 fn folded_cursor_projects_before_selected_and_after_without_extra_steps() {
     let mut fixture = Fixture::new();
     insert_accessible(&mut fixture, image_payload("/tmp/screenshot.png"));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
@@ -283,7 +283,7 @@ fn folded_cursor_projects_before_selected_and_after_without_extra_steps() {
             .is_some()
     );
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
@@ -295,7 +295,7 @@ fn folded_cursor_projects_before_selected_and_after_without_extra_steps() {
         .expect("cursor before fold");
     assert_eq!((cursor.x, cursor.y), (area.x, area.y));
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: false,
     }));
@@ -308,7 +308,7 @@ fn folded_cursor_projects_before_selected_and_after_without_extra_steps() {
             .is_some()
     );
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: false,
     }));
@@ -343,7 +343,7 @@ fn reverse_fold_navigation_uses_the_visible_space_before_an_inline_placeholder()
         .expect("valid inline attachment payload"),
     ));
     for _ in 0..suffix.chars().count() {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeBack,
             extend_selection: false,
         }));
@@ -357,7 +357,7 @@ fn reverse_fold_navigation_uses_the_visible_space_before_an_inline_placeholder()
             .is_some()
     );
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
@@ -369,7 +369,7 @@ fn reverse_fold_navigation_uses_the_visible_space_before_an_inline_placeholder()
         .expect("cursor before fold");
     assert_eq!((cursor.x, cursor.y), (area.x + 6, area.y));
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
@@ -412,7 +412,7 @@ fn adjacent_folds_remain_independently_atomic() {
     let mut fixture = Fixture::new();
     fixture.input(UiInput::PasteAnnotated(payload));
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
@@ -427,11 +427,11 @@ fn adjacent_folds_remain_independently_atomic() {
             end: proqi::domain::TextPosition::new(0, split + second.len()),
         })
     );
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
@@ -458,7 +458,7 @@ proptest! {
         let mut fixture = Fixture::new();
         insert_accessible(&mut fixture, image_payload(path));
         for forward in forwards {
-            fixture.input(UiInput::Key(UiKey::Move {
+            fixture.input(crate::key_input(UiKey::Move {
                 movement: if forward {
                     CursorMovement::GraphemeForward
                 } else {

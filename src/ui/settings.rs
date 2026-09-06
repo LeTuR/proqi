@@ -2,9 +2,6 @@
 
 use serde::Deserialize;
 
-pub(crate) const RECOVERY_RETRY_KEY: char = 'r';
-pub(crate) const RECOVERY_EXPORT_KEY: char = 'w';
-
 /// Optional enhanced keyboard reporting for compatible terminal emulators.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -158,168 +155,7 @@ impl Default for KeyBindings {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum BoardCommand {
-    New,
-    Edit,
-    Delete,
-    Copy,
-    Cut,
-    SubmitRemove,
-    SubmitKeep,
-    Undo,
-    FocusUp,
-    FocusDown,
-    RangeUp,
-    RangeDown,
-    Collapse,
-    Select,
-    Transform,
-    SelectAll,
-    RangeSelect,
-    Search,
-    Commands,
-    Help,
-    Quit,
-    ScreenshotInbox,
-    PasteExact,
-    PasteReflow,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum BoardNavigation {
-    Focus(super::ListNavigation),
-    Extend(super::ListNavigation),
-    Reorder(super::ListNavigation),
-}
-
 impl KeyBindings {
-    pub(super) fn command(&self, character: char) -> Option<BoardCommand> {
-        self.explicit_command(character).or_else(|| {
-            if character == self.paste {
-                Some(BoardCommand::PasteExact)
-            } else if opposite_ascii_case(self.paste) == Some(character) {
-                Some(BoardCommand::PasteReflow)
-            } else {
-                None
-            }
-        })
-    }
-
-    fn explicit_command(&self, character: char) -> Option<BoardCommand> {
-        let bindings = [
-            (self.new, BoardCommand::New),
-            (self.edit, BoardCommand::Edit),
-            (self.delete, BoardCommand::Delete),
-            (self.copy, BoardCommand::Copy),
-            (self.cut, BoardCommand::Cut),
-            (self.submit_remove, BoardCommand::SubmitRemove),
-            (self.submit_keep, BoardCommand::SubmitKeep),
-            (self.undo, BoardCommand::Undo),
-            (self.focus_up, BoardCommand::FocusUp),
-            (self.focus_down, BoardCommand::FocusDown),
-            (self.range_up, BoardCommand::RangeUp),
-            (self.range_down, BoardCommand::RangeDown),
-            (self.collapse, BoardCommand::Collapse),
-            (self.select, BoardCommand::Select),
-            (self.select_all, BoardCommand::SelectAll),
-            (self.range_select, BoardCommand::RangeSelect),
-            (self.search, BoardCommand::Search),
-            (self.commands, BoardCommand::Commands),
-            (self.help, BoardCommand::Help),
-            (self.quit, BoardCommand::Quit),
-            (self.screenshot_inbox, BoardCommand::ScreenshotInbox),
-            (self.transform, BoardCommand::Transform),
-        ];
-        bindings
-            .into_iter()
-            .find_map(|(binding, command)| (binding == character).then_some(command))
-    }
-
-    pub(super) fn paste_exact_fallbacks(&self) -> Vec<char> {
-        self.paste_fallback(self.paste, BoardCommand::PasteExact)
-    }
-
-    pub(super) fn paste_reflow_fallbacks(&self) -> Vec<char> {
-        opposite_ascii_case(self.paste).map_or_else(Vec::new, |character| {
-            self.paste_fallback(character, BoardCommand::PasteReflow)
-        })
-    }
-
-    fn paste_fallback(&self, character: char, command: BoardCommand) -> Vec<char> {
-        (self.command(character) == Some(command))
-            .then_some(character)
-            .into_iter()
-            .collect()
-    }
-
-    /// Resolve a normalized key through the Board command map.
-    ///
-    /// Unmodified physical Delete is an invariant spelling of the remappable
-    /// delete command. The typed submission intentions are invariant aliases
-    /// for the corresponding remappable Board submission commands. Modified
-    /// Delete and Backspace remain unassigned in Board.
-    pub(super) fn command_for_key(&self, key: super::UiKey) -> Option<BoardCommand> {
-        match key {
-            super::UiKey::Delete => Some(BoardCommand::Delete),
-            super::UiKey::Submit => Some(BoardCommand::SubmitRemove),
-            super::UiKey::SubmitKeep => Some(BoardCommand::SubmitKeep),
-            super::UiKey::UnmodifiedSpace => self.command(' '),
-            super::UiKey::Character(character) => self.command(character),
-            _ => None,
-        }
-    }
-
-    pub(super) fn navigation(&self, key: super::UiKey) -> Option<BoardNavigation> {
-        use BoardNavigation::{Extend, Focus, Reorder};
-
-        match key {
-            super::UiKey::Move {
-                movement,
-                extend_selection,
-            } => super::input::list_movement(movement).map(if extend_selection {
-                Extend
-            } else {
-                Focus
-            }),
-            super::UiKey::EditNavigation { board_movement, .. } => {
-                super::input::list_movement(board_movement).map(Focus)
-            }
-            super::UiKey::PrimaryShiftMove { movement } => {
-                super::input::list_movement(movement).map(Reorder)
-            }
-            super::UiKey::Character(character) => {
-                Self::navigation_for_command(self.command(character), false)
-            }
-            super::UiKey::UnmodifiedSpace => Self::navigation_for_command(self.command(' '), false),
-            super::UiKey::PrimaryCharacter(character) => {
-                Self::navigation_for_command(self.command(character), true)
-            }
-            super::UiKey::PrimaryShiftCharacter(character) => {
-                Self::navigation_for_command(self.command(character.to_ascii_uppercase()), true)
-            }
-            _ => None,
-        }
-    }
-
-    fn navigation_for_command(
-        command: Option<BoardCommand>,
-        primary: bool,
-    ) -> Option<BoardNavigation> {
-        use super::ListNavigation::{Next, Previous};
-        use BoardNavigation::{Extend, Focus, Reorder};
-
-        match (command, primary) {
-            (Some(BoardCommand::FocusUp), _) => Some(Focus(Previous)),
-            (Some(BoardCommand::FocusDown), _) => Some(Focus(Next)),
-            (Some(BoardCommand::RangeUp), true) => Some(Reorder(Previous)),
-            (Some(BoardCommand::RangeDown), true) => Some(Reorder(Next)),
-            (Some(BoardCommand::RangeUp), false) => Some(Extend(Previous)),
-            (Some(BoardCommand::RangeDown), false) => Some(Extend(Next)),
-            _ => None,
-        }
-    }
-
     pub(crate) fn delete_label(&self) -> String {
         format!("{}/Del", key_label(self.delete))
     }
@@ -330,7 +166,7 @@ impl KeyBindings {
     ///
     /// Returns an error for control characters or duplicate bindings.
     pub fn validate(&self) -> Result<(), &'static str> {
-        if matches!(self.quit, RECOVERY_RETRY_KEY | RECOVERY_EXPORT_KEY) {
+        if is_reserved_recovery_key(self.quit) {
             return Err("the quit binding cannot use the reserved recovery keys r or w");
         }
         if self.transform.is_control() {
@@ -339,7 +175,7 @@ impl KeyBindings {
         if !self.paste.is_ascii_lowercase() {
             return Err("the paste binding must be one lowercase ASCII letter");
         }
-        if super::shortcut_metadata::reserved_unshifted_character(self.transform) {
+        if super::shortcut_registry::presentation::reserved_unshifted_character(self.transform) {
             return Err("the transform binding conflicts with a reserved Primary shortcut");
         }
         if !self.delete_sentence.is_ascii_uppercase() {
@@ -350,12 +186,14 @@ impl KeyBindings {
         {
             return Err("visual-row selection bindings must be uppercase ASCII letters");
         }
-        if super::shortcut_metadata::reserved_shifted_configuration_suffix(self.delete_sentence) {
+        if super::shortcut_registry::presentation::reserved_shifted_configuration_suffix(
+            self.delete_sentence,
+        ) {
             return Err("the sentence deletion binding conflicts with a reserved Primary chord");
         }
-        if super::shortcut_metadata::reserved_shifted_configuration_suffix(
+        if super::shortcut_registry::presentation::reserved_shifted_configuration_suffix(
             self.select_visual_row_start,
-        ) || super::shortcut_metadata::reserved_shifted_configuration_suffix(
+        ) || super::shortcut_registry::presentation::reserved_shifted_configuration_suffix(
             self.select_visual_row_end,
         ) {
             return Err("visual-row selection bindings conflict with a reserved Primary chord");
@@ -403,14 +241,16 @@ impl KeyBindings {
     }
 }
 
-fn opposite_ascii_case(character: char) -> Option<char> {
-    if character.is_ascii_lowercase() {
-        Some(character.to_ascii_uppercase())
-    } else if character.is_ascii_uppercase() {
-        Some(character.to_ascii_lowercase())
-    } else {
-        None
-    }
+fn is_reserved_recovery_key(key: char) -> bool {
+    [
+        super::ShortcutActionId::RetryStorage,
+        super::ShortcutActionId::ExportRecovery,
+    ]
+    .into_iter()
+    .filter_map(|action| {
+        super::shortcut_registry::fixed_character_binding(action, super::ShortcutContext::Recovery)
+    })
+    .any(|reserved| key == reserved)
 }
 
 pub(crate) fn key_label(key: char) -> String {

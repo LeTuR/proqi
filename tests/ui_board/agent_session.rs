@@ -15,7 +15,7 @@ fn accepted_first_opencode_prompt_upgrades_the_cached_target_session() {
         .app
         .complete_agent_discovery(Ok(vec![provisional.clone()]));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('S')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('S')));
     let request = super::agent::start_submission(&mut fixture, &effects);
     let established = provisional.with_agent_session(
         AgentSessionBinding::established("new-codex-session").expect("fixture session"),
@@ -39,7 +39,7 @@ fn accepted_first_opencode_prompt_upgrades_the_cached_target_session() {
         std::slice::from_ref(&established)
     );
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('S')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('S')));
     let second = super::agent::start_submission(&mut fixture, &effects);
     assert_eq!(second.target, established);
 }
@@ -53,7 +53,7 @@ fn an_opencode_receipt_before_the_session_hook_refreshes_without_resending() {
     fixture
         .app
         .complete_agent_discovery(Ok(vec![provisional.clone()]));
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('S')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('S')));
     let request = super::agent::start_submission(&mut fixture, &effects);
 
     let completion = super::agent::finish_submission(
@@ -94,7 +94,7 @@ fn an_opencode_receipt_before_the_session_hook_refreshes_without_resending() {
     fixture
         .app
         .complete_agent_discovery(Ok(vec![established.clone()]));
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('S')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('S')));
     let second = super::agent::start_submission(&mut fixture, &effects);
     assert_eq!(second.target, established);
 }

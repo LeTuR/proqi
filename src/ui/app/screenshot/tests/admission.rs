@@ -108,7 +108,8 @@ fn transfer_remove_and_capture_use_distinct_sequences_in_both_orderings() {
     let destination = ids.session_id();
     app.begin_session_transfer(true, &mut ids, &clock);
     app.complete_transfer_discovery(Ok(vec![session_hit(destination)]));
-    let transfer_effects = app.handle_transfer_input(&UiInput::Key(UiKey::Enter), &mut ids, &clock);
+    let transfer_input = crate::ui::input::RoutedInput::Key(UiKey::Enter);
+    let transfer_effects = app.handle_transfer_input(&transfer_input, &mut ids, &clock);
     let [Effect::TransferThought(request)] = transfer_effects.as_slice() else {
         panic!("transfer intent");
     };

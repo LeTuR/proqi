@@ -7,26 +7,26 @@ use proqi::{
 
 fn populate_exact_board(fixture: &mut Fixture) {
     fixture.paste("/goal first");
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character('n')));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('n')));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.paste("/plan Grüße 👩‍💻\r\n第二行");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.acknowledge_all_persistence();
 }
 
 fn execute_palette(fixture: &mut Fixture, query: &str) -> Vec<Effect> {
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in query.chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    fixture.effects(UiInput::Key(UiKey::Enter))
+    fixture.effects(crate::key_input(UiKey::Enter))
 }
 
 fn click_palette(fixture: &mut Fixture, query: &str) -> Vec<Effect> {
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in query.chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 70, 12));
     let item = layout.overlay.expect("palette overlay").items[0];
@@ -39,7 +39,7 @@ fn click_palette(fixture: &mut Fixture, query: &str) -> Vec<Effect> {
 }
 
 fn execute_palette_from_edit(fixture: &mut Fixture, query: &str) -> (Vec<Effect>, Vec<Effect>) {
-    let save = fixture.effects(UiInput::Key(UiKey::Escape));
+    let save = fixture.effects(crate::key_input(UiKey::Escape));
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 80, 12));
     let commands = layout
         .controls
@@ -53,32 +53,32 @@ fn execute_palette_from_edit(fixture: &mut Fixture, query: &str) -> (Vec<Effect>
         extend_selection: false,
     }));
     for character in query.chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    let submission = fixture.effects(UiInput::Key(UiKey::Enter));
+    let submission = fixture.effects(crate::key_input(UiKey::Enter));
     (save, submission)
 }
 
 fn editable_durable_board(fixture: &mut Fixture) {
     for content in ["first", "second"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
     fixture.acknowledge_all_persistence();
-    fixture.input(UiInput::Key(UiKey::Character('e')));
-    fixture.input(UiInput::Key(UiKey::Character('!')));
+    fixture.input(crate::key_input(UiKey::Character('e')));
+    fixture.input(crate::key_input(UiKey::Character('!')));
 }
 
 #[test]
 fn palette_submission_labels_use_one_concise_vocabulary() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Left, "w1:p2")]));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "submit".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
 
     let (_, entries, selected) = fixture.app.palette_view().expect("palette");
@@ -174,8 +174,8 @@ fn failed_edit_commit_cancels_ordinary_and_whole_board_submission() {
 fn palette_submit_all_keep_and_remove_share_one_exact_ordered_request() {
     let mut fixture = Fixture::new();
     populate_exact_board(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     let selected = fixture.app.state.focused_thought.expect("selected source");
     let target = super::agent::target(Direction::Left, "w1:p2");
     fixture
@@ -224,8 +224,8 @@ fn palette_submit_all_keep_and_remove_share_one_exact_ordered_request() {
     ));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 3);
 }
 
@@ -238,15 +238,15 @@ fn select_all_then_each_submit_key_addresses_the_complete_board() {
         let mut fixture = Fixture::new();
         for content in ["first", "second", "third"] {
             fixture.paste(content);
-            fixture.input(UiInput::Key(UiKey::Escape));
+            fixture.input(crate::key_input(UiKey::Escape));
         }
         fixture.acknowledge_all_persistence();
         fixture
             .app
             .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Right, "w1:p2")]));
 
-        fixture.input(UiInput::Key(UiKey::Character('a')));
-        let effects = fixture.effects(UiInput::Key(UiKey::Character(key)));
+        fixture.input(crate::key_input(UiKey::Character('a')));
+        let effects = fixture.effects(crate::key_input(UiKey::Character(key)));
         let [Effect::PrepareSubmission(attempt)] = effects.as_slice() else {
             panic!("expected one submission attempt");
         };
@@ -262,10 +262,10 @@ fn ambiguous_direction_keeps_selection_stable_through_pointer_and_resize() {
     let mut fixture = Fixture::new();
     for content in ["first", "second"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
     fixture.acknowledge_all_persistence();
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     let selected = fixture.app.state.focused_thought.expect("selected thought");
     let left = super::agent::target(Direction::Left, "w1:p2");
     let right = super::agent::target(Direction::Right, "w1:p3");
@@ -322,7 +322,7 @@ fn ambiguous_direction_keeps_selection_stable_through_pointer_and_resize() {
 #[test]
 fn all_submit_failures_and_empty_boards_are_non_destructive() {
     let mut empty = Fixture::new();
-    empty.input(UiInput::Key(UiKey::Escape));
+    empty.input(crate::key_input(UiKey::Escape));
     empty
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Left, "w1:p2")]));
@@ -335,7 +335,7 @@ fn all_submit_failures_and_empty_boards_are_non_destructive() {
     let mut fixture = Fixture::new();
     for content in ["first", "second"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
     fixture.acknowledge_all_persistence();
     fixture
@@ -363,10 +363,10 @@ fn target_change_during_direction_choice_sends_nothing_and_preserves_selection()
     let mut fixture = Fixture::new();
     for content in ["first", "second"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
     fixture.acknowledge_all_persistence();
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     let selected = fixture.app.state.focused_thought.expect("selected thought");
     fixture.app.complete_agent_discovery(Ok(vec![
         super::agent::target(Direction::Left, "w1:p2"),

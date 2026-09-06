@@ -33,10 +33,10 @@ fn pi_in_both_mixed_row_positions_never_bypasses_direction_choice() {
 
         assert!(
             fixture
-                .effects(UiInput::Key(UiKey::Character('s')))
+                .effects(crate::key_input(UiKey::Character('s')))
                 .is_empty()
         );
-        let effects = fixture.effects(UiInput::Key(UiKey::Character(choice)));
+        let effects = fixture.effects(crate::key_input(UiKey::Character(choice)));
         let request = super::agent::start_submission(&mut fixture, &effects);
         assert_eq!(request.target.agent_kind().as_str(), expected);
     }

@@ -20,7 +20,7 @@ use crate::{
     },
 };
 
-use super::BoardApp;
+use super::{BoardApp, UiInput, UiKey};
 use activity::ScreenshotActivity;
 use barrier::DeferredInput;
 
@@ -436,8 +436,8 @@ impl BoardApp {
         }
     }
 
-    pub(super) fn note_screenshot_interaction(&mut self, input: &crate::ui::input::UiInput) {
-        if !matches!(input, crate::ui::UiInput::Key(crate::ui::UiKey::Quit)) {
+    pub(super) fn note_screenshot_interaction(&mut self, input: &UiInput) {
+        if !matches!(input, UiInput::Key(UiKey::Quit)) {
             self.screenshot.ready_quit_armed = false;
         }
         if input.is_deliberate_interaction() {

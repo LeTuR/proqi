@@ -13,7 +13,7 @@ fn accepted_receipt_ignores_volatile_target_metadata() {
     fixture
         .app
         .complete_agent_discovery(Ok(vec![target.clone()]));
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('s')));
     let request = super::agent::start_submission(&mut fixture, &effects);
     let mut revalidated = target;
     revalidated.readiness = AgentState::Blocked;

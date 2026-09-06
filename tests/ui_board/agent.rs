@@ -54,7 +54,7 @@ pub(super) fn target_with_kind(direction: Direction, pane_id: &str, harness: &st
 pub(super) fn prepare_thought(fixture: &mut Fixture) {
     let sequence = fixture.paste("exact prompt\nGrüße 第二行");
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 }
 
 pub(super) fn start_submission(
@@ -108,7 +108,7 @@ fn failed_submission_preserves_thought_and_accepted_remove_is_undoable() {
         .app
         .complete_agent_discovery(Ok(vec![target.clone()]));
 
-    let failed = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let failed = fixture.effects(crate::key_input(UiKey::Character('s')));
     let failed_request = start_submission(&mut fixture, &failed);
     let no_mutation = finish_submission(&mut fixture, &failed_request, Err(AgentError::TimedOut));
     assert!(no_mutation.is_empty());
@@ -120,7 +120,7 @@ fn failed_submission_preserves_thought_and_accepted_remove_is_undoable() {
             .is_some_and(|status| { status.starts_with("Submission failed. Thought kept.") })
     );
 
-    let removing = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let removing = fixture.effects(crate::key_input(UiKey::Character('s')));
     let request = start_submission(&mut fixture, &removing);
     assert_eq!(request.content, "exact prompt\nGrüße 第二行");
     let completion = finish_submission(
@@ -138,8 +138,8 @@ fn failed_submission_preserves_thought_and_accepted_remove_is_undoable() {
     ));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
 }
 
@@ -151,7 +151,7 @@ fn accepted_receipt_rejects_a_different_stable_target() {
     fixture
         .app
         .complete_agent_discovery(Ok(vec![target.clone()]));
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('s')));
     let request = start_submission(&mut fixture, &effects);
     let different = target.with_agent_session(
         AgentSessionBinding::established("different-session").expect("fixture session"),
@@ -183,14 +183,14 @@ fn multiple_targets_require_direction_and_mouse_controls_use_verified_targets() 
 
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('S')))
+            .effects(crate::key_input(UiKey::Character('S')))
             .is_empty()
     );
     assert_eq!(
         fixture.app.submission_mode(),
         Some(SubmissionDisposition::Keep)
     );
-    let directed = fixture.effects(UiInput::Key(UiKey::Move {
+    let directed = fixture.effects(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: false,
     }));
@@ -209,7 +209,7 @@ fn multiple_targets_require_direction_and_mouse_controls_use_verified_targets() 
     let _layout = fixture.app.prepare_frame(Rect::new(0, 0, 100, 10));
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('s')))
+            .effects(crate::key_input(UiKey::Character('s')))
             .is_empty()
     );
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 100, 10));
@@ -307,7 +307,7 @@ fn submission_without_a_target_refreshes_and_reports_the_verified_result() {
     let mut fixture = Fixture::new();
     prepare_thought(&mut fixture);
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('S')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('S')));
     assert!(matches!(effects.as_slice(), [Effect::DiscoverAgents]));
     assert_eq!(fixture.app.status_text(), Some("checking adjacent agents"));
 
@@ -333,7 +333,7 @@ fn submit_and_keep_uses_the_same_semantic_request_and_preserves_the_thought() {
         .app
         .complete_agent_discovery(Ok(vec![target.clone()]));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('S')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('S')));
     let request = start_submission(&mut fixture, &effects);
     let completion = finish_submission(
         &mut fixture,
@@ -362,11 +362,11 @@ fn duplicate_submission_is_suppressed_while_the_first_attempt_is_active() {
         .app
         .complete_agent_discovery(Ok(vec![target(Direction::Left, "w1:p2")]));
 
-    let first = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let first = fixture.effects(crate::key_input(UiKey::Character('s')));
     assert!(matches!(first.as_slice(), [Effect::PrepareSubmission(_)]));
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('s')))
+            .effects(crate::key_input(UiKey::Character('s')))
             .is_empty()
     );
     assert_eq!(
@@ -383,7 +383,7 @@ fn accepted_submission_removal_failure_keeps_the_exact_locked_source_for_retry()
     fixture
         .app
         .complete_agent_discovery(Ok(vec![target.clone()]));
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('s')));
     let request = start_submission(&mut fixture, &effects);
     let journal = fixture.app.complete_submission(
         request.submission_id,
@@ -429,15 +429,15 @@ fn in_flight_submission_locks_editing_until_the_receipt_is_journaled() {
     fixture
         .app
         .complete_agent_discovery(Ok(vec![target.clone()]));
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('s')));
     let request = start_submission(&mut fixture, &effects);
 
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert_eq!(
         fixture.app.status_text(),
         Some("thought has a submission in progress")
     );
-    fixture.input(UiInput::Key(UiKey::Character('!')));
+    fixture.input(crate::key_input(UiKey::Character('!')));
     assert_eq!(
         fixture.app.interaction_mode(),
         proqi::application::InteractionMode::Board

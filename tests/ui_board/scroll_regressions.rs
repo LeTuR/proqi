@@ -5,8 +5,8 @@ use proqi::domain::ThoughtPresentation;
 fn repeated_down_navigation_creates_only_one_blank_thought() {
     let mut fixture = Fixture::new();
     super::navigation::durable_thought(&mut fixture, "last thought");
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentEnd,
         extend_selection: false,
     }));
@@ -27,9 +27,9 @@ fn reverse_scroll_into_a_collapsed_thought_starts_at_its_preview() {
         "line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7",
     );
     fixture.app.prepare_frame(Rect::new(0, 0, 42, 8));
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     fixture.app.prepare_frame(Rect::new(0, 0, 42, 8));
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     super::navigation::durable_thought(&mut fixture, "following thought");
     let area = Rect::new(0, 0, 42, 8);
     let _initial = fixture.app.prepare_frame(area);
@@ -91,13 +91,13 @@ fn assert_manual_scroll_edit_entry(through_palette: bool) {
     assert!(scrolled.thought(target).is_none(), "{scrolled:#?}");
 
     if through_palette {
-        fixture.input(UiInput::Key(UiKey::Character(':')));
+        fixture.input(crate::key_input(UiKey::Character(':')));
         for character in "edit thought".chars() {
-            fixture.input(UiInput::Key(UiKey::Character(character)));
+            fixture.input(crate::key_input(UiKey::Character(character)));
         }
-        fixture.input(UiInput::Key(UiKey::Enter));
+        fixture.input(crate::key_input(UiKey::Enter));
     } else {
-        fixture.input(UiInput::Key(UiKey::Enter));
+        fixture.input(crate::key_input(UiKey::Enter));
     }
 
     let editing = fixture.app.prepare_frame(area);
@@ -154,7 +154,7 @@ fn deleting_the_manual_anchor_owner_reconciles_to_the_adjacent_focus() {
     assert_eq!(anchored.first_index, 1, "{anchored:#?}");
     assert!(anchored.first_row_offset > 0, "{anchored:#?}");
 
-    fixture.input(UiInput::Key(UiKey::Character('d')));
+    fixture.input(crate::key_input(UiKey::Character('d')));
     assert_eq!(fixture.app.active_thought_id(), Some(adjacent));
     let reconciled = fixture.app.prepare_frame(area);
 
@@ -188,11 +188,11 @@ fn repeated_long_thought_cycles_resize_and_scroll_to_both_board_boundaries() {
         fixture.input(super::navigation::visual(CursorMovement::VisualUp, false));
     }
     let _focused_long_a = fixture.app.prepare_frame(small);
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     for _ in 0..3 {
-        fixture.input(UiInput::Key(UiKey::Character('c')));
+        fixture.input(crate::key_input(UiKey::Character('c')));
         let _collapsed = fixture.app.prepare_frame(small);
-        fixture.input(UiInput::Key(UiKey::Character('c')));
+        fixture.input(crate::key_input(UiKey::Character('c')));
         let expanded = fixture.app.prepare_frame(small);
         let active = fixture.app.active_thought_id().expect("long thought focus");
         assert!(
@@ -207,7 +207,7 @@ fn repeated_long_thought_cycles_resize_and_scroll_to_both_board_boundaries() {
         fixture.input(super::navigation::visual(CursorMovement::VisualDown, false));
     }
     let _long_b = fixture.app.prepare_frame(small);
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     for area in [
         Rect::new(0, 0, 28, 8),
         Rect::new(0, 0, 72, 18),

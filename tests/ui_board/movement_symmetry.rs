@@ -14,18 +14,18 @@ fn arrows_and_jk_share_focus_and_shift_range_intentions() {
     for content in ["first", "second", "third"] {
         durable_thought(&mut letters, content);
     }
-    letters.input(UiInput::Key(UiKey::Character('k')));
+    letters.input(crate::key_input(UiKey::Character('k')));
     assert_eq!(letters.app.state.focused_thought, arrow_focus);
 
     arrows.input(visual(CursorMovement::VisualUp, true));
-    letters.input(UiInput::Key(UiKey::Character('K')));
+    letters.input(crate::key_input(UiKey::Character('K')));
     let arrow_selected = selected(&arrows);
     let letter_selected = selected(&letters);
     assert_eq!(arrow_selected, ["first", "second"]);
     assert_eq!(letter_selected, arrow_selected);
 
     arrows.input(visual(CursorMovement::VisualDown, true));
-    letters.input(UiInput::Key(UiKey::Character('J')));
+    letters.input(crate::key_input(UiKey::Character('J')));
     assert_eq!(selected(&arrows), ["second"]);
     assert_eq!(selected(&letters), ["second"]);
     assert_eq!(order(&letters), ["first", "second", "third"]);
@@ -49,17 +49,17 @@ fn primary_shift_arrows_and_characters_share_reorder_intentions() {
             durable_thought(&mut arrows, content);
             durable_thought(&mut letters, content);
         }
-        arrows.input(UiInput::Key(UiKey::PrimaryShiftMove {
+        arrows.input(crate::key_input(UiKey::PrimaryShiftMove {
             movement: CursorMovement::VisualUp,
         }));
-        letters.input(UiInput::Key(up));
+        letters.input(crate::key_input(up));
         assert_eq!(order(&letters), order(&arrows));
         assert_eq!(order(&letters), ["first", "third", "second"]);
 
-        arrows.input(UiInput::Key(UiKey::PrimaryShiftMove {
+        arrows.input(crate::key_input(UiKey::PrimaryShiftMove {
             movement: CursorMovement::VisualDown,
         }));
-        letters.input(UiInput::Key(down));
+        letters.input(crate::key_input(down));
         assert_eq!(order(&arrows), ["first", "second", "third"]);
         assert_eq!(order(&letters), ["first", "second", "third"]);
     }
@@ -77,10 +77,10 @@ fn remapped_shifted_vertical_key_keeps_range_and_primary_reorder_semantics() {
         durable_thought(&mut fixture, content);
     }
 
-    fixture.input(UiInput::Key(UiKey::Character('I')));
+    fixture.input(crate::key_input(UiKey::Character('I')));
     assert_eq!(selected(&fixture), ["second", "third"]);
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::PrimaryShiftCharacter('i')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::PrimaryShiftCharacter('i')));
     assert_eq!(order(&fixture), ["second", "first", "third"]);
 }
 

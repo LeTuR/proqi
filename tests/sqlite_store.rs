@@ -34,6 +34,10 @@ use proqi::{
 };
 use rusqlite::Connection;
 
+#[path = "support/keyboard.rs"]
+mod keyboard_support;
+use keyboard_support::key_input;
+
 struct DatabaseFixture {
     _temporary: tempfile::TempDir,
     config: StoreConfig,

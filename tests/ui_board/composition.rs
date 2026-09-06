@@ -6,16 +6,16 @@ fn remapped_board_binding_changes_behavior_and_visible_hint() {
     settings.keybindings.new = 't';
     let mut fixture = Fixture::with_settings(settings);
     super::navigation::durable_thought(&mut fixture, "existing");
-    fixture.input(UiInput::Key(UiKey::Character('n')));
+    fixture.input(crate::key_input(UiKey::Character('n')));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
-    fixture.input(UiInput::Key(UiKey::Character('t')));
+    fixture.input(crate::key_input(UiKey::Character('t')));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 2);
     assert!(
         fixture.app.state.board.live_thoughts()[1]
             .content
             .is_empty()
     );
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert!(text(draw(&mut fixture, 50, 6).backend().buffer()).contains("t New"));
 }
 
@@ -24,7 +24,7 @@ fn explicit_web_urls_use_link_role_and_underline_without_changing_content() {
     let mut fixture = Fixture::new();
     let content = "See https://google.com? now";
     fixture.paste(content);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let terminal = draw_theme(&mut fixture, 60, 8, ThemePreference::Dark);
     let area = fixture.app.prepare_frame(Rect::new(0, 0, 60, 8)).thoughts[0].text_area;
     let theme = Theme::resolve(ThemePreference::Dark, true);
@@ -73,24 +73,24 @@ fn shortcut_emphasis_is_exact_bold_and_geometry_neutral_in_board_and_editor() {
     );
     assert!(link.modifier.contains(ratatui_core::style::Modifier::BOLD));
 
-    let copied = fixture.effects(UiInput::Key(UiKey::Copy));
+    let copied = fixture.effects(crate::key_input(UiKey::Copy));
     assert!(matches!(
         copied.as_slice(),
         [Effect::WriteClipboard { content: copied, .. }] if copied == content
     ));
 
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..6 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeForward,
             extend_selection: false,
         }));
     }
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: true,
     }));
@@ -123,7 +123,7 @@ fn long_thought_cap_expands_without_changing_content() {
         .collect::<Vec<_>>()
         .join("\n");
     fixture.paste(&content);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let initial = fixture.app.prepare_frame(Rect::new(0, 0, 40, 13));
     let thought = initial.thoughts.first().expect("thought");
     assert!(thought.hidden_rows > 0);
@@ -160,12 +160,12 @@ fn collapsed_keyboard_edit_entry_expands_before_opening_the_full_editor() {
         super::navigation::durable_thought(&mut fixture, &content);
         let area = Rect::new(0, 0, 38, 11);
         let _automatic = fixture.app.prepare_frame(area);
-        fixture.input(UiInput::Key(UiKey::Character('c')));
-        fixture.input(UiInput::Key(UiKey::Character('c')));
+        fixture.input(crate::key_input(UiKey::Character('c')));
+        fixture.input(crate::key_input(UiKey::Character('c')));
         let collapsed = fixture.app.prepare_frame(area);
         assert_eq!(collapsed.thoughts[0].area.height, 2);
 
-        let effects = fixture.effects(UiInput::Key(key));
+        let effects = fixture.effects(crate::key_input(key));
         assert!(matches!(
             effects.as_slice(),
             [Effect::CommitBoardOperation(operation)]
@@ -199,15 +199,15 @@ fn collapsed_palette_indentation_expands_before_mutating_the_editor() {
     super::navigation::durable_thought(&mut fixture, &content);
     let area = Rect::new(0, 0, 38, 11);
     let _automatic = fixture.app.prepare_frame(area);
-    fixture.input(UiInput::Key(UiKey::Character('c')));
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     assert_eq!(fixture.app.prepare_frame(area).thoughts[0].area.height, 2);
 
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "indent line".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
 
     assert!(matches!(
         effects.as_slice(),
@@ -239,8 +239,8 @@ fn collapsed_content_click_expands_and_maps_the_visible_wide_cell_before_editing
     super::navigation::durable_thought(&mut fixture, &content);
     let area = Rect::new(0, 0, 36, 10);
     let _automatic = fixture.app.prepare_frame(area);
-    fixture.input(UiInput::Key(UiKey::Character('c')));
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     let collapsed = fixture.app.prepare_frame(area);
     let text_area = collapsed.thoughts[0].text_area;
 
@@ -282,8 +282,8 @@ fn collapsed_gutter_click_expands_without_starting_a_stale_drag() {
     );
     let area = Rect::new(0, 0, 34, 10);
     let _automatic = fixture.app.prepare_frame(area);
-    fixture.input(UiInput::Key(UiKey::Character('c')));
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     let collapsed = fixture.app.prepare_frame(area);
     let gutter = collapsed.thoughts[0].gutter;
 
@@ -315,7 +315,7 @@ fn viewport_matrix_keeps_focus_visible_and_hit_geometry_current() {
     let mut fixture = Fixture::new();
     for index in 0..10 {
         fixture.paste(&format!("thought {index} 界"));
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
     let focused = fixture.app.state.focused_thought.expect("focus");
     for (width, height) in [(6, 3), (120, 4), (18, 30), (9, 5), (80, 24)] {
@@ -355,7 +355,7 @@ fn chrome_and_thought_rhythm_are_responsive_and_non_overlapping() {
     let mut fixture = Fixture::new();
     for content in ["first", "second"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
     let roomy = fixture.app.prepare_frame(Rect::new(0, 0, 60, 14));
     assert_eq!(roomy.thoughts[0].area.y, roomy.board.y + 1);
@@ -407,13 +407,13 @@ fn multiline_edit_at_the_end_reflows_and_keeps_the_cursor_visible() {
     let mut fixture = Fixture::new();
     for content in ["first", "second", "third"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualDown,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let active = fixture.app.active_thought_id().expect("new thought editor");
     let before = fixture.app.prepare_frame(Rect::new(0, 0, 34, 12));
     assert_eq!(

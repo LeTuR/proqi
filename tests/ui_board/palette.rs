@@ -5,10 +5,10 @@ use proqi::domain::TextPosition;
 fn command_palette_is_searchable_and_mouse_operable() {
     let mut fixture = Fixture::new();
     fixture.paste("existing");
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "quit".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let terminal = draw(&mut fixture, 40, 12);
     let rendered = text(terminal.backend().buffer());
@@ -29,11 +29,11 @@ fn command_palette_is_searchable_and_mouse_operable() {
 fn palette_quit_is_global_and_shallow_navigation_stays_visible() {
     let mut fixture = Fixture::new();
     fixture.paste("existing");
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     let _terminal = draw(&mut fixture, 30, 5);
     for _ in 0..10 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::VisualDown,
             extend_selection: false,
         }));
@@ -42,24 +42,24 @@ fn palette_quit_is_global_and_shallow_navigation_stays_visible() {
     let (_, visible, selected) = fixture.app.palette_view().expect("palette");
     assert!(selected < visible.len());
 
-    fixture.input(UiInput::Key(UiKey::Quit));
+    fixture.input(crate::key_input(UiKey::Quit));
     assert!(fixture.app.quit);
 }
 
 #[test]
 fn palette_query_accepts_normalized_paste_and_grapheme_cursor_edits() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     fixture.input(UiInput::Paste("qu\nit".to_owned()));
     let (query, _, _) = fixture.app.palette_view().expect("palette");
     assert_eq!(query, "qu it");
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Character('!')));
+    fixture.input(crate::key_input(UiKey::Character('!')));
     let (query, _, _) = fixture.app.palette_view().expect("palette");
     assert_eq!(query, "qu i!t");
 }
@@ -68,16 +68,16 @@ fn palette_query_accepts_normalized_paste_and_grapheme_cursor_edits() {
 fn palette_query_keeps_vim_letters_literal_and_delete_edits_the_query() {
     for delete in [UiKey::Delete, UiKey::ModifiedDelete] {
         let mut fixture = Fixture::new();
-        fixture.input(UiInput::Key(UiKey::Escape));
-        fixture.input(UiInput::Key(UiKey::Character(':')));
+        fixture.input(crate::key_input(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Character(':')));
         for character in "hjklx".chars() {
-            fixture.input(UiInput::Key(UiKey::Character(character)));
+            fixture.input(crate::key_input(UiKey::Character(character)));
         }
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeBack,
             extend_selection: false,
         }));
-        fixture.input(UiInput::Key(delete));
+        fixture.input(crate::key_input(delete));
 
         let (query, _, _) = fixture.app.palette_view().expect("palette");
         assert_eq!(query, "hjkl");
@@ -87,15 +87,15 @@ fn palette_query_keeps_vim_letters_literal_and_delete_edits_the_query() {
 #[test]
 fn palette_exposes_an_explicit_update_check() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "check for updates".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let (_, entries, selected) = fixture.app.palette_view().expect("palette");
     assert_eq!(entries, vec!["Check for updates"]);
     assert_eq!(selected, 0);
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     assert_eq!(
         effects,
         vec![Effect::Update(proqi::application::UpdateIntent::CheckNow)]
@@ -116,8 +116,8 @@ fn palette_fallbacks_execute_all_four_fast_editor_movements() {
     ] {
         let mut fixture = Fixture::new();
         navigation::durable_thought(&mut fixture, &content);
-        fixture.input(UiInput::Key(UiKey::Enter));
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Enter));
+        fixture.input(crate::key_input(UiKey::Move {
             movement: if matches!(query, "jump cursor down" | "thought end") {
                 CursorMovement::DocumentStart
             } else {
@@ -125,7 +125,7 @@ fn palette_fallbacks_execute_all_four_fast_editor_movements() {
             },
             extend_selection: false,
         }));
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
         let commands = fixture
             .app
             .prepare_frame(Rect::new(0, 0, 80, 8))
@@ -139,12 +139,12 @@ fn palette_fallbacks_execute_all_four_fast_editor_movements() {
             PointerKind::Down(PointerButton::Left),
         );
         for character in query.chars() {
-            fixture.input(UiInput::Key(UiKey::Character(character)));
+            fixture.input(crate::key_input(UiKey::Character(character)));
         }
         let (_, entries, selected) = fixture.app.palette_view().expect("palette");
         assert_eq!(entries.len(), 1, "query {query:?}: {entries:?}");
         assert_eq!(selected, 0);
-        fixture.input(UiInput::Key(UiKey::Enter));
+        fixture.input(crate::key_input(UiKey::Enter));
         assert_eq!(
             fixture.app.editor_snapshot().expect("editor").cursor,
             expected,
@@ -235,7 +235,7 @@ fn resize_invalidates_palette_activation_coordinates() {
 #[test]
 fn keyboard_input_invalidates_palette_activation_coordinates() {
     let (mut fixture, item) = activate_jump_down_palette();
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
@@ -297,10 +297,10 @@ fn activate_jump_down_palette() -> (Fixture, Rect) {
     navigation::durable_thought(&mut fixture, &content);
     navigation::durable_thought(&mut fixture, "short thought below");
     fixture.input(navigation::visual(CursorMovement::VisualUp, false));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     move_editor_cursor(&mut fixture, CursorMovement::DocumentStart);
     move_editor_cursor(&mut fixture, CursorMovement::VisualJumpDown);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let _board = draw(
         &mut fixture,
         PALETTE_VIEWPORT.width,
@@ -320,7 +320,7 @@ fn activate_jump_down_palette() -> (Fixture, Rect) {
     );
     fixture.pointer(commands.x, commands.y, PointerKind::Up(PointerButton::Left));
     for character in "jump cursor down".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let _palette = draw(
         &mut fixture,
@@ -394,7 +394,7 @@ fn thought_cell_outside_activation(
 }
 
 fn move_editor_cursor(fixture: &mut Fixture, movement: CursorMovement) {
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement,
         extend_selection: false,
     }));
@@ -404,12 +404,12 @@ fn move_editor_cursor(fixture: &mut Fixture, movement: CursorMovement) {
 fn palette_copies_typed_session_metadata_exactly_and_reports_results() {
     let mut fixture = Fixture::new();
     let session_id = fixture.app.state.board.session.id.to_string();
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "copy session id".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    let copy_id = fixture.effects(UiInput::Key(UiKey::Enter));
+    let copy_id = fixture.effects(crate::key_input(UiKey::Enter));
     let [
         Effect::WriteClipboard {
             request_id,
@@ -428,11 +428,11 @@ fn palette_copies_typed_session_metadata_exactly_and_reports_results() {
         .complete_clipboard_write(*request_id, Ok(()), &mut fixture.ids, &fixture.clock);
     assert_eq!(fixture.app.status_text(), Some("copied session ID"));
 
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "copy resume command".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    let copy_resume = fixture.effects(UiInput::Key(UiKey::Enter));
+    let copy_resume = fixture.effects(crate::key_input(UiKey::Enter));
     let [
         Effect::WriteClipboard {
             request_id,

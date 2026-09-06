@@ -57,10 +57,11 @@ use crate::{
 
 use super::{
     HitTarget, LayoutSnapshot, UiSettings,
-    input::{PointerButton, PointerInput, PointerKind, UiInput, UiKey},
+    input::{PointerButton, PointerInput, PointerKind, RoutedInput as UiInput, UiKey},
     layout::scroll::{BoardViewport, ScrollGeometry},
 };
 
+use input_dispatch::ActiveInputOwner as Owner;
 pub(in crate::ui) use invocation::InvocationChoiceView;
 use pending_types::{
     DeferredSubmissionIntent, PendingEditorClipboard, PendingSubmission, SubmissionMode,
@@ -137,6 +138,7 @@ pub struct BoardApp {
     rename: Option<String>,
     transfer: Option<transfer::TransferState>,
     settings: UiSettings,
+    shortcut_registry: crate::ui::ShortcutRegistry,
     selection: selection::BoardSelection,
     expanded_folds: BTreeSet<(ThoughtId, usize)>,
     pending_editor_clipboard: BTreeMap<RequestId, PendingEditorClipboard>,
@@ -194,6 +196,23 @@ impl BoardApp {
         invocation_cwd: PathBuf,
         editor_factory: impl EditorFactory + 'static,
     ) -> Self {
+        let shortcut_registry = crate::ui::ShortcutRegistry::from_validated(&settings.keybindings);
+        Self::with_resolved_shortcuts(
+            state,
+            settings,
+            invocation_cwd,
+            shortcut_registry,
+            editor_factory,
+        )
+    }
+
+    pub(crate) fn with_resolved_shortcuts(
+        state: AppState,
+        settings: UiSettings,
+        invocation_cwd: PathBuf,
+        shortcut_registry: crate::ui::ShortcutRegistry,
+        editor_factory: impl EditorFactory + 'static,
+    ) -> Self {
         let insertion_focus = InsertionFocus::Inactive;
         let editor_factory: Box<dyn EditorFactory> = Box::new(editor_factory);
         let editor = if matches!(state.mode, InteractionMode::Compose) {
@@ -234,6 +253,7 @@ impl BoardApp {
             rename: None,
             transfer: None,
             settings,
+            shortcut_registry,
             selection: selection::BoardSelection::default(),
             expanded_folds: BTreeSet::new(),
             pending_editor_clipboard: BTreeMap::new(),
@@ -270,37 +290,25 @@ impl BoardApp {
     /// Apply normalized input and return ordered external effects.
     pub fn handle(
         &mut self,
+        input: super::input::UiInput,
+        ids: &mut impl IdGenerator,
+        clock: &impl Clock,
+    ) -> Vec<Effect> {
+        self.handle_routed(UiInput::from(input), ids, clock)
+    }
+
+    fn handle_routed(
+        &mut self,
         input: UiInput,
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
     ) -> Vec<Effect> {
-        let input = self.resolve_edit_navigation(input);
-        self.reset_pointer_click_for_input(&input);
-        self.note_screenshot_interaction(&input);
-        self.reset_overlay_activation_for_input(&input, clock.now());
-        if matches!(input, UiInput::HostFocusLost) {
-            self.collapse_empty_compose();
-        }
-        if self.modal_owns_pointer() {
-            self.pointer_click = None;
-        }
-        if self.screenshot_save_in_flight() {
-            return self.handle_screenshot_commit_barrier(input, ids, clock);
-        }
+        let (owner, input, preserves_handoff) = match self.prepare_input(input, ids, clock) {
+            Ok(prepared) => prepared,
+            Err(effects) => return effects,
+        };
         if let Some(effects) = self.handle_quit_input(&input, ids, clock) {
             return effects;
-        }
-        if self.help {
-            return self.handle_help_input(&input);
-        }
-        if self.screenshot.takeover.is_some() {
-            return self.handle_screenshot_takeover_input(&input, ids, clock);
-        }
-        if self.update_prompt.is_some() {
-            return self.handle_update_prompt_input(&input);
-        }
-        if self.release_highlights.is_some() {
-            return self.handle_release_highlights_input(&input);
         }
         if self.update_barrier.is_some()
             && !matches!(
@@ -310,6 +318,56 @@ impl BoardApp {
         {
             return Vec::new();
         }
+        self.handle_routable_input(owner, input, preserves_handoff, ids, clock)
+    }
+
+    fn prepare_input(
+        &mut self,
+        input: UiInput,
+        ids: &mut impl IdGenerator,
+        clock: &impl Clock,
+    ) -> Result<(input_dispatch::ActiveInputOwner, UiInput, bool), Vec<Effect>> {
+        if self.screenshot_save_in_flight() && matches!(input, UiInput::KeyStroke(_)) {
+            self.note_screenshot_interaction(&input);
+            return Err(self.handle_screenshot_commit_barrier(input, ids, clock));
+        }
+        if self.update_barrier.is_some() && matches!(input, UiInput::KeyStroke(_)) {
+            return Err(Vec::new());
+        }
+        let (contexts, owner) = self.active_input_route();
+        let preserves_handoff = match &input {
+            UiInput::KeyStroke(stroke) => self
+                .shortcut_registry
+                .preserves_editor_handoff(&contexts, *stroke),
+            _ => false,
+        };
+        let Some(input) = self.resolve_shortcut_input(&contexts, input) else {
+            return Err(Vec::new());
+        };
+        let input = self.resolve_edit_navigation(input, owner);
+        self.reset_pointer_click_for_input(&input);
+        self.note_screenshot_interaction(&input);
+        self.reset_overlay_activation_for_input(&input, clock.now());
+        if matches!(input, UiInput::HostFocusLost) {
+            self.collapse_empty_compose();
+        }
+        if owner.owns_modal_surface() {
+            self.pointer_click = None;
+        }
+        if self.screenshot_save_in_flight() {
+            return Err(self.handle_screenshot_commit_barrier(input, ids, clock));
+        }
+        Ok((owner, input, preserves_handoff))
+    }
+
+    fn handle_routable_input(
+        &mut self,
+        owner: input_dispatch::ActiveInputOwner,
+        input: UiInput,
+        preserves_handoff: bool,
+        ids: &mut impl IdGenerator,
+        clock: &impl Clock,
+    ) -> Vec<Effect> {
         if !matches!(
             input,
             UiInput::Resize { .. } | UiInput::HostFocusGained | UiInput::HostFocusLost
@@ -327,47 +385,31 @@ impl BoardApp {
             self.edit_boundary = None;
         }
         self.reset_insertion_confirmation(&input);
-        if self.palette.is_some() {
-            return self.handle_palette_input(&input, ids, clock);
+        match owner {
+            Owner::Help => self.handle_help_input(&input),
+            Owner::Screenshot => self.handle_screenshot_takeover_input(&input, ids, clock),
+            Owner::Update => self.handle_update_prompt_input(&input),
+            Owner::ReleaseHighlights => self.handle_release_highlights_input(&input),
+            Owner::Commands => self.handle_palette_input(&input, ids, clock),
+            Owner::GlobalDeliveryQuery | Owner::GlobalDeliveryDisposition => {
+                self.handle_global_delivery_input(&input, ids, clock)
+            }
+            Owner::Invocation | Owner::InvocationQuery => {
+                self.handle_invocation_input(&input, ids, clock)
+            }
+            Owner::Transfer => self.handle_transfer_input(&input, ids, clock),
+            Owner::Rename => self.handle_session_rename(&input),
+            Owner::Search => self.handle_search_input(&input, ids, clock),
+            Owner::Direction => self
+                .handle_submission_input(&input, ids, clock)
+                .unwrap_or_else(|| self.handle_primary_input(input, preserves_handoff, ids, clock)),
+            Owner::Recovery => self
+                .handle_failed_recovery_input(&input, ids, clock)
+                .unwrap_or_else(|| self.handle_primary_input(input, preserves_handoff, ids, clock)),
+            Owner::Board | Owner::Compose | Owner::Edit | Owner::InsertionBoundary => {
+                self.handle_primary_input(input, preserves_handoff, ids, clock)
+            }
         }
-        if self.global_delivery.is_some() {
-            return self.handle_global_delivery_input(&input, ids, clock);
-        }
-        if self.invocation_popup.is_some() {
-            return self.handle_invocation_input(&input, ids, clock);
-        }
-        if self.transfer.is_some() {
-            return self.handle_transfer_input(&input, ids, clock);
-        }
-        if self.rename.is_some() {
-            return self.handle_session_rename(&input);
-        }
-        if self.search.is_some() {
-            return self.handle_search_input(&input, ids, clock);
-        }
-        if self.submission_mode.is_some()
-            && let Some(effects) = self.handle_submission_input(&input, ids, clock)
-        {
-            return effects;
-        }
-        if let Some(effects) = self.handle_failed_recovery_input(&input, ids, clock) {
-            return effects;
-        }
-        self.handle_primary_input(input, ids, clock)
-    }
-
-    fn modal_owns_pointer(&self) -> bool {
-        self.help
-            || self.screenshot.takeover.is_some()
-            || self.update_prompt.is_some()
-            || self.release_highlights.is_some()
-            || self.palette.is_some()
-            || self.global_delivery.is_some()
-            || self.invocation_popup.is_some()
-            || self.transfer.is_some()
-            || self.rename.is_some()
-            || self.search.is_some()
-            || self.submission_mode.is_some()
     }
 
     pub(crate) fn accept_protected_overlay_input(&self, sequence: u64) -> bool {

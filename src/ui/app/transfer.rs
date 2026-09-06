@@ -312,6 +312,7 @@ mod paging_tests;
 
 #[cfg(test)]
 mod tests {
+    use crate::ui::input::RoutedInput as UiInput;
     use crate::{
         adapters::{
             editor::RopeEditorFactory,
@@ -327,7 +328,7 @@ mod tests {
             environment::IdGenerator,
             store::{CommitReceipt, DurableIdentity, SessionHit},
         },
-        ui::{BoardApp, UiInput, UiKey},
+        ui::{BoardApp, UiKey},
     };
 
     #[test]

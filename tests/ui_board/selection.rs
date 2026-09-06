@@ -4,7 +4,7 @@ use super::*;
 fn keyboard_selection_is_logical_and_visible() {
     let mut fixture = Fixture::new();
     fixture.paste("A界B");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: proqi::ports::editor::CursorMovement::GraphemeBack,
         extend_selection: true,
     }));
@@ -35,18 +35,18 @@ fn selected_thoughts_copy_and_delete_in_board_order_as_one_undo_step() {
     let mut fixture = Fixture::new();
     for content in ["first", "second", "third"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
 
-    let copy = fixture.effects(UiInput::Key(UiKey::Copy));
+    let copy = fixture.effects(crate::key_input(UiKey::Copy));
     assert!(matches!(
         copy.as_slice(),
         [Effect::WriteClipboard { content, .. }] if content == "second\n\nthird"
     ));
-    let delete = fixture.effects(UiInput::Key(UiKey::Character('d')));
+    let delete = fixture.effects(crate::key_input(UiKey::Character('d')));
     assert!(matches!(
         delete.as_slice(),
         [Effect::CommitBoardOperation(operation)]
@@ -55,7 +55,7 @@ fn selected_thoughts_copy_and_delete_in_board_order_as_one_undo_step() {
     ));
     assert_eq!(fixture.app.state.board.live_thoughts()[0].content, "first");
 
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Undo));
     let restored = fixture.app.state.board.live_thoughts();
     assert_eq!(restored.len(), 3);
     assert_eq!(restored[1].content, "second");
@@ -67,14 +67,14 @@ fn selected_fully_visible_thoughts_collapse_as_one_undo_step_but_cannot_reorder(
     let mut fixture = Fixture::new();
     for content in ["first", "second"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     let _layout = fixture.app.prepare_frame(Rect::new(0, 0, 50, 12));
 
-    let collapse = fixture.effects(UiInput::Key(UiKey::Character('c')));
+    let collapse = fixture.effects(crate::key_input(UiKey::Character('c')));
     assert!(matches!(
         collapse.as_slice(),
         [Effect::CommitBoardOperation(_)]
@@ -90,11 +90,11 @@ fn selected_fully_visible_thoughts_collapse_as_one_undo_step_but_cannot_reorder(
     );
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::PrimaryCharacter('J')))
+            .effects(crate::key_input(UiKey::PrimaryCharacter('J')))
             .is_empty()
     );
 
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert!(
         fixture
             .app
@@ -119,7 +119,7 @@ fn selected_contents(fixture: &Fixture) -> Vec<&str> {
 }
 
 fn range_move(fixture: &mut Fixture, movement: CursorMovement) {
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement,
         extend_selection: true,
     }));
@@ -130,10 +130,10 @@ fn shifted_arrows_shrink_and_reverse_around_a_stable_anchor() {
     let mut fixture = Fixture::new();
     for content in ["first", "second", "third", "fourth", "fifth"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
 
     range_move(&mut fixture, CursorMovement::VisualUp);
     assert_eq!(selected_contents(&fixture), ["second", "third"]);
@@ -164,20 +164,20 @@ fn starting_a_range_replaces_arbitrary_selection_and_space_returns_to_toggle_sel
     let mut fixture = Fixture::new();
     for content in ["first", "second", "third", "fourth"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     assert_eq!(selected_contents(&fixture), ["second", "fourth"]);
 
     range_move(&mut fixture, CursorMovement::VisualDown);
     assert_eq!(selected_contents(&fixture), ["second", "third"]);
 
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     assert_eq!(selected_contents(&fixture), ["second"]);
-    fixture.input(UiInput::Key(UiKey::Character('j')));
+    fixture.input(crate::key_input(UiKey::Character('j')));
     assert_eq!(selected_contents(&fixture), ["second"]);
 }
 
@@ -186,22 +186,22 @@ fn range_latch_extends_with_repeated_arrows_and_jk_without_wrapping_or_insertion
     let mut fixture = Fixture::new();
     for content in ["first", "second", "third"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('v')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('v')));
 
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
     assert_eq!(selected_contents(&fixture), ["first", "second"]);
     assert!(!fixture.app.insertion_focused());
 
-    fixture.input(UiInput::Key(UiKey::Character('j')));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Character('j')));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualDown,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualDown,
         extend_selection: false,
     }));
@@ -214,18 +214,18 @@ fn escape_and_edit_entry_clear_range_and_latch_consistently() {
     let mut fixture = Fixture::new();
     for content in ["first", "second", "third"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character('v')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('v')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert!(selected_contents(&fixture).is_empty());
 
-    fixture.input(UiInput::Key(UiKey::Character('j')));
+    fixture.input(crate::key_input(UiKey::Character('j')));
     assert!(selected_contents(&fixture).is_empty());
-    fixture.input(UiInput::Key(UiKey::Character('v')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Character('v')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert!(selected_contents(&fixture).is_empty());
     assert!(matches!(
         fixture.app.interaction_mode(),
@@ -238,10 +238,10 @@ fn range_survives_reflow_and_shift_click_uses_current_hit_geometry_with_unicode(
     let mut fixture = Fixture::new();
     for content in ["alpha", "Grüße 👩‍💻", "第二行", "omega"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
     let _wide = fixture.app.prepare_frame(Rect::new(0, 0, 60, 14));
     let narrow = fixture.app.prepare_frame(Rect::new(0, 0, 24, 14));
     let target = narrow.thoughts[3].text_area;
@@ -257,7 +257,7 @@ fn range_survives_reflow_and_shift_click_uses_current_hit_geometry_with_unicode(
         fixture.app.interaction_mode(),
         proqi::application::InteractionMode::Board
     ));
-    let copy = fixture.effects(UiInput::Key(UiKey::Copy));
+    let copy = fixture.effects(crate::key_input(UiKey::Copy));
     assert!(matches!(
         copy.as_slice(),
         [Effect::WriteClipboard { content, .. }]
@@ -270,17 +270,17 @@ fn latch_click_is_a_modifier_free_mouse_fallback_and_modal_entry_releases_the_la
     let mut fixture = Fixture::new();
     for content in ["first", "second", "third"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character('v')));
+    fixture.input(crate::key_input(UiKey::Character('v')));
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 50, 12));
     let target = layout.thoughts[0].text_area;
     fixture.pointer(target.x, target.y, PointerKind::Down(PointerButton::Left));
     assert_eq!(selected_contents(&fixture), ["first", "second", "third"]);
 
-    fixture.input(UiInput::Key(UiKey::Character('?')));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character('j')));
+    fixture.input(crate::key_input(UiKey::Character('?')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('j')));
     assert!(selected_contents(&fixture).is_empty());
 }
 
@@ -289,17 +289,17 @@ fn search_focus_transition_clears_an_anchored_range() {
     let mut fixture = Fixture::new();
     for content in ["needle first", "second", "third"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character('v')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('v')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
     assert_eq!(selected_contents(&fixture), ["second", "third"]);
 
-    fixture.input(UiInput::Key(UiKey::Character('/')));
+    fixture.input(crate::key_input(UiKey::Character('/')));
     for character in "needle".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
 
     assert!(selected_contents(&fixture).is_empty());
     let focused = fixture.app.state.focused_thought.expect("search focus");
@@ -322,15 +322,15 @@ fn range_latch_uses_the_remappable_board_binding() {
     let mut fixture = Fixture::with_settings(settings);
     for content in ["first", "second"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
 
-    fixture.input(UiInput::Key(UiKey::Character('v')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('v')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
     assert!(selected_contents(&fixture).is_empty());
-    fixture.input(UiInput::Key(UiKey::Character('j')));
-    fixture.input(UiInput::Key(UiKey::Character('b')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('j')));
+    fixture.input(crate::key_input(UiKey::Character('b')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
     assert_eq!(selected_contents(&fixture), ["first", "second"]);
 }
 
@@ -339,11 +339,11 @@ fn escape_clears_the_complete_board_selection() {
     let mut fixture = Fixture::new();
     for content in ["first", "second"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
-        fixture.input(UiInput::Key(UiKey::Character(' ')));
+        fixture.input(crate::key_input(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Character(' ')));
     }
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 
     for thought in fixture.app.state.board.live_thoughts() {
         assert!(!fixture.app.thought_selected(thought.id));
@@ -354,14 +354,14 @@ fn escape_clears_the_complete_board_selection() {
 fn entering_edit_mode_clears_selection_and_hover_cannot_replace_it() {
     let mut fixture = Fixture::new();
     fixture.paste("selected");
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 50, 12));
     let area = layout.thoughts[0].text_area;
     fixture.pointer(area.x, area.y, PointerKind::Move);
     assert!(fixture.app.hovered().is_none());
 
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
 
     assert!(matches!(
         fixture.app.interaction_mode(),
@@ -375,13 +375,13 @@ fn duplicate_copies_selection_below_its_range_as_one_undoable_operation() {
     let mut fixture = Fixture::new();
     for content in ["first", "second", "third"] {
         fixture.paste(content);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
     }
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Duplicate));
+    let effects = fixture.effects(crate::key_input(UiKey::Duplicate));
 
     assert!(matches!(
         effects.as_slice(),
@@ -399,7 +399,7 @@ fn duplicate_copies_selection_below_its_range_as_one_undoable_operation() {
     assert!(fixture.app.thought_selected(thoughts[3].id));
     assert!(fixture.app.thought_selected(thoughts[4].id));
 
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 3);
 }
 
@@ -413,7 +413,7 @@ fn duplicate_preserves_existing_shortcut_metadata_without_reauthoring_it() {
     .expect("structurally valid durable fixture");
     let mut fixture = Fixture::with_annotated_thought("Press Enter", vec![annotation.clone()]);
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Duplicate));
+    let effects = fixture.effects(crate::key_input(UiKey::Duplicate));
 
     assert!(matches!(
         effects.as_slice(),

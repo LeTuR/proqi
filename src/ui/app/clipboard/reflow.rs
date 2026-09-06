@@ -7,14 +7,14 @@ use crate::{
 };
 
 use super::super::{
-    BoardApp, palette::command::Command, palette_handoff::EditorSelectionHandoff,
-    pending_types::ClipboardPasteMode,
+    BoardApp, palette_handoff::EditorSelectionHandoff, pending_types::ClipboardPasteMode,
 };
+use crate::ui::shortcut_registry::PalettePasteCommand as PasteCommand;
 
 impl BoardApp {
     pub(in crate::ui::app) fn execute_palette_paste(
         &mut self,
-        command: Command,
+        command: PasteCommand,
         handoff: Option<EditorSelectionHandoff>,
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
@@ -30,7 +30,7 @@ impl BoardApp {
             }
             self.restore_palette_selection_handoff(Some(handoff));
         }
-        effects.extend(if command == Command::PasteReflow {
+        effects.extend(if command == PasteCommand::Reflow {
             self.read_clipboard_reflow(ids)
         } else {
             self.read_clipboard(ids)

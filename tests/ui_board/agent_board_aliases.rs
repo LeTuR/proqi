@@ -27,7 +27,7 @@ fn board_help_lists_both_spellings_while_the_footer_stays_compact() {
     assert!(footer.contains("S Submit & keep"));
     assert!(!footer.contains(&format!("{primary}Enter/s")));
 
-    fixture.input(UiInput::Key(UiKey::Character('?')));
+    fixture.input(crate::key_input(UiKey::Character('?')));
     let help = text(draw(&mut fixture, 120, 32).backend().buffer());
     assert!(help.contains(&format!("{primary}Enter/s")));
     assert!(help.contains(&format!("{primary}Shift+Enter/S")));
@@ -43,7 +43,7 @@ fn primary_enter_submits_the_focused_thought_and_removes_only_after_acceptance()
         .app
         .complete_agent_discovery(Ok(vec![target.clone()]));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Submit));
+    let effects = fixture.effects(crate::key_input(UiKey::Submit));
     let request = super::agent::start_submission(&mut fixture, &effects);
     assert_eq!(request.content, "exact prompt\nGrüße 第二行");
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
@@ -63,16 +63,16 @@ fn primary_enter_submits_the_focused_thought_and_removes_only_after_acceptance()
     ));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(
         fixture.app.state.board.live_thoughts()[0].content,
         "exact prompt\nGrüße 第二行"
     );
-    fixture.input(UiInput::Key(UiKey::Redo));
+    fixture.input(crate::key_input(UiKey::Redo));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(
         fixture.app.state.board.live_thoughts()[0].content,
         "exact prompt\nGrüße 第二行"
@@ -84,15 +84,15 @@ fn primary_shift_enter_keeps_one_contiguous_selection_after_one_ordered_delivery
     let mut fixture = Fixture::new();
     super::agent::prepare_thought(&mut fixture);
     fixture.paste("second thought with 👩‍💻 and e\u{301}");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.acknowledge_all_persistence();
-    fixture.input(UiInput::Key(UiKey::Character('K')));
+    fixture.input(crate::key_input(UiKey::Character('K')));
     let target = super::agent::target(Direction::Left, "w1:p2");
     fixture
         .app
         .complete_agent_discovery(Ok(vec![target.clone()]));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::SubmitKeep));
+    let effects = fixture.effects(crate::key_input(UiKey::SubmitKeep));
     let request = super::agent::start_submission(&mut fixture, &effects);
     assert_eq!(
         request.content,
@@ -118,13 +118,13 @@ fn primary_shift_enter_keeps_one_contiguous_selection_after_one_ordered_delivery
 fn insertion_row_alias_matches_the_board_command_and_failure_keeps_the_source() {
     let mut fixture = Fixture::new();
     super::agent::prepare_thought(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Character('j')));
+    fixture.input(crate::key_input(UiKey::Character('j')));
     assert!(fixture.app.insertion_focused());
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Right, "w1:p2")]));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Submit));
+    let effects = fixture.effects(crate::key_input(UiKey::Submit));
     let request = super::agent::start_submission(&mut fixture, &effects);
     assert_eq!(request.content, "exact prompt\nGrüße 第二行");
     assert!(
@@ -139,11 +139,11 @@ fn insertion_row_alias_matches_the_board_command_and_failure_keeps_the_source() 
 fn empty_board_and_duplicate_alias_input_do_not_create_extra_attempts() {
     for key in [UiKey::Submit, UiKey::SubmitKeep] {
         let mut empty = Fixture::new();
-        empty.input(UiInput::Key(UiKey::Escape));
+        empty.input(crate::key_input(UiKey::Escape));
         empty
             .app
             .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Right, "w1:p2")]));
-        assert!(empty.effects(UiInput::Key(key)).is_empty());
+        assert!(empty.effects(crate::key_input(key)).is_empty());
         assert!(empty.app.state.board.live_thoughts().is_empty());
     }
 
@@ -152,9 +152,13 @@ fn empty_board_and_duplicate_alias_input_do_not_create_extra_attempts() {
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Right, "w1:p2")]));
-    let first = fixture.effects(UiInput::Key(UiKey::Submit));
+    let first = fixture.effects(crate::key_input(UiKey::Submit));
     assert!(matches!(first.as_slice(), [Effect::PrepareSubmission(_)]));
-    assert!(fixture.effects(UiInput::Key(UiKey::SubmitKeep)).is_empty());
+    assert!(
+        fixture
+            .effects(crate::key_input(UiKey::SubmitKeep))
+            .is_empty()
+    );
     assert_eq!(
         fixture.app.status_text(),
         Some("this thought already has a submission in progress")
@@ -171,7 +175,11 @@ fn primary_keep_alias_enters_the_existing_direction_and_mouse_path() {
         .app
         .complete_agent_discovery(Ok(vec![up.clone(), right]));
 
-    assert!(fixture.effects(UiInput::Key(UiKey::SubmitKeep)).is_empty());
+    assert!(
+        fixture
+            .effects(crate::key_input(UiKey::SubmitKeep))
+            .is_empty()
+    );
     assert_eq!(
         fixture.app.submission_mode(),
         Some(SubmissionDisposition::Keep)

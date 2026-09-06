@@ -17,11 +17,19 @@ impl BoardApp {
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
     ) -> Option<Vec<Effect>> {
-        if matches!(input, UiInput::Key(UiKey::Quit)) && self.screenshot_retry_ready() {
-            return Some(self.handle_ready_capture_quit(ids, clock));
-        }
-        if !matches!(input, UiInput::Key(UiKey::Quit)) && !self.is_failed_recovery_quit(input) {
+        if !matches!(input, UiInput::Key(UiKey::Quit)) {
             return None;
+        }
+        Some(self.request_global_quit(ids, clock))
+    }
+
+    fn request_global_quit(
+        &mut self,
+        ids: &mut impl IdGenerator,
+        clock: &impl Clock,
+    ) -> Vec<Effect> {
+        if self.screenshot_retry_ready() {
+            return self.handle_ready_capture_quit(ids, clock);
         }
         let flush = if matches!(self.state.durability, DurabilityState::Failed { .. }) {
             EditFlush::Complete(Vec::new())
@@ -30,20 +38,22 @@ impl BoardApp {
         };
         let effects = match flush {
             EditFlush::Complete(effects) => effects,
-            EditFlush::Blocked(effects) => return Some(effects),
+            EditFlush::Blocked(effects) => return effects,
         };
         self.request_quit();
-        Some(effects)
+        effects
     }
 
-    pub(super) fn is_failed_recovery_quit(&self, input: &UiInput) -> bool {
-        matches!(self.state.durability, DurabilityState::Failed { .. })
-            && (matches!(
-                input,
-                UiInput::Key(UiKey::Character(character))
-                    if *character == self.settings.keybindings.quit
-            ) || matches!(input, UiInput::Key(UiKey::UnmodifiedSpace))
-                && self.settings.keybindings.quit == ' ')
+    pub(crate) fn handle_termination_request(
+        &mut self,
+        ids: &mut impl IdGenerator,
+        clock: &impl Clock,
+    ) -> Vec<Effect> {
+        let mut effects = self.request_global_quit(ids, clock);
+        if !self.quit && self.screenshot_retry_ready() {
+            effects.extend(self.request_global_quit(ids, clock));
+        }
+        effects
     }
 
     pub(super) fn handle_failed_recovery_input(
@@ -56,15 +66,18 @@ impl BoardApp {
             return None;
         }
         match input {
-            UiInput::Key(UiKey::Character(crate::ui::settings::RECOVERY_RETRY_KEY)) => {
+            UiInput::Key(UiKey::Shortcut(crate::ui::ShortcutActionId::RetryStorage)) => {
                 Some(self.retry_persistence())
             }
-            UiInput::Key(UiKey::Character(crate::ui::settings::RECOVERY_EXPORT_KEY)) => {
+            UiInput::Key(UiKey::Shortcut(crate::ui::ShortcutActionId::ExportRecovery)) => {
                 Some(self.export_recovery(ids, clock))
             }
             UiInput::Pointer(pointer) => Some(self.handle_recovery_pointer(*pointer, ids, clock)),
             UiInput::Resize { .. } | UiInput::HostFocusGained | UiInput::HostFocusLost => None,
-            UiInput::Key(_) | UiInput::Paste(_) | UiInput::PasteAnnotated(_) => Some(Vec::new()),
+            UiInput::KeyStroke(_)
+            | UiInput::Key(_)
+            | UiInput::Paste(_)
+            | UiInput::PasteAnnotated(_) => Some(Vec::new()),
         }
     }
 

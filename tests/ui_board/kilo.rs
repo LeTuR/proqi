@@ -47,23 +47,23 @@ fn kilo_in_either_mixed_row_position_never_bypasses_direction_choice() {
         assert!(rendered.contains(&format!("→ {}", title(right_kind))));
         assert!(
             fixture
-                .effects(UiInput::Key(UiKey::Character('s')))
+                .effects(crate::key_input(UiKey::Character('s')))
                 .is_empty()
         );
         assert_eq!(
             fixture.app.submission_mode(),
             Some(SubmissionDisposition::RemoveAfterSuccess)
         );
-        assert!(fixture.effects(UiInput::Key(UiKey::Escape)).is_empty());
+        assert!(fixture.effects(crate::key_input(UiKey::Escape)).is_empty());
         assert_eq!(fixture.app.submission_mode(), None);
         assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
         assert!(
             fixture
-                .effects(UiInput::Key(UiKey::Character('s')))
+                .effects(crate::key_input(UiKey::Character('s')))
                 .is_empty()
         );
 
-        let effects = fixture.effects(UiInput::Key(UiKey::Move {
+        let effects = fixture.effects(crate::key_input(UiKey::Move {
             movement,
             extend_selection: false,
         }));
@@ -83,7 +83,7 @@ fn kilo_receipt_with_session_upgrades_the_target_for_established_follow_up() {
         .app
         .complete_agent_discovery(Ok(vec![provisional.clone()]));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('S')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('S')));
     let request = super::agent::start_submission(&mut fixture, &effects);
     let established = provisional.with_agent_session(
         AgentSessionBinding::established("session-kilo-established").expect("fixture Kilo session"),
@@ -102,7 +102,7 @@ fn kilo_receipt_with_session_upgrades_the_target_for_established_follow_up() {
         [Effect::StoreIntegrationContext { .. }]
     ));
 
-    let follow_up = fixture.effects(UiInput::Key(UiKey::Character('S')));
+    let follow_up = fixture.effects(crate::key_input(UiKey::Character('S')));
     let follow_up_request = super::agent::start_submission(&mut fixture, &follow_up);
     assert_eq!(
         follow_up_request.target.agent_session().as_id(),
@@ -120,7 +120,7 @@ fn provisional_kilo_receipt_removes_once_then_rediscovers_without_resending() {
         .app
         .complete_agent_discovery(Ok(vec![provisional.clone()]));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('s')));
     let request = super::agent::start_submission(&mut fixture, &effects);
     let completion = super::agent::finish_submission(
         &mut fixture,
@@ -145,8 +145,8 @@ fn provisional_kilo_receipt_removes_once_then_rediscovers_without_resending() {
             .any(|effect| matches!(effect, Effect::SubmitAgent(_)))
     );
     assert!(fixture.app.state.board.live_thoughts().is_empty());
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
 }
 

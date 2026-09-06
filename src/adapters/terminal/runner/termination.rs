@@ -6,7 +6,7 @@ use crate::{
         terminal::{TerminalError, supervisor::ShutdownCoordinator},
     },
     application::DurabilityState,
-    ui::{BoardApp, UiInput, UiKey},
+    ui::BoardApp,
 };
 
 use super::{PendingWork, WorkerLanes, durability::enqueue_effects};
@@ -60,10 +60,7 @@ pub(super) fn admit_requested(
     if let Some(control) = lanes.control {
         control.request_stop();
     }
-    let mut effects = app.handle(UiInput::Key(UiKey::Quit), ids, &clock);
-    if !app.quit && app.screenshot_retry_ready() {
-        effects.extend(app.handle(UiInput::Key(UiKey::Quit), ids, &clock));
-    }
+    let effects = app.handle_termination_request(ids, &clock);
     enqueue_effects(app, lanes, effects, pending)
 }
 

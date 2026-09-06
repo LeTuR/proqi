@@ -3,10 +3,10 @@
 use crate::{
     application::{Effect, ReleaseHighlightPresentation, UpdateIntent},
     domain::{ReleaseHighlightAnnouncement, ReleaseHighlightGroup},
-    ui::{HitTarget, ListNavigation, PointerButton, PointerKind, UiInput, UiKey},
+    ui::{HitTarget, ListNavigation, PointerButton, PointerKind},
 };
 
-use super::BoardApp;
+use super::{BoardApp, UiInput, UiKey};
 
 pub(super) struct ReleaseHighlightsOverlay {
     groups: Vec<ReleaseHighlightGroup>,
@@ -153,6 +153,7 @@ impl BoardApp {
             }
             UiInput::HostFocusGained
             | UiInput::HostFocusLost
+            | UiInput::KeyStroke(_)
             | UiInput::Key(_)
             | UiInput::Paste(_)
             | UiInput::PasteAnnotated(_) => {}

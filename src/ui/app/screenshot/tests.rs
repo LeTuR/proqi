@@ -6,7 +6,9 @@ use crate::{
         environment::IdGenerator as _, runtime::CaptureOwnerInfo,
         screenshot::ScreenshotActivityPolicy,
     },
-    ui::{BoardApp, Theme, ThemePreference, render},
+    ui::{
+        BoardApp, KeyStroke, LogicalKey, LogicalModifiers, Theme, ThemePreference, UiInput, render,
+    },
 };
 use ratatui_core::{backend::TestBackend, terminal::Terminal};
 use std::time::Duration;
@@ -49,19 +51,19 @@ fn takeover_overlay_has_a_complete_shallow_snapshot() {
 
 #[test]
 fn takeover_list_uses_identical_arrow_and_jk_navigation() {
+    let primary = if cfg!(target_os = "macos") {
+        LogicalModifiers::SUPER
+    } else {
+        LogicalModifiers::CONTROL
+    };
     for (arrow, vim) in [
         (
-            crate::ui::UiKey::Move {
-                movement: crate::ports::editor::CursorMovement::VisualDown,
-                extend_selection: true,
-            },
-            crate::ui::UiKey::PrimaryCharacter('J'),
+            KeyStroke::press(LogicalKey::Down).with_modifiers(LogicalModifiers::SHIFT),
+            KeyStroke::press(LogicalKey::Character('J')).with_modifiers(primary),
         ),
         (
-            crate::ui::UiKey::PrimaryShiftMove {
-                movement: crate::ports::editor::CursorMovement::DocumentStart,
-            },
-            crate::ui::UiKey::Character('k'),
+            KeyStroke::press(LogicalKey::Up).with_modifiers(primary.union(LogicalModifiers::SHIFT)),
+            KeyStroke::press(LogicalKey::Character('k')),
         ),
     ] {
         let (mut arrow_app, mut arrow_ids) = app_with_thought();
@@ -80,8 +82,8 @@ fn takeover_list_uses_identical_arrow_and_jk_navigation() {
         arrow_app.screenshot_conflict(owner.clone());
         vim_app.screenshot_conflict(owner);
         let clock = crate::adapters::memory::FakeClock::new(Timestamp::from_millis(2));
-        arrow_app.handle(crate::ui::UiInput::Key(arrow), &mut arrow_ids, &clock);
-        vim_app.handle(crate::ui::UiInput::Key(vim), &mut vim_ids, &clock);
+        arrow_app.handle(UiInput::KeyStroke(arrow), &mut arrow_ids, &clock);
+        vim_app.handle(UiInput::KeyStroke(vim), &mut vim_ids, &clock);
         assert_eq!(
             arrow_app.screenshot_takeover_view(),
             vim_app.screenshot_takeover_view()

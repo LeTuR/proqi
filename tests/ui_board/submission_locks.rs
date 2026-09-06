@@ -9,14 +9,14 @@ fn every_board_mutation_stays_locked_until_submission_is_journaled() {
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Left, "w1:p2")]));
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('s')));
     let request = super::agent::start_submission(&mut fixture, &effects);
 
     for input in [
-        UiInput::Key(UiKey::Character('d')),
-        UiInput::Key(UiKey::Delete),
-        UiInput::Key(UiKey::PrimaryCharacter('J')),
-        UiInput::Key(UiKey::Undo),
+        crate::key_input(UiKey::Character('d')),
+        crate::key_input(UiKey::Delete),
+        crate::key_input(UiKey::PrimaryCharacter('J')),
+        crate::key_input(UiKey::Undo),
     ] {
         assert!(fixture.effects(input).is_empty());
         assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
@@ -47,7 +47,7 @@ fn every_board_mutation_stays_locked_until_submission_is_journaled() {
     ));
     assert!(matches!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('d')))
+            .effects(crate::key_input(UiKey::Character('d')))
             .as_slice(),
         [Effect::CommitBoardOperation(_)]
     ));
@@ -60,7 +60,7 @@ fn failed_submission_preparation_releases_the_application_lock() {
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Left, "w1:p2")]));
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('s')));
     let [Effect::PrepareSubmission(attempt)] = effects.as_slice() else {
         panic!("expected one submission preparation, got {effects:?}");
     };
@@ -75,7 +75,7 @@ fn failed_submission_preparation_releases_the_application_lock() {
     );
     assert!(matches!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('d')))
+            .effects(crate::key_input(UiKey::Character('d')))
             .as_slice(),
         [Effect::CommitBoardOperation(_)]
     ));

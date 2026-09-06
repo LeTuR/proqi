@@ -28,7 +28,7 @@ fn deletion_count(mutation: &proqi::domain::BoardMutation) -> usize {
 fn configured_character_and_physical_delete_share_one_board_operation() {
     for key in [UiKey::Character('d'), UiKey::Delete] {
         let mut fixture = deletion_fixture(&["only thought"]);
-        let effects = fixture.effects(UiInput::Key(key));
+        let effects = fixture.effects(crate::key_input(key));
         let [Effect::CommitBoardOperation(operation)] = effects.as_slice() else {
             panic!("delete spelling must request exactly one board operation: {effects:?}");
         };
@@ -36,8 +36,8 @@ fn configured_character_and_physical_delete_share_one_board_operation() {
         assert_eq!(deletion_count(&operation.forward), 1);
         assert!(fixture.app.state.board.live_thoughts().is_empty());
 
-        fixture.input(UiInput::Key(UiKey::Escape));
-        fixture.input(UiInput::Key(UiKey::Undo));
+        fixture.input(crate::key_input(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Undo));
         assert_eq!(
             fixture.app.state.board.live_thoughts()[0].content,
             "only thought"
@@ -49,18 +49,18 @@ fn configured_character_and_physical_delete_share_one_board_operation() {
 fn configured_character_and_physical_delete_share_bulk_selection_and_undo() {
     for key in [UiKey::Character('d'), UiKey::Delete] {
         let mut fixture = deletion_fixture(&["first", "second", "third"]);
-        fixture.input(UiInput::Key(UiKey::Character(' ')));
-        fixture.input(UiInput::Key(UiKey::Character('k')));
-        fixture.input(UiInput::Key(UiKey::Character(' ')));
+        fixture.input(crate::key_input(UiKey::Character(' ')));
+        fixture.input(crate::key_input(UiKey::Character('k')));
+        fixture.input(crate::key_input(UiKey::Character(' ')));
 
-        let effects = fixture.effects(UiInput::Key(key));
+        let effects = fixture.effects(crate::key_input(key));
         let [Effect::CommitBoardOperation(operation)] = effects.as_slice() else {
             panic!("bulk delete spelling must request one operation: {effects:?}");
         };
         assert_eq!(deletion_count(&operation.forward), 2);
         assert_eq!(fixture.app.state.board.live_thoughts()[0].content, "first");
 
-        fixture.input(UiInput::Key(UiKey::Undo));
+        fixture.input(crate::key_input(UiKey::Undo));
         let contents = fixture
             .app
             .state
@@ -82,19 +82,19 @@ fn physical_delete_is_invariant_while_the_character_binding_remains_remappable()
 
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('d')))
+            .effects(crate::key_input(UiKey::Character('d')))
             .is_empty()
     );
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
     assert!(matches!(
-        fixture.effects(UiInput::Key(UiKey::Delete)).as_slice(),
+        fixture.effects(crate::key_input(UiKey::Delete)).as_slice(),
         [Effect::CommitBoardOperation(_)]
     ));
 
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert!(matches!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('z')))
+            .effects(crate::key_input(UiKey::Character('z')))
             .as_slice(),
         [Effect::CommitBoardOperation(_)]
     ));
@@ -105,19 +105,19 @@ fn modified_physical_delete_is_never_a_board_thought_command() {
     let mut fixture = deletion_fixture(&["keep this thought"]);
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::ModifiedDelete))
+            .effects(crate::key_input(UiKey::ModifiedDelete))
             .is_empty()
     );
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualDown,
         extend_selection: false,
     }));
     assert!(fixture.app.insertion_focused());
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::ModifiedDelete))
+            .effects(crate::key_input(UiKey::ModifiedDelete))
             .is_empty()
     );
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
@@ -126,31 +126,35 @@ fn modified_physical_delete_is_never_a_board_thought_command() {
 #[test]
 fn delete_and_backspace_are_noops_on_explicit_empty_board_and_insertion_row() {
     let mut empty = Fixture::new();
-    empty.input(UiInput::Key(UiKey::Escape));
+    empty.input(crate::key_input(UiKey::Escape));
     for key in [UiKey::Delete, UiKey::Backspace, UiKey::Character('d')] {
-        assert!(empty.effects(UiInput::Key(key)).is_empty());
+        assert!(empty.effects(crate::key_input(key)).is_empty());
         assert!(empty.app.state.board.live_thoughts().is_empty());
     }
 
     for key in [UiKey::Delete, UiKey::Character('d')] {
         let mut insertion = deletion_fixture(&["existing"]);
-        insertion.input(UiInput::Key(UiKey::Move {
+        insertion.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::VisualDown,
             extend_selection: false,
         }));
         assert!(matches!(
-            insertion.effects(UiInput::Key(key)).as_slice(),
+            insertion.effects(crate::key_input(key)).as_slice(),
             [Effect::CommitBoardOperation(_)]
         ));
         assert!(insertion.app.state.board.live_thoughts().is_empty());
     }
 
     let mut insertion = deletion_fixture(&["existing"]);
-    insertion.input(UiInput::Key(UiKey::Move {
+    insertion.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualDown,
         extend_selection: false,
     }));
-    assert!(insertion.effects(UiInput::Key(UiKey::Backspace)).is_empty());
+    assert!(
+        insertion
+            .effects(crate::key_input(UiKey::Backspace))
+            .is_empty()
+    );
     assert_eq!(insertion.app.state.board.live_thoughts().len(), 1);
 }
 
@@ -159,13 +163,13 @@ fn delete_remains_forward_text_deletion_and_vim_letters_remain_content() {
     for delete in [UiKey::Delete, UiKey::ModifiedDelete] {
         let mut fixture = Fixture::new();
         for character in "hjklab".chars() {
-            fixture.input(UiInput::Key(UiKey::Character(character)));
+            fixture.input(crate::key_input(UiKey::Character(character)));
         }
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeBack,
             extend_selection: false,
         }));
-        assert!(fixture.effects(UiInput::Key(delete)).is_empty());
+        assert!(fixture.effects(crate::key_input(delete)).is_empty());
         assert_eq!(
             fixture.app.editor_snapshot().expect("editor").content,
             "hjkla"
@@ -178,15 +182,15 @@ fn delete_remains_forward_text_deletion_and_vim_letters_remain_content() {
 fn query_letters_and_delete_never_escape_into_board_commands() {
     for delete in [UiKey::Delete, UiKey::ModifiedDelete] {
         let mut fixture = deletion_fixture(&["hjkl target", "other"]);
-        fixture.input(UiInput::Key(UiKey::Character('/')));
+        fixture.input(crate::key_input(UiKey::Character('/')));
         for character in "hjklx".chars() {
-            fixture.input(UiInput::Key(UiKey::Character(character)));
+            fixture.input(crate::key_input(UiKey::Character(character)));
         }
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeBack,
             extend_selection: false,
         }));
-        fixture.input(UiInput::Key(delete));
+        fixture.input(crate::key_input(delete));
 
         let (query, _, _) = fixture.app.search_view().expect("search query");
         assert_eq!(query, "hjkl");
@@ -199,7 +203,7 @@ fn modified_delete_on_empty_compose_never_materializes_or_deletes_a_thought() {
     let mut fixture = Fixture::new();
     assert!(
         fixture
-            .effects(UiInput::Key(UiKey::ModifiedDelete))
+            .effects(crate::key_input(UiKey::ModifiedDelete))
             .is_empty()
     );
     assert!(fixture.app.state.board.live_thoughts().is_empty());
@@ -217,7 +221,7 @@ fn modified_delete_on_empty_compose_never_materializes_or_deletes_a_thought() {
 fn failed_delete_persistence_retries_the_same_single_operation() {
     let mut fixture = deletion_fixture(&["retry deletion"]);
     fixture.acknowledge_all_persistence();
-    let effects = fixture.effects(UiInput::Key(UiKey::Delete));
+    let effects = fixture.effects(crate::key_input(UiKey::Delete));
     let sequence = effects
         .first()
         .and_then(Effect::persistence_batch)
@@ -226,27 +230,27 @@ fn failed_delete_persistence_retries_the_same_single_operation() {
     fixture.app.acknowledge_persistence(sequence, false);
 
     assert_eq!(
-        fixture.effects(UiInput::Key(UiKey::Character('r'))),
+        fixture.effects(crate::key_input(UiKey::Character('r'))),
         vec![Effect::RetryPersistence { sequence }]
     );
-    assert!(fixture.effects(UiInput::Key(UiKey::Delete)).is_empty());
+    assert!(fixture.effects(crate::key_input(UiKey::Delete)).is_empty());
 }
 
 #[test]
 fn mixed_delete_spellings_do_not_create_a_second_operation_after_the_board_empties() {
     let mut fixture = deletion_fixture(&["last thought"]);
     fixture.acknowledge_all_persistence();
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('d')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('d')));
     assert!(matches!(
         effects.as_slice(),
         [Effect::CommitBoardOperation(_)]
     ));
-    assert!(fixture.effects(UiInput::Key(UiKey::Delete)).is_empty());
+    assert!(fixture.effects(crate::key_input(UiKey::Delete)).is_empty());
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
-    fixture.input(UiInput::Key(UiKey::Redo));
+    fixture.input(crate::key_input(UiKey::Redo));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
 }
 

@@ -3,14 +3,14 @@ use proqi::domain::TextPosition;
 use proqi::ui::FastNavigation;
 
 fn move_cursor(fixture: &mut Fixture, movement: CursorMovement) {
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement,
         extend_selection: false,
     }));
 }
 
 fn fast(fixture: &mut Fixture, direction: FastNavigation, extend_selection: bool) {
-    fixture.input(UiInput::Key(UiKey::FastNavigation {
+    fixture.input(crate::key_input(UiKey::FastNavigation {
         direction,
         extend_selection,
     }));
@@ -19,8 +19,8 @@ fn fast(fixture: &mut Fixture, direction: FastNavigation, extend_selection: bool
 #[test]
 fn command_palette_fast_navigation_moves_five_entries_and_clamps() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     let (_, all, _) = fixture.app.palette_view().expect("palette");
     let expected = all[5].clone();
     let _ = draw(&mut fixture, 38, 6);
@@ -45,14 +45,14 @@ fn command_palette_wheel_is_contained_and_retargets_the_visible_slice() {
         .app
         .prepare_frame(Rect::new(0, 0, 36, 7))
         .first_index;
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 36, 7));
     let item = layout.overlay.expect("overlay").items[0];
     fixture.pointer(item.x, item.y, PointerKind::ScrollDown);
     let _ = draw(&mut fixture, 36, 7);
     let (_, visible, selected) = fixture.app.palette_view().expect("palette");
     assert_eq!(visible[selected], "Rename session");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert_eq!(
         fixture
             .app
@@ -67,8 +67,8 @@ fn help_fast_navigation_moves_exactly_five_visible_rows() {
     let mut paged = Fixture::new();
     let mut repeated = Fixture::new();
     for fixture in [&mut paged, &mut repeated] {
-        fixture.input(UiInput::Key(UiKey::Escape));
-        fixture.input(UiInput::Key(UiKey::Character('?')));
+        fixture.input(crate::key_input(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Character('?')));
         let initial = draw(fixture, 42, 8);
         assert!(text(initial.backend().buffer()).contains('↓'));
     }
@@ -95,7 +95,7 @@ fn repeated_fast_jumps_keep_the_cursor_visible_through_internal_scroll_and_resiz
     for label in ["first", "second", "third"] {
         navigation::durable_thought(&mut fixture, &wrapped_thought(label));
     }
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let active = fixture.app.active_thought_id().expect("active thought");
     let _initial = draw(&mut fixture, 30, 8);
     move_cursor(&mut fixture, CursorMovement::DocumentStart);
@@ -122,7 +122,7 @@ fn repeated_fast_jumps_keep_the_cursor_visible_through_internal_scroll_and_resiz
     let area = fixture.app.prepare_frame(Rect::new(0, 0, 18, 6)).thoughts[0].text_area;
     assert!(area.contains(cursor));
 
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert_eq!(fixture.app.state.focused_thought, Some(active));
     assert_eq!(
         fixture.app.interaction_mode(),
@@ -219,20 +219,18 @@ fn mode_aware_alt_navigation_keeps_board_focus_movement_unchanged() {
     for content in ["first", "second", "third"] {
         navigation::durable_thought(&mut fixture, content);
     }
-    fixture.input(UiInput::Key(UiKey::EditNavigation {
-        editor_movement: CursorMovement::VisualJumpUp,
-        board_movement: CursorMovement::VisualUp,
-    }));
+    fixture.input(UiInput::KeyStroke(
+        KeyStroke::press(LogicalKey::Up).with_modifiers(LogicalModifiers::ALT),
+    ));
     assert_eq!(
         fixture.app.state.focused_thought,
         Some(fixture.app.state.board.live_thoughts()[1].id)
     );
 
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::EditNavigation {
-        editor_movement: CursorMovement::DocumentEnd,
-        board_movement: CursorMovement::VisualDown,
-    }));
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(UiInput::KeyStroke(
+        KeyStroke::press(LogicalKey::Down).with_modifiers(LogicalModifiers::ALT),
+    ));
     assert_eq!(
         fixture.app.editor_snapshot().expect("editor").cursor,
         TextPosition::new(0, 6)

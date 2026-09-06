@@ -3,7 +3,7 @@ use super::*;
 use proqi::domain::Direction;
 
 pub(super) fn visual(movement: CursorMovement, shifted: bool) -> UiInput {
-    UiInput::Key(UiKey::Move {
+    crate::key_input(UiKey::Move {
         movement,
         extend_selection: shifted,
     })
@@ -11,7 +11,7 @@ pub(super) fn visual(movement: CursorMovement, shifted: bool) -> UiInput {
 
 pub(super) fn durable_thought(fixture: &mut Fixture, content: &str) {
     fixture.paste(content);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 }
 
 #[test]
@@ -20,7 +20,7 @@ fn keyboard_reordering_wraps_at_both_board_edges() {
     for content in ["first", "second", "third"] {
         durable_thought(&mut fixture, content);
     }
-    fixture.input(UiInput::Key(UiKey::PrimaryCharacter('J')));
+    fixture.input(crate::key_input(UiKey::PrimaryCharacter('J')));
     assert_eq!(
         fixture
             .app
@@ -32,7 +32,7 @@ fn keyboard_reordering_wraps_at_both_board_edges() {
             .collect::<Vec<_>>(),
         ["third", "first", "second"]
     );
-    fixture.input(UiInput::Key(UiKey::PrimaryCharacter('K')));
+    fixture.input(crate::key_input(UiKey::PrimaryCharacter('K')));
     assert_eq!(
         fixture
             .app
@@ -50,11 +50,11 @@ fn keyboard_reordering_wraps_at_both_board_edges() {
 fn help_is_modal_and_escape_closes_it_without_mutating_the_board() {
     let mut fixture = Fixture::new();
     durable_thought(&mut fixture, "unchanged");
-    fixture.input(UiInput::Key(UiKey::Character('?')));
+    fixture.input(crate::key_input(UiKey::Character('?')));
     assert!(fixture.app.help);
-    fixture.input(UiInput::Key(UiKey::Character('d')));
+    fixture.input(crate::key_input(UiKey::Character('d')));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert!(!fixture.app.help);
     assert_eq!(
         fixture.app.state.board.live_thoughts()[0].content,
@@ -65,8 +65,8 @@ fn help_is_modal_and_escape_closes_it_without_mutating_the_board() {
 #[test]
 fn shallow_help_scrolls_to_every_shortcut() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character('?')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('?')));
     let _initial = draw(&mut fixture, 42, 8);
     for _ in 0..64 {
         fixture.input(visual(CursorMovement::VisualDown, false));
@@ -84,19 +84,19 @@ fn help_list_uses_identical_arrow_and_jk_navigation() {
     let mut arrow = Fixture::new();
     let mut vim = Fixture::new();
     for fixture in [&mut arrow, &mut vim] {
-        fixture.input(UiInput::Key(UiKey::Escape));
-        fixture.input(UiInput::Key(UiKey::Character('?')));
+        fixture.input(crate::key_input(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Character('?')));
         let _layout = draw(fixture, 42, 8);
     }
     arrow.input(visual(CursorMovement::VisualDown, false));
-    vim.input(UiInput::Key(UiKey::Character('j')));
+    vim.input(crate::key_input(UiKey::Character('j')));
     assert_eq!(
         text(draw(&mut arrow, 42, 8).backend().buffer()),
         text(draw(&mut vim, 42, 8).backend().buffer())
     );
 
     arrow.input(visual(CursorMovement::VisualUp, false));
-    vim.input(UiInput::Key(UiKey::Character('k')));
+    vim.input(crate::key_input(UiKey::Character('k')));
     assert_eq!(
         text(draw(&mut arrow, 42, 8).backend().buffer()),
         text(draw(&mut vim, 42, 8).backend().buffer())
@@ -112,13 +112,13 @@ fn modal_navigation_wins_when_help_is_remapped_to_j() {
     let mut arrow = Fixture::with_settings(settings.clone());
     let mut vim = Fixture::with_settings(settings);
     for fixture in [&mut arrow, &mut vim] {
-        fixture.input(UiInput::Key(UiKey::Escape));
-        fixture.input(UiInput::Key(UiKey::Character('j')));
+        fixture.input(crate::key_input(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Character('j')));
         let _layout = draw(fixture, 42, 8);
     }
 
     arrow.input(visual(CursorMovement::VisualDown, true));
-    vim.input(UiInput::Key(UiKey::PrimaryCharacter('J')));
+    vim.input(crate::key_input(UiKey::PrimaryCharacter('J')));
     assert!(arrow.app.help && vim.app.help);
     assert_eq!(
         text(draw(&mut arrow, 42, 8).backend().buffer()),
@@ -135,18 +135,18 @@ fn modal_navigation_wins_when_help_is_remapped_to_j() {
             .lines()
             .any(|line| line.contains('j') && line.contains("Close"))
     );
-    vim.input(UiInput::Key(UiKey::Escape));
+    vim.input(crate::key_input(UiKey::Escape));
     assert!(!vim.app.help);
 }
 
 #[test]
 fn wide_help_uses_at_most_two_strictly_aligned_columns() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Left, "w1:p2")]));
-    fixture.input(UiInput::Key(UiKey::Character('?')));
+    fixture.input(crate::key_input(UiKey::Character('?')));
     let terminal = draw(&mut fixture, 80, 14);
     let rendered = text(terminal.backend().buffer());
     assert!(rendered.contains("Submit & keep"));
@@ -175,15 +175,15 @@ fn insertion_row_keeps_board_commands_available_until_creation_is_explicit() {
     assert!(fixture.app.insertion_focused());
     assert!(fixture.app.active_thought_id().is_none());
 
-    fixture.input(UiInput::Key(UiKey::Character('j')));
+    fixture.input(crate::key_input(UiKey::Character('j')));
     assert!(fixture.app.insertion_focused());
     assert!(fixture.app.editor_snapshot().is_none());
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
 
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     assert!(fixture.app.palette_view().is_some());
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character('n')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('n')));
     assert_eq!(
         fixture.app.editor_snapshot().expect("new editor").content,
         ""
@@ -194,11 +194,11 @@ fn insertion_row_keeps_board_commands_available_until_creation_is_explicit() {
 #[test]
 fn durable_blank_thought_uses_board_commands_instead_of_implicit_typing() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Character('n')));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('n')));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
 
-    fixture.input(UiInput::Key(UiKey::Character('d')));
+    fixture.input(crate::key_input(UiKey::Character('d')));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
 }
 
@@ -206,8 +206,8 @@ fn durable_blank_thought_uses_board_commands_instead_of_implicit_typing() {
 fn blocked_down_navigation_from_the_last_editor_creates_and_edits_a_blank() {
     let mut fixture = Fixture::new();
     durable_thought(&mut fixture, "last thought");
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentEnd,
         extend_selection: false,
     }));
@@ -229,8 +229,8 @@ fn two_consecutive_blocked_vertical_moves_leave_edit_mode_for_a_neighbor() {
     durable_thought(&mut fixture, "first");
     durable_thought(&mut fixture, "second");
     let first = fixture.app.state.board.live_thoughts()[0].id;
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
@@ -253,14 +253,14 @@ fn other_input_resets_the_blocked_navigation_confirmation() {
     let mut fixture = Fixture::new();
     durable_thought(&mut fixture, "first");
     durable_thought(&mut fixture, "second");
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     fixture.input(visual(CursorMovement::VisualUp, false));
-    fixture.input(UiInput::Key(UiKey::Character('x')));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Character('x')));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
@@ -298,9 +298,9 @@ fn expanded_overflow_reaches_later_thoughts_and_insertion_without_blank_overscro
     durable_thought(&mut fixture, &long);
     let first = fixture.app.state.board.live_thoughts()[0].id;
     fixture.app.prepare_frame(Rect::new(0, 0, 42, 12));
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     durable_thought(&mut fixture, "final thought");
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
     assert_eq!(fixture.app.state.focused_thought, Some(first));
 
     for _ in 0..40 {
@@ -331,13 +331,13 @@ fn presentation_cycle_is_durable_and_recomputes_overflow_bounds() {
         initial.thoughts[0]
     );
 
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     assert_eq!(
         fixture.app.state.board.live_thoughts()[0].presentation,
         proqi::domain::ThoughtPresentation::Expanded
     );
     fixture.app.prepare_frame(Rect::new(0, 0, 36, 12));
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     assert_eq!(
         fixture.app.state.board.live_thoughts()[0].presentation,
         proqi::domain::ThoughtPresentation::Collapsed
@@ -465,16 +465,16 @@ fn mouse_wheel_scrolls_editor_without_moving_cursor_or_selection() {
             .collect::<Vec<_>>()
             .join("\n"),
     );
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: true,
     }));

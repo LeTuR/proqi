@@ -13,12 +13,28 @@ fn inspect_sequence(sequence: &str, raw_code: &str, action: &str) {
             -exact "\x1b\[>5u" {{}}
             -exact "\x1b\[>7u" {{}}
         }}
-        expect -exact "Press one key to inspect its terminal event and Proqi action."
+        expect {{
+            -exact "Press one key to inspect its terminal event and Proqi action." {{}}
+            timeout {{exit 91}}
+            eof {{exit 92}}
+        }}
         send -- "{sequence}"
-        expect -exact "\x1b\[<u"
-        expect -exact "Raw event: KeyEvent {{ code: {raw_code}"
-        expect -exact "Matched action: {action}"
-        expect eof
+        expect {{
+            -exact "\x1b\[<u" {{}}
+            timeout {{exit 93}}
+            eof {{exit 94}}
+        }}
+        expect {{
+            -exact "Raw event: KeyEvent \{{ code: {raw_code}" {{}}
+            timeout {{exit 95}}
+            eof {{exit 96}}
+        }}
+        expect {{
+            -exact "Matched action: {action}" {{}}
+            timeout {{exit 97}}
+            eof {{exit 98}}
+        }}
+        catch {{expect eof}}
         catch wait result
         exit [lindex $result 3]
     "#
@@ -42,12 +58,28 @@ fn keypress_inspector_reports_raw_and_normalized_input_then_restores() {
             -exact "\x1b\[>5u" {{}}
             -exact "\x1b\[>7u" {{}}
         }}
-        expect -exact "Press one key to inspect its terminal event and Proqi action."
+        expect {
+            -exact "Press one key to inspect its terminal event and Proqi action." {}
+            timeout {exit 91}
+            eof {exit 92}
+        }
         send -- "a"
-        expect -exact "\x1b\[<u"
-        expect -exact "Raw event: KeyEvent { code: Char('a')"
-        expect -exact "Matched action: Character('a')"
-        expect eof
+        expect {
+            -exact "\x1b\[<u" {}
+            timeout {exit 93}
+            eof {exit 94}
+        }
+        expect {
+            -exact "Raw event: KeyEvent \{ code: Char('a')" {}
+            timeout {exit 95}
+            eof {exit 96}
+        }
+        expect {
+            -exact "Matched action: Character('a')" {}
+            timeout {exit 97}
+            eof {exit 98}
+        }
+        catch {expect eof}
         catch wait result
         exit [lindex $result 3]
     "#;
@@ -116,6 +148,78 @@ fn primary_enter_variants_are_distinct_in_the_real_pty() {
         &format!("Enter, modifiers: KeyModifiers(SHIFT | {modifier})"),
         "SubmitKeep",
     );
+}
+
+#[test]
+fn macos_super_meta_and_raw_control_remain_distinct_in_the_real_pty() {
+    if cfg!(target_os = "macos") {
+        inspect_sequence(
+            r"\x1b\[97;9u",
+            "Char('a'), modifiers: KeyModifiers(SUPER)",
+            "SelectAll",
+        );
+        inspect_sequence(
+            r"\x1b\[97;33u",
+            "Char('a'), modifiers: KeyModifiers(META)",
+            "SelectAll",
+        );
+        inspect_sequence(
+            r"\x1b\[97;5u",
+            "Char('a'), modifiers: KeyModifiers(CONTROL)",
+            "none",
+        );
+    }
+}
+
+#[test]
+fn kitty_repeat_event_is_dispatched_but_release_is_not() {
+    let script = r#"
+        log_user 0
+        set timeout 10
+        set binary $env(PROQI_TEST_BINARY)
+        spawn $binary diagnostics keypress
+        expect {
+            -exact "\x1b\[>5u" {}
+            -exact "\x1b\[>7u" {}
+        }
+        expect {
+            -exact "Press one key to inspect its terminal event and Proqi action." {}
+            timeout {exit 91}
+            eof {exit 92}
+        }
+        send -- "\x1b\[106;1:3u"
+        after 50
+        send -- "\x1b\[106;1:2u"
+        expect {
+            -exact "\x1b\[<u" {}
+            timeout {exit 93}
+            eof {exit 94}
+        }
+        expect {
+            -exact "Raw event: KeyEvent \{ code: Char('j')" {}
+            timeout {exit 95}
+            eof {exit 96}
+        }
+        expect {
+            -exact "kind: Repeat" {}
+            timeout {exit 97}
+            eof {exit 98}
+        }
+        expect {
+            -exact "Matched action: Character('j')" {}
+            timeout {exit 99}
+            eof {exit 100}
+        }
+        catch {expect eof}
+        catch wait result
+        exit [lindex $result 3]
+    "#;
+    let status = expect_command()
+        .args(["-c", script])
+        .env("PROQI_TEST_BINARY", env!("CARGO_BIN_EXE_proqi"))
+        .status()
+        .expect("run repeat and release keypress diagnostic in PTY");
+    assert!(status.success(), "keypress repeat PTY exited with {status}");
 }
 
 #[test]

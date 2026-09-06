@@ -22,8 +22,8 @@ fn passive_discovery_failure_clears_targets_without_interrupting_the_board() {
 #[test]
 fn explicit_discovery_failure_remains_visible() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Escape));
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('S')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('S')));
     assert!(matches!(effects.as_slice(), [Effect::DiscoverAgents]));
 
     fixture

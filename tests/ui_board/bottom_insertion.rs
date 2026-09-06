@@ -21,9 +21,9 @@ fn seeded_long_board() -> Fixture {
             ),
         );
     }
-    fixture.input(UiInput::Key(UiKey::Character('c')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('c')));
     fixture
 }
 
@@ -36,10 +36,10 @@ fn insert_at_top(fixture: &mut Fixture) -> (ThoughtId, Vec<Effect>) {
         .and_then(|focused| live.iter().position(|thought| thought.id == focused))
         .expect("focused setup thought");
     for _ in 0..current {
-        fixture.input(UiInput::Key(UiKey::Character('k')));
+        fixture.input(crate::key_input(UiKey::Character('k')));
     }
     fixture.input(visual(CursorMovement::VisualUp, false));
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('k')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('k')));
     let thought_id = fixture.app.active_thought_id().expect("top blank editor");
     assert_eq!(fixture.app.state.board.live_thoughts()[0].id, thought_id);
     (thought_id, effects)
@@ -51,7 +51,7 @@ fn focus_bottom_insertion(fixture: &mut Fixture) {
         let input = if step % 2 == 0 {
             visual(CursorMovement::VisualDown, false)
         } else {
-            UiInput::Key(UiKey::Character('j'))
+            crate::key_input(UiKey::Character('j'))
         };
         fixture.input(input);
     }
@@ -83,7 +83,7 @@ fn acknowledge_pending(fixture: &mut Fixture) {
 }
 
 fn paste_native_clipboard_at_bottom(fixture: &mut Fixture) {
-    let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+    let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
     let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
         panic!("expected clipboard read");
     };
@@ -113,7 +113,7 @@ fn bottom_confirmation_appends_after_top_insertion_across_layout_and_key_spellin
     for (area, scroll_steps, first_is_vim) in cases {
         let mut fixture = seeded_long_board();
         let (_top, _effects) = insert_at_top(&mut fixture);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
         let expected_prefix = thought_ids(&fixture);
 
         for resize in [Rect::new(0, 0, 18, 7), Rect::new(0, 0, 80, 18), area] {
@@ -126,14 +126,14 @@ fn bottom_confirmation_appends_after_top_insertion_across_layout_and_key_spellin
         focus_bottom_insertion(&mut fixture);
 
         let first = if first_is_vim {
-            UiInput::Key(UiKey::Character('j'))
+            crate::key_input(UiKey::Character('j'))
         } else {
             visual(CursorMovement::VisualDown, false)
         };
         let second = if first_is_vim {
             visual(CursorMovement::VisualDown, false)
         } else {
-            UiInput::Key(UiKey::Character('j'))
+            crate::key_input(UiKey::Character('j'))
         };
         assert!(fixture.effects(first).is_empty());
         let effects = fixture.effects(second);
@@ -147,9 +147,9 @@ fn bottom_confirmation_appends_after_top_insertion_across_layout_and_key_spellin
             InteractionMode::Edit { thought_id } if thought_id == first_bottom
         ));
 
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
         fixture.input(visual(CursorMovement::VisualDown, false));
-        fixture.input(UiInput::Key(UiKey::Character('j')));
+        fixture.input(crate::key_input(UiKey::Character('j')));
         fixture.input(visual(CursorMovement::VisualDown, false));
         let second_bottom = fixture
             .app
@@ -157,10 +157,10 @@ fn bottom_confirmation_appends_after_top_insertion_across_layout_and_key_spellin
             .expect("repeated bottom editor");
         assert_eq!(thought_ids(&fixture).last(), Some(&second_bottom));
 
-        fixture.input(UiInput::Key(UiKey::Escape));
-        fixture.input(UiInput::Key(UiKey::Undo));
+        fixture.input(crate::key_input(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Undo));
         assert_eq!(thought_ids(&fixture).last(), Some(&first_bottom));
-        fixture.input(UiInput::Key(UiKey::Redo));
+        fixture.input(crate::key_input(UiKey::Redo));
         assert_eq!(thought_ids(&fixture).last(), Some(&second_bottom));
     }
 }
@@ -170,13 +170,13 @@ fn final_insertion_row_commands_pointer_and_paste_all_append() {
     for path in 0..5 {
         let mut fixture = seeded_long_board();
         let (_top, _effects) = insert_at_top(&mut fixture);
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
         let expected_prefix = thought_ids(&fixture);
         focus_bottom_insertion(&mut fixture);
 
         match path {
-            0 => fixture.input(UiInput::Key(UiKey::Enter)),
-            1 => fixture.input(UiInput::Key(UiKey::Character('n'))),
+            0 => fixture.input(crate::key_input(UiKey::Enter)),
+            1 => fixture.input(crate::key_input(UiKey::Character('n'))),
             _ => {
                 if path == 2 {
                     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 30, 7));
@@ -205,18 +205,18 @@ fn failed_bottom_append_is_retryable_without_partial_or_misordered_state() {
     fixture
         .app
         .acknowledge_persistence(effect_sequence(&top_effects), true);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     focus_bottom_insertion(&mut fixture);
     let expected_prefix = thought_ids(&fixture);
     fixture.input(visual(CursorMovement::VisualDown, false));
-    let bottom_effects = fixture.effects(UiInput::Key(UiKey::Character('j')));
+    let bottom_effects = fixture.effects(crate::key_input(UiKey::Character('j')));
     let failed = effect_sequence(&bottom_effects);
     let created = fixture.app.active_thought_id().expect("bottom editor");
     assert_eq!(thought_ids(&fixture).last(), Some(&created));
 
     fixture.app.acknowledge_persistence(failed, false);
     assert_eq!(
-        fixture.effects(UiInput::Key(UiKey::Character('r'))),
+        fixture.effects(crate::key_input(UiKey::Character('r'))),
         vec![Effect::RetryPersistence { sequence: failed }]
     );
     fixture.app.acknowledge_persistence(failed, true);

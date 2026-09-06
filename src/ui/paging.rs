@@ -52,24 +52,6 @@ impl FastNavigation {
     }
 }
 
-/// Canonical contextual-help key for fast navigation.
-pub(crate) const FAST_NAVIGATION_SHORTCUT_KEY: &str = "Alt+↑/↓";
-
-/// Canonical contextual-help description including the equal Page-key spelling.
-pub(crate) const FAST_NAVIGATION_SHORTCUT_LABEL: &str = "5-row · PgUp/PgDn";
-
-/// Canonical full spelling pair retained in public controls documentation.
-#[cfg(test)]
-pub(crate) const FAST_NAVIGATION_README_LABEL: &str = "Alt+↑ / ↓ or Page Up / Page Down";
-
-/// Canonical command-discovery label for one fast movement.
-pub(crate) const fn command_label(direction: FastNavigation) -> &'static str {
-    match direction {
-        FastNavigation::Previous => "Jump cursor up 5 visual rows (Alt+↑ or Page Up)",
-        FastNavigation::Next => "Jump cursor down 5 visual rows (Alt+↓ or Page Down)",
-    }
-}
-
 /// Clamp a bounded selectable viewport so its selected eligible entry is visible.
 pub(crate) fn first_visible(selected: usize, current: usize, visible: usize) -> usize {
     let visible = visible.max(1);
@@ -117,12 +99,25 @@ mod tests {
         assert!(
             readme
                 .replace('`', "")
-                .contains(super::FAST_NAVIGATION_README_LABEL)
+                .contains(crate::ui::shortcut_registry::presentation::FAST_NAVIGATION_README_LABEL)
         );
-        for direction in [FastNavigation::Previous, FastNavigation::Next] {
-            let label = super::command_label(direction);
-            assert!(label.contains("Alt+"));
-            assert!(label.contains("Page "));
+        let registry =
+            crate::ui::ShortcutRegistry::from_validated(&crate::ui::KeyBindings::default());
+        for action in [
+            crate::ui::ShortcutActionId::JumpUp,
+            crate::ui::ShortcutActionId::JumpDown,
+        ] {
+            let label = registry
+                .commands()
+                .into_iter()
+                .find_map(|(candidate, metadata, _)| {
+                    (candidate == action).then_some(metadata.label)
+                });
+            assert!(matches!(
+                label,
+                Some(crate::ui::CommandLabel::Static(value))
+                    if value.contains("Alt+") && value.contains("Page ")
+            ));
         }
     }
 }

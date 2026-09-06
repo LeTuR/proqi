@@ -6,39 +6,50 @@ use proqi::domain::Direction;
 #[test]
 fn direction_chooser_accepts_modified_arrows_and_vim_spellings_equally() {
     let cases = [
-        (UiKey::Character('H'), Direction::Left),
-        (UiKey::PrimaryCharacter('h'), Direction::Left),
+        (crate::key_input(UiKey::Character('H')), Direction::Left),
         (
-            UiKey::Move {
-                movement: CursorMovement::WordBack,
-                extend_selection: true,
-            },
+            crate::key_input(UiKey::PrimaryCharacter('h')),
             Direction::Left,
         ),
-        (UiKey::Character('J'), Direction::Down),
-        (UiKey::PrimaryCharacter('j'), Direction::Down),
         (
-            UiKey::PrimaryShiftMove {
-                movement: CursorMovement::DocumentEnd,
-            },
+            crate::key_input(UiKey::Move {
+                movement: CursorMovement::WordBack,
+                extend_selection: true,
+            }),
+            Direction::Left,
+        ),
+        (crate::key_input(UiKey::Character('J')), Direction::Down),
+        (
+            crate::key_input(UiKey::PrimaryCharacter('j')),
             Direction::Down,
         ),
-        (UiKey::Character('K'), Direction::Up),
-        (UiKey::PrimaryCharacter('k'), Direction::Up),
         (
-            UiKey::EditNavigation {
-                editor_movement: CursorMovement::VisualJumpUp,
-                board_movement: CursorMovement::VisualUp,
-            },
+            crate::key_input(UiKey::PrimaryShiftMove {
+                movement: CursorMovement::DocumentEnd,
+            }),
+            Direction::Down,
+        ),
+        (crate::key_input(UiKey::Character('K')), Direction::Up),
+        (
+            crate::key_input(UiKey::PrimaryCharacter('k')),
             Direction::Up,
         ),
-        (UiKey::Character('L'), Direction::Right),
-        (UiKey::PrimaryCharacter('l'), Direction::Right),
         (
-            UiKey::Move {
+            UiInput::KeyStroke(
+                KeyStroke::press(LogicalKey::Up).with_modifiers(LogicalModifiers::ALT),
+            ),
+            Direction::Up,
+        ),
+        (crate::key_input(UiKey::Character('L')), Direction::Right),
+        (
+            crate::key_input(UiKey::PrimaryCharacter('l')),
+            Direction::Right,
+        ),
+        (
+            crate::key_input(UiKey::Move {
                 movement: CursorMovement::WordForward,
                 extend_selection: true,
-            },
+            }),
             Direction::Right,
         ),
     ];
@@ -52,8 +63,8 @@ fn direction_chooser_accepts_modified_arrows_and_vim_spellings_equally() {
             super::agent::target(Direction::Up, "w1:p4"),
             super::agent::target(Direction::Right, "w1:p5"),
         ]));
-        fixture.input(UiInput::Key(UiKey::Character('S')));
-        let effects = fixture.effects(UiInput::Key(key));
+        fixture.input(crate::key_input(UiKey::Character('S')));
+        let effects = fixture.effects(key.clone());
         let request = super::agent::start_submission(&mut fixture, &effects);
         assert_eq!(
             request.target.adjacent_direction(),

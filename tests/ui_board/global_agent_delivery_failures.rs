@@ -11,7 +11,7 @@ fn rapid_activation_reports_loading_and_discovery_failure_truthfully() {
     super::global_agent_delivery::prepare(&mut fixture, "keep me");
     let generation = super::global_agent_delivery::open(&mut fixture);
 
-    assert!(fixture.effects(UiInput::Key(UiKey::Enter)).is_empty());
+    assert!(fixture.effects(crate::key_input(UiKey::Enter)).is_empty());
     assert_eq!(
         fixture.app.status_text(),
         Some("agent discovery is still in progress")
@@ -21,7 +21,7 @@ fn rapid_activation_reports_loading_and_discovery_failure_truthfully() {
         generation,
         Err(AgentError::Unavailable("synthetic failure".to_owned())),
     );
-    assert!(fixture.effects(UiInput::Key(UiKey::Enter)).is_empty());
+    assert!(fixture.effects(crate::key_input(UiKey::Enter)).is_empty());
     assert_eq!(
         fixture.app.status_text(),
         Some("agent discovery failed; refresh and try again")
@@ -37,7 +37,11 @@ fn cancellation_failures_and_repeated_activation_preserve_sources_without_resubm
     cancelled
         .app
         .complete_global_agent_discovery(generation, Ok(vec![receiver()]));
-    assert!(cancelled.effects(UiInput::Key(UiKey::Escape)).is_empty());
+    assert!(
+        cancelled
+            .effects(crate::key_input(UiKey::Escape))
+            .is_empty()
+    );
     assert_eq!(cancelled.app.state.board.live_thoughts().len(), 1);
 
     for error in [
@@ -54,16 +58,16 @@ fn cancellation_failures_and_repeated_activation_preserve_sources_without_resubm
         fixture
             .app
             .complete_global_agent_discovery(generation, Ok(vec![destination.clone()]));
-        fixture.input(UiInput::Key(UiKey::Enter));
-        let prepared = fixture.effects(UiInput::Key(UiKey::Enter));
+        fixture.input(crate::key_input(UiKey::Enter));
+        let prepared = fixture.effects(crate::key_input(UiKey::Enter));
         let request = super::agent::start_submission(&mut fixture, &prepared);
 
         let repeated_generation = super::global_agent_delivery::open(&mut fixture);
         fixture
             .app
             .complete_global_agent_discovery(repeated_generation, Ok(vec![destination]));
-        fixture.input(UiInput::Key(UiKey::Enter));
-        assert!(fixture.effects(UiInput::Key(UiKey::Enter)).is_empty());
+        fixture.input(crate::key_input(UiKey::Enter));
+        assert!(fixture.effects(crate::key_input(UiKey::Enter)).is_empty());
         assert_eq!(
             fixture.app.status_text(),
             Some("a selected thought already has a submission in progress")
@@ -77,13 +81,13 @@ fn cancellation_failures_and_repeated_activation_preserve_sources_without_resubm
 #[test]
 fn global_delivery_uses_the_shared_fresh_attachment_preflight() {
     let mut fixture = super::attachment_accessibility::submission_fixture();
-    fixture.input(UiInput::Key(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
     let generation = super::global_agent_delivery::open(&mut fixture);
     fixture
         .app
         .complete_global_agent_discovery(generation, Ok(vec![receiver()]));
-    fixture.input(UiInput::Key(UiKey::Enter));
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     let preflight = super::attachment_accessibility::attachment_batch(&effects);
     assert!(
         effects

@@ -4,7 +4,10 @@ use super::behavior::{app_with_thought, candidate, created, next_commit};
 use crate::{
     application::{Effect, InteractionMode},
     domain::Timestamp,
-    ui::{PastePayload, PointerButton, PointerInput, PointerKind, UiInput, UiKey},
+    ui::{
+        KeyStroke, LogicalKey, PastePayload, PointerButton, PointerInput, PointerKind, UiInput,
+        UiKey,
+    },
 };
 
 #[test]
@@ -208,7 +211,7 @@ fn passive_motion_and_resize_do_not_consume_deliberate_replay_capacity() {
         );
     }
     let deliberate = [
-        UiInput::Key(UiKey::Character('k')),
+        UiInput::KeyStroke(KeyStroke::press(LogicalKey::Character('k'))),
         UiInput::PasteAnnotated(PastePayload::text("annotated".to_owned())),
         UiInput::Paste("plain".to_owned()),
         UiInput::Pointer(PointerInput {
@@ -241,7 +244,13 @@ fn passive_motion_and_resize_do_not_consume_deliberate_replay_capacity() {
         .filter(|deferred| deferred.input.is_deliberate_interaction())
         .map(|deferred| deferred.input.clone())
         .collect::<Vec<_>>();
-    assert_eq!(queued, deliberate);
+    assert_eq!(
+        queued,
+        deliberate
+            .into_iter()
+            .map(crate::ui::input::RoutedInput::from)
+            .collect::<Vec<_>>()
+    );
     let effects = app.complete_screenshot_capture(Ok(created(&capture)), &mut ids, &clock);
     assert!(app.screenshot.deferred_inputs.is_empty());
     assert_eq!(

@@ -24,12 +24,12 @@ fn ordinary_editor_changes_rebase_outside_and_dissolve_inside_shortcut_ranges() 
     }))
     .expect("structurally valid durable fixture");
     let mut fixture = Fixture::with_annotated_thought("AA Enter ZZ", vec![annotation]);
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Character('!')));
+    fixture.input(crate::key_input(UiKey::Character('!')));
     let effects = fixture
         .app
         .flush_pending_edit(&mut fixture.ids, &fixture.clock);
@@ -46,17 +46,17 @@ fn ordinary_editor_changes_rebase_outside_and_dissolve_inside_shortcut_ranges() 
         (4, 9)
     );
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..5 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeForward,
             extend_selection: false,
         }));
     }
-    fixture.input(UiInput::Key(UiKey::Character('x')));
+    fixture.input(crate::key_input(UiKey::Character('x')));
     let effects = fixture
         .app
         .flush_pending_edit(&mut fixture.ids, &fixture.clock);

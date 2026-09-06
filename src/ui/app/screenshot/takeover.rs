@@ -3,10 +3,10 @@
 use crate::{
     application::{Effect, ScreenshotIntent},
     ports::environment::{Clock, IdGenerator},
-    ui::{ListNavigation, UiInput, UiKey},
+    ui::ListNavigation,
 };
 
-use super::super::BoardApp;
+use super::super::{BoardApp, UiInput, UiKey};
 use super::ScreenshotState;
 
 impl BoardApp {
@@ -37,6 +37,7 @@ impl BoardApp {
             UiInput::Resize { .. }
             | UiInput::HostFocusGained
             | UiInput::HostFocusLost
+            | UiInput::KeyStroke(_)
             | UiInput::Paste(_)
             | UiInput::PasteAnnotated(_)
             | UiInput::Key(_) => {}

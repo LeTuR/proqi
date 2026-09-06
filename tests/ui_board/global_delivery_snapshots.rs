@@ -29,7 +29,7 @@ fn current_server_target_chooser_is_complete_in_a_narrow_viewport() {
         ]),
     );
     let _initial_layout = screen(&mut fixture, 64, 10);
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: proqi::ports::editor::CursorMovement::VisualDown,
         extend_selection: false,
     }));
@@ -56,7 +56,7 @@ fn explicit_disposition_chooser_is_complete_in_a_shallow_viewport() {
             AgentAvailability::Available,
         )]),
     );
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
 
     insta::assert_snapshot!("global_delivery_disposition", screen(&mut fixture, 50, 6));
 }

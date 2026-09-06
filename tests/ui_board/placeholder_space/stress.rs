@@ -21,7 +21,7 @@ fn space_preserves_an_expanded_sibling_while_shifting_the_collapsed_target() {
         ],
     );
     select_forward(&mut fixture, "");
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert!(text(draw(&mut fixture, 42, 7).backend().buffer()).contains(expanded));
 
     fixture.input(move_key(CursorMovement::DocumentEnd, false));

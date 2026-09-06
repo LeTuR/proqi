@@ -30,7 +30,7 @@ fn whole_thought_copy_shifts_every_annotation_across_canonical_separators() {
         PastePayload::annotated(first.clone(), vec![first_annotation.clone()])
             .expect("first payload"),
     ));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 
     let repeated = "/offline/same.txt";
     let second = format!("{repeated} and {repeated}");
@@ -43,10 +43,10 @@ fn whole_thought_copy_shifts_every_annotation_across_canonical_separators() {
         PastePayload::annotated(second.clone(), second_annotations.clone())
             .expect("second payload"),
     ));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::SelectAll));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::SelectAll));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Copy));
+    let effects = fixture.effects(crate::key_input(UiKey::Copy));
     let [
         Effect::WriteClipboard {
             content,
@@ -84,7 +84,7 @@ fn collapsed_placeholder_copy_and_cut_use_the_complete_canonical_range() {
     let start = "prefix ".len();
     let annotation = attachment(&content, start, start + path.len(), true);
     let mut fixture = Fixture::with_annotated_thought(&content, vec![annotation.clone()]);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let _terminal = draw(&mut fixture, 60, 8);
     let area = fixture
         .app
@@ -97,7 +97,7 @@ fn collapsed_placeholder_copy_and_cut_use_the_complete_canonical_range() {
         PointerKind::Down(PointerButton::Left),
     );
 
-    let copy = fixture.effects(UiInput::Key(UiKey::Copy));
+    let copy = fixture.effects(crate::key_input(UiKey::Copy));
     assert!(matches!(
         copy.as_slice(),
         [Effect::WriteClipboard { content, annotations, .. }]
@@ -109,7 +109,7 @@ fn collapsed_placeholder_copy_and_cut_use_the_complete_canonical_range() {
                 }]
     ));
 
-    let cut = fixture.effects(UiInput::Key(UiKey::Cut));
+    let cut = fixture.effects(crate::key_input(UiKey::Cut));
     let [Effect::WriteClipboard { request_id, .. }] = cut.as_slice() else {
         panic!("cut write");
     };
@@ -136,7 +136,7 @@ fn shrinking_a_keyboard_selection_inside_an_attachment_keeps_cut_atomic() {
     let start = "prefix ".len();
     let annotation = attachment(&content, start, start + path.len(), true);
     let mut fixture = Fixture::with_annotated_thought(&content, vec![annotation]);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let _terminal = draw(&mut fixture, 60, 8);
     let area = fixture
         .app
@@ -148,12 +148,12 @@ fn shrinking_a_keyboard_selection_inside_an_attachment_keeps_cut_atomic() {
         area.y,
         PointerKind::Down(PointerButton::Left),
     );
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: true,
     }));
 
-    let cut = fixture.effects(UiInput::Key(UiKey::Cut));
+    let cut = fixture.effects(crate::key_input(UiKey::Cut));
     let [
         Effect::WriteClipboard {
             request_id,
@@ -192,7 +192,7 @@ fn extending_a_keyboard_selection_across_a_large_paste_keeps_its_metadata() {
         },
     };
     let mut fixture = Fixture::with_annotated_thought(&content, vec![annotation.clone()]);
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
     let _terminal = draw(&mut fixture, 60, 8);
     let area = fixture
         .app
@@ -204,12 +204,12 @@ fn extending_a_keyboard_selection_across_a_large_paste_keeps_its_metadata() {
         area.y,
         PointerKind::Down(PointerButton::Left),
     );
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: true,
     }));
 
-    let copy = fixture.effects(UiInput::Key(UiKey::Copy));
+    let copy = fixture.effects(crate::key_input(UiKey::Copy));
     assert!(matches!(
         copy.as_slice(),
         [Effect::WriteClipboard { content, annotations, .. }]

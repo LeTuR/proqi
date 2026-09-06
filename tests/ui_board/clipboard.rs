@@ -4,7 +4,7 @@ use proqi::{
     application::{ClipboardIntent, Effect, FailureCode, InteractionMode},
     domain::{ContentAnnotation, ContentAnnotationKind},
     ports::editor::CursorMovement,
-    ui::{UiInput, UiKey},
+    ui::UiKey,
 };
 
 #[test]
@@ -12,9 +12,9 @@ fn board_cut_waits_for_clipboard_success_and_copy_preserves_exact_content() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste(" exact\r\n界 ");
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 
-    let copy = fixture.effects(UiInput::Key(UiKey::Copy));
+    let copy = fixture.effects(crate::key_input(UiKey::Copy));
     let [
         Effect::WriteClipboard {
             request_id,
@@ -35,7 +35,7 @@ fn board_cut_waits_for_clipboard_success_and_copy_preserves_exact_content() {
     );
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
 
-    let failed_cut = fixture.effects(UiInput::Key(UiKey::Cut));
+    let failed_cut = fixture.effects(crate::key_input(UiKey::Cut));
     let [Effect::WriteClipboard { request_id, .. }] = failed_cut.as_slice() else {
         panic!("expected cut effect");
     };
@@ -48,7 +48,7 @@ fn board_cut_waits_for_clipboard_success_and_copy_preserves_exact_content() {
     assert!(matches!(failure.as_slice(), [Effect::Notify { .. }]));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
 
-    let cut = fixture.effects(UiInput::Key(UiKey::Cut));
+    let cut = fixture.effects(crate::key_input(UiKey::Cut));
     let [
         Effect::WriteClipboard {
             request_id,
@@ -74,8 +74,8 @@ fn board_cut_waits_for_clipboard_success_and_copy_preserves_exact_content() {
     );
     assert!(fixture.app.editor_snapshot().is_some());
 
-    fixture.input(UiInput::Key(UiKey::Character('n')));
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('n')));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert_eq!(fixture.app.state.board.live_thoughts()[0].content, "n");
 }
 
@@ -91,7 +91,7 @@ fn delayed_board_cut_success_keeps_an_intervening_edit() {
         },
     };
     let mut fixture = Fixture::with_annotated_thought(original, vec![annotation.clone()]);
-    let cut = fixture.effects(UiInput::Key(UiKey::Cut));
+    let cut = fixture.effects(crate::key_input(UiKey::Cut));
     let request_id = cut
         .iter()
         .find_map(|effect| match effect {
@@ -100,8 +100,8 @@ fn delayed_board_cut_success_keeps_an_intervening_edit() {
         })
         .expect("cut effect");
 
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Character('!')));
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Character('!')));
     let completion =
         fixture
             .app
@@ -144,11 +144,11 @@ fn unsupported_annotated_clipboard_error_has_platform_guidance() {
 fn editor_cut_is_non_destructive_on_failure_or_changed_selection() {
     let mut fixture = Fixture::new();
     fixture.paste("A界B");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: true,
     }));
-    let cut = fixture.effects(UiInput::Key(UiKey::Cut));
+    let cut = fixture.effects(crate::key_input(UiKey::Cut));
     let [
         Effect::WriteClipboard {
             request_id,
@@ -171,11 +171,11 @@ fn editor_cut_is_non_destructive_on_failure_or_changed_selection() {
         "A界B"
     );
 
-    let cut = fixture.effects(UiInput::Key(UiKey::Cut));
+    let cut = fixture.effects(crate::key_input(UiKey::Cut));
     let [Effect::WriteClipboard { request_id, .. }] = cut.as_slice() else {
         panic!("expected selection write");
     };
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
@@ -195,11 +195,11 @@ fn editor_cut_is_non_destructive_on_failure_or_changed_selection() {
 fn editor_cut_survives_viewport_reflow_when_selection_is_unchanged() {
     let mut fixture = Fixture::new();
     fixture.paste("A long wrapped selection 界B");
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeBack,
         extend_selection: true,
     }));
-    let cut = fixture.effects(UiInput::Key(UiKey::Cut));
+    let cut = fixture.effects(crate::key_input(UiKey::Cut));
     let [Effect::WriteClipboard { request_id, .. }] = cut.as_slice() else {
         panic!("expected selection write");
     };
@@ -219,7 +219,7 @@ fn editor_cut_survives_viewport_reflow_when_selection_is_unchanged() {
 fn empty_or_failed_clipboard_read_never_creates_a_thought() {
     let mut fixture = Fixture::new();
     for result in [Ok(String::new()), Err(FailureCode::ClipboardFailed)] {
-        let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+        let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
         let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
             panic!("expected clipboard read");
         };
@@ -236,7 +236,7 @@ fn empty_or_failed_clipboard_read_never_creates_a_thought() {
 #[test]
 fn compose_clipboard_read_materializes_only_for_its_current_owner() {
     let mut fixture = Fixture::new();
-    let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+    let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
     let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
         panic!("expected clipboard read");
     };
@@ -269,11 +269,11 @@ fn delayed_compose_clipboard_success_or_failure_after_escape_is_discarded() {
         Err(FailureCode::ClipboardFailed),
     ] {
         let mut fixture = Fixture::new();
-        let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+        let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
         let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
             panic!("expected clipboard read");
         };
-        fixture.input(UiInput::Key(UiKey::Escape));
+        fixture.input(crate::key_input(UiKey::Escape));
 
         let effects = fixture.app.complete_clipboard_read(
             *request_id,
@@ -293,12 +293,12 @@ fn delayed_compose_clipboard_success_or_failure_after_escape_is_discarded() {
 #[test]
 fn delayed_clipboard_result_cannot_follow_a_new_compose_generation() {
     let mut fixture = Fixture::new();
-    let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+    let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
     let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
         panic!("expected clipboard read");
     };
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Enter));
     assert_eq!(fixture.app.interaction_mode(), InteractionMode::Compose);
 
     let effects = fixture.app.complete_clipboard_read(
@@ -324,13 +324,13 @@ fn delayed_clipboard_result_cannot_follow_a_new_compose_generation() {
 #[test]
 fn compose_clipboard_read_follows_the_same_editor_through_materialization() {
     let mut fixture = Fixture::new();
-    let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+    let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
     let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
         panic!("expected clipboard read");
     };
     assert!(matches!(
         fixture
-            .effects(UiInput::Key(UiKey::Character('n')))
+            .effects(crate::key_input(UiKey::Character('n')))
             .as_slice(),
         [Effect::CommitBoardOperation(_)]
     ));
@@ -360,11 +360,11 @@ fn compose_clipboard_read_follows_the_same_editor_through_materialization() {
 #[test]
 fn compose_clipboard_failure_remains_visible_after_materialization() {
     let mut fixture = Fixture::new();
-    let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+    let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
     let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
         panic!("expected clipboard read");
     };
-    fixture.input(UiInput::Key(UiKey::Character('n')));
+    fixture.input(crate::key_input(UiKey::Character('n')));
 
     assert!(
         fixture
@@ -397,11 +397,11 @@ fn compose_clipboard_failure_remains_visible_after_materialization() {
 fn delayed_durable_editor_clipboard_result_cannot_cross_into_board() {
     let mut fixture = Fixture::new();
     fixture.paste("existing draft");
-    let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+    let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
     let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
         panic!("expected clipboard read");
     };
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 
     let effects = fixture.app.complete_clipboard_read(
         *request_id,
@@ -420,13 +420,13 @@ fn delayed_durable_editor_clipboard_result_cannot_cross_into_board() {
 #[test]
 fn materialized_compose_clipboard_read_cannot_cross_edit_exit_and_reentry() {
     let mut fixture = Fixture::new();
-    let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+    let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
     let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
         panic!("expected clipboard read");
     };
-    fixture.input(UiInput::Key(UiKey::Character('n')));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Character('n')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Enter));
 
     let effects = fixture.app.complete_clipboard_read(
         *request_id,
@@ -449,7 +449,7 @@ fn materialized_compose_clipboard_read_cannot_cross_edit_exit_and_reentry() {
 #[test]
 fn materialized_clipboard_image_path_is_one_undoable_paste() {
     let mut fixture = Fixture::new();
-    let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+    let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
     let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
         panic!("expected clipboard read");
     };
@@ -466,8 +466,8 @@ fn materialized_clipboard_image_path_is_one_undoable_paste() {
     ));
     assert_eq!(fixture.app.state.board.live_thoughts()[0].content, path);
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
 }
 
@@ -475,7 +475,7 @@ fn materialized_clipboard_image_path_is_one_undoable_paste() {
 fn materialized_path_in_edit_mode_inserts_at_the_cursor() {
     let mut fixture = Fixture::new();
     fixture.paste("attach: ");
-    let read = fixture.effects(UiInput::Key(UiKey::PasteClipboard));
+    let read = fixture.effects(crate::key_input(UiKey::PasteClipboard));
     let [Effect::ReadClipboard { request_id }] = read.as_slice() else {
         panic!("expected clipboard read");
     };

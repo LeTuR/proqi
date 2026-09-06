@@ -37,6 +37,19 @@ enum GlobalDeliveryStage {
     },
 }
 
+impl GlobalDeliveryState {
+    pub(super) const fn input_owner(&self) -> super::input_dispatch::ActiveInputOwner {
+        match self.stage {
+            GlobalDeliveryStage::Targets { .. } => {
+                super::input_dispatch::ActiveInputOwner::GlobalDeliveryQuery
+            }
+            GlobalDeliveryStage::Disposition { .. } => {
+                super::input_dispatch::ActiveInputOwner::GlobalDeliveryDisposition
+            }
+        }
+    }
+}
+
 pub(in crate::ui) struct GlobalDeliveryChoiceView {
     pub(in crate::ui) primary: String,
     pub(in crate::ui) secondary: String,
@@ -53,6 +66,14 @@ pub(in crate::ui) struct GlobalDeliveryView {
 }
 
 impl BoardApp {
+    pub(super) fn global_delivery_input_owner(
+        &self,
+    ) -> Option<super::input_dispatch::ActiveInputOwner> {
+        self.global_delivery
+            .as_ref()
+            .map(GlobalDeliveryState::input_owner)
+    }
+
     pub(super) fn begin_global_delivery(
         &mut self,
         ids: &mut impl IdGenerator,

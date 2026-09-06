@@ -115,7 +115,7 @@ fn manual_refresh_waits_for_the_latest_relinked_source_generation() {
         .complete_attachment_checks(complete(insertion, Ok(())));
 
     let stale = attachment_batch(&fixture.app.refresh_attachments(true));
-    fixture.input(UiInput::Key(UiKey::SelectAll));
+    fixture.input(crate::key_input(UiKey::SelectAll));
     let mutation = fixture.effects(UiInput::PasteAnnotated(attachment_payload(
         "/tmp/relinked.txt",
         false,
@@ -154,19 +154,19 @@ fn accessible_prose_and_fold_edits_do_not_recheck_or_flicker() {
         .complete_attachment_checks(complete(attachment_batch(&insertion), Ok(())));
     assert!(text(draw(&mut fixture, 60, 8).backend().buffer()).contains("[Image 1]"));
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: proqi::ports::editor::CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    let expanded = fixture.effects(UiInput::Key(UiKey::Enter));
+    let expanded = fixture.effects(crate::key_input(UiKey::Enter));
     assert!(
         expanded
             .iter()
             .all(|effect| !matches!(effect, Effect::CheckAttachments(_)))
     );
     assert!(text(draw(&mut fixture, 60, 8).backend().buffer()).contains("/tmp/stable.png"));
-    fixture.input(UiInput::Key(UiKey::Character('!')));
-    let collapsed = fixture.effects(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character('!')));
+    let collapsed = fixture.effects(crate::key_input(UiKey::Escape));
     assert!(
         collapsed
             .iter()
@@ -189,14 +189,14 @@ fn prose_during_manual_refresh_reuses_the_check_and_finishes_with_current_truth(
         .complete_attachment_checks(complete(attachment_batch(&insertion), Ok(())));
     let refresh = attachment_batch(&fixture.app.refresh_attachments(true));
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: proqi::ports::editor::CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Character('!')));
-    fixture.input(UiInput::Key(UiKey::Character('?')));
-    let effects = fixture.effects(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Character('!')));
+    fixture.input(crate::key_input(UiKey::Character('?')));
+    let effects = fixture.effects(crate::key_input(UiKey::Escape));
     assert!(
         effects
             .iter()
@@ -227,11 +227,11 @@ fn expanded_inaccessible_attachment_keeps_text_warning_and_exact_mappings() {
         .app
         .complete_attachment_checks(complete(insertion, Err(AttachmentAccessFailure::Missing)));
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: proqi::ports::editor::CursorMovement::GraphemeBack,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
 
     for width in [60, 24] {
         let terminal = draw_theme(&mut fixture, width, 8, ThemePreference::Dark);
@@ -270,11 +270,11 @@ fn expanded_inaccessible_attachment_keeps_text_warning_and_exact_mappings() {
     assert!(snapshot.selection.is_none());
     assert_eq!(snapshot.content, path);
 
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: proqi::ports::editor::CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: proqi::ports::editor::CursorMovement::DocumentEnd,
         extend_selection: true,
     }));

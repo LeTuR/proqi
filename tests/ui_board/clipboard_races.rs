@@ -24,25 +24,25 @@ fn delayed_editor_cut_cannot_delete_an_identical_annotated_neighbor() {
         PastePayload::annotated(content.to_owned(), vec![annotation.clone()])
             .expect("second annotated thought"),
     ));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualUp,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::SelectAll));
-    let cut = fixture.effects(UiInput::Key(UiKey::Cut));
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::SelectAll));
+    let cut = fixture.effects(crate::key_input(UiKey::Cut));
     let [Effect::WriteClipboard { request_id, .. }] = cut.as_slice() else {
         panic!("expected selection write");
     };
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualDown,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::SelectAll));
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::SelectAll));
     let completion =
         fixture
             .app

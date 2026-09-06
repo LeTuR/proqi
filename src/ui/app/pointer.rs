@@ -29,10 +29,10 @@ impl BoardApp {
         self.pointer_click.map(|click| click.count)
     }
 
-    pub(super) fn reset_pointer_click_for_input(&mut self, input: &crate::ui::UiInput) {
+    pub(super) fn reset_pointer_click_for_input(&mut self, input: &super::UiInput) {
         if !matches!(
             input,
-            crate::ui::UiInput::Pointer(PointerInput {
+            super::UiInput::Pointer(PointerInput {
                 kind: PointerKind::Down(PointerButton::Left)
                     | PointerKind::Up(PointerButton::Left)
                     | PointerKind::Move,

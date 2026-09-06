@@ -32,10 +32,10 @@ fn hermes_in_both_mixed_row_positions_never_bypasses_direction_choice() {
             assert!(rendered.contains(&format!("→ {}", title(right_kind))));
             assert!(
                 fixture
-                    .effects(UiInput::Key(UiKey::Character('s')))
+                    .effects(crate::key_input(UiKey::Character('s')))
                     .is_empty()
             );
-            let effects = fixture.effects(UiInput::Key(UiKey::Character(key)));
+            let effects = fixture.effects(crate::key_input(UiKey::Character(key)));
             let request = super::agent::start_submission(&mut fixture, &effects);
             assert_eq!(
                 request.target.adjacent_direction(),

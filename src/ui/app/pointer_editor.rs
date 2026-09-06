@@ -4,10 +4,10 @@ use crate::{
     application::{Effect, InteractionMode},
     ports::editor::{EditCommand, SelectionGranularity},
     ports::environment::{Clock, IdGenerator},
-    ui::{PointerInput, UiKey},
+    ui::PointerInput,
 };
 
-use super::BoardApp;
+use super::{BoardApp, UiKey};
 
 impl BoardApp {
     pub(super) fn pointer_insert(

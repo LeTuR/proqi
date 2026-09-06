@@ -1,21 +1,63 @@
 use super::*;
 
 #[test]
+fn primary_transform_keeps_the_escape_handoff_for_commands_with_real_strokes() {
+    let mut fixture = Fixture::new();
+    let sequence = fixture.paste("left right");
+    fixture.app.acknowledge_persistence(sequence, true);
+    fixture.input(UiInput::KeyStroke(KeyStroke::press(LogicalKey::Home)));
+    for _ in 0..4 {
+        fixture.input(UiInput::KeyStroke(KeyStroke::press(LogicalKey::Right)));
+    }
+    fixture.input(UiInput::KeyStroke(KeyStroke::press(LogicalKey::Escape)));
+    let primary = if cfg!(target_os = "macos") {
+        LogicalModifiers::SUPER
+    } else {
+        LogicalModifiers::CONTROL
+    };
+    fixture.input(UiInput::KeyStroke(
+        KeyStroke::press(LogicalKey::Character('t')).with_modifiers(primary),
+    ));
+    fixture.input(UiInput::KeyStroke(KeyStroke::press(LogicalKey::Character(
+        ':',
+    ))));
+    for character in "split thought".chars() {
+        fixture.input(UiInput::KeyStroke(KeyStroke::press(LogicalKey::Character(
+            character,
+        ))));
+    }
+
+    let effects = fixture.effects(UiInput::KeyStroke(KeyStroke::press(LogicalKey::Enter)));
+    assert_eq!(board_operation(&effects).kind, BoardOperationKind::Split);
+    assert_eq!(
+        fixture
+            .app
+            .state
+            .board
+            .live_thoughts()
+            .iter()
+            .map(|thought| thought.content.as_str())
+            .collect::<Vec<_>>(),
+        ["left", " right"]
+    );
+}
+
+#[test]
 fn dirty_primary_transform_emits_one_board_operation_and_undoes_the_edit_with_it() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste("A界 B");
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Character('!')));
+    fixture.input(crate::key_input(UiKey::Character('!')));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::PrimaryCharacter('t')));
+    let effects = fixture.effects(crate::key_input(UiKey::PrimaryCharacter('t')));
     assert!(matches!(
         effects.as_slice(),
         [Effect::CommitBoardOperation(_)]
@@ -32,7 +74,7 @@ fn dirty_primary_transform_emits_one_board_operation_and_undoes_the_edit_with_it
         ["A!", "界 B"]
     );
 
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
     assert_eq!(fixture.app.state.board.live_thoughts()[0].content, "A界 B");
 }
@@ -42,8 +84,8 @@ fn mouse_commands_preserves_the_exact_selection_captured_on_edit_exit() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste("exact selection");
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::SelectAll));
-    let commit = fixture.effects(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::SelectAll));
+    let commit = fixture.effects(crate::key_input(UiKey::Escape));
     assert!(commit.is_empty());
     let commands = fixture
         .app
@@ -61,7 +103,7 @@ fn mouse_commands_preserves_the_exact_selection_captured_on_edit_exit() {
     assert!(effects.is_empty());
 
     for character in "extract selection".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     assert_eq!(
         fixture.app.palette_view().expect("palette").1,
@@ -92,20 +134,20 @@ fn edit_mode_redo_reapplies_the_transformation_just_undone_from_its_source() {
     let mut fixture = Fixture::new();
     fixture.paste("left right");
     for _ in 0..6 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeBack,
             extend_selection: false,
         }));
     }
-    fixture.input(UiInput::Key(UiKey::PrimaryCharacter('t')));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::PrimaryCharacter('t')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualUp,
         extend_selection: false,
     }));
-    fixture.input(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
 
-    let undo = fixture.effects(UiInput::Key(UiKey::Undo));
+    let undo = fixture.effects(crate::key_input(UiKey::Undo));
     assert!(matches!(
         undo.as_slice(),
         [Effect::CommitHistoryMove {
@@ -114,7 +156,7 @@ fn edit_mode_redo_reapplies_the_transformation_just_undone_from_its_source() {
             ..
         }]
     ));
-    let redo = fixture.effects(UiInput::Key(UiKey::Redo));
+    let redo = fixture.effects(crate::key_input(UiKey::Redo));
     assert!(matches!(
         redo.as_slice(),
         [Effect::CommitHistoryMove {

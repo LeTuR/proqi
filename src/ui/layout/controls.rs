@@ -219,8 +219,11 @@ pub(super) fn configure_agent_controls(
             }
             _ => HitTarget::BeginDelivery(disposition),
         };
-        let label_width =
-            crate::ui::control_labels::submission_width(disposition, mode, keybindings);
+        let Some(label_width) =
+            crate::ui::control_labels::submission_width(disposition, mode, keybindings)
+        else {
+            continue;
+        };
         push(layout, &mut x, area, target, label_width);
     }
 }

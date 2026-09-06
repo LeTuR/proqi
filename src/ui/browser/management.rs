@@ -2,7 +2,7 @@
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::ui::{UiInput, UiKey};
+use crate::ui::input::{RoutedInput as UiInput, UiKey};
 
 use super::{BrowserAction, BrowserAvailability, SessionBrowser};
 
@@ -87,6 +87,7 @@ impl SessionBrowser {
                 BrowserAction::Continue
             }
             UiInput::Key(_)
+            | UiInput::KeyStroke(_)
             | UiInput::Resize { .. }
             | UiInput::HostFocusGained
             | UiInput::HostFocusLost

@@ -36,10 +36,10 @@ fn opencode_routes_correctly_in_both_mixed_harness_positions() {
         assert!(rendered.contains(&format!("→ {}", capitalize(right_kind))));
         assert!(
             fixture
-                .effects(UiInput::Key(UiKey::Character('s')))
+                .effects(crate::key_input(UiKey::Character('s')))
                 .is_empty()
         );
-        let effects = fixture.effects(UiInput::Key(UiKey::Character(key)));
+        let effects = fixture.effects(crate::key_input(UiKey::Character(key)));
         let request = super::agent::start_submission(&mut fixture, &effects);
         assert_eq!(request.target.agent_kind().as_str(), expected_kind);
     }
@@ -57,17 +57,17 @@ fn selected_thoughts_submit_once_in_board_order_and_remove_as_one_undo_step() {
     let mut fixture = Fixture::new();
     super::agent::prepare_thought(&mut fixture);
     fixture.paste("second thought");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     fixture.acknowledge_all_persistence();
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     let target = super::agent::target(Direction::Left, "w1:p2");
     fixture
         .app
         .complete_agent_discovery(Ok(vec![target.clone()]));
 
-    let effects = fixture.effects(UiInput::Key(UiKey::Character('s')));
+    let effects = fixture.effects(crate::key_input(UiKey::Character('s')));
     let request = super::agent::start_submission(&mut fixture, &effects);
     assert_eq!(
         request.content,
@@ -88,8 +88,8 @@ fn selected_thoughts_submit_once_in_board_order_and_remove_as_one_undo_step() {
     ));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 2);
 }
 
@@ -101,15 +101,15 @@ fn merged_prompt_keeps_only_the_first_shared_starter() {
             fixture.paste(&format!(
                 "{starter} first task with an internal {starter} reference"
             ));
-            fixture.input(UiInput::Key(UiKey::Escape));
+            fixture.input(crate::key_input(UiKey::Escape));
             fixture.paste(&format!(
                 "{starter} second task keeps internal {starter} prose"
             ));
-            fixture.input(UiInput::Key(UiKey::Escape));
+            fixture.input(crate::key_input(UiKey::Escape));
             fixture.acknowledge_all_persistence();
-            fixture.input(UiInput::Key(UiKey::Character(' ')));
-            fixture.input(UiInput::Key(UiKey::Character('k')));
-            fixture.input(UiInput::Key(UiKey::Character(' ')));
+            fixture.input(crate::key_input(UiKey::Character(' ')));
+            fixture.input(crate::key_input(UiKey::Character('k')));
+            fixture.input(crate::key_input(UiKey::Character(' ')));
             fixture
                 .app
                 .complete_agent_discovery(Ok(vec![super::agent::target_with_kind(
@@ -118,7 +118,7 @@ fn merged_prompt_keeps_only_the_first_shared_starter() {
                     harness,
                 )]));
 
-            let effects = fixture.effects(UiInput::Key(UiKey::Character('s')));
+            let effects = fixture.effects(crate::key_input(UiKey::Character('s')));
             let request = super::agent::start_submission(&mut fixture, &effects);
             assert_eq!(
                 request.content,
@@ -133,17 +133,17 @@ fn merged_prompt_keeps_only_the_first_shared_starter() {
 
             let mut without_first_starter = Fixture::new();
             without_first_starter.paste(&format!("ordinary first task with {starter} prose"));
-            without_first_starter.input(UiInput::Key(UiKey::Escape));
+            without_first_starter.input(crate::key_input(UiKey::Escape));
             without_first_starter.paste(&format!("{starter} later task"));
-            without_first_starter.input(UiInput::Key(UiKey::Escape));
+            without_first_starter.input(crate::key_input(UiKey::Escape));
             without_first_starter.acknowledge_all_persistence();
-            without_first_starter.input(UiInput::Key(UiKey::Character(' ')));
-            without_first_starter.input(UiInput::Key(UiKey::Character('k')));
-            without_first_starter.input(UiInput::Key(UiKey::Character(' ')));
+            without_first_starter.input(crate::key_input(UiKey::Character(' ')));
+            without_first_starter.input(crate::key_input(UiKey::Character('k')));
+            without_first_starter.input(crate::key_input(UiKey::Character(' ')));
             without_first_starter.app.complete_agent_discovery(Ok(vec![
                 super::agent::target_with_kind(Direction::Left, "w1:p2", harness),
             ]));
-            let effects = without_first_starter.effects(UiInput::Key(UiKey::Character('s')));
+            let effects = without_first_starter.effects(crate::key_input(UiKey::Character('s')));
             let request = super::agent::start_submission(&mut without_first_starter, &effects);
             assert_eq!(
                 request.content,

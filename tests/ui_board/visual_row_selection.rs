@@ -5,26 +5,27 @@ use proqi::{
     application::Effect,
     domain::{ContentAnnotation, ContentAnnotationKind, TextPosition},
     ports::editor::{CursorMovement, TextSelection, VisualLine},
-    ui::{HitTarget, PointerButton, PointerKind, UiInput, UiKey, UiSettings, VisualRowEdge},
+    ui::{HitTarget, PointerButton, PointerKind, UiKey, UiSettings, VisualRowEdge},
 };
 use ratatui_core::layout::Rect;
 use unicode_segmentation::UnicodeSegmentation as _;
 
 fn extend(fixture: &mut Fixture, edge: VisualRowEdge) {
-    fixture.input(UiInput::Key(UiKey::ExtendVisualRow { edge }));
+    fixture.input(crate::key_input(UiKey::ExtendVisualRow { edge }));
 }
 
+#[cfg(target_os = "macos")]
 fn move_to_edge(fixture: &mut Fixture, edge: VisualRowEdge) {
-    fixture.input(UiInput::Key(UiKey::MoveVisualRow { edge }));
+    fixture.input(crate::key_input(UiKey::MoveVisualRow { edge }));
 }
 
 fn move_to_grapheme(fixture: &mut Fixture, grapheme: usize) {
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::DocumentStart,
         extend_selection: false,
     }));
     for _ in 0..grapheme {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeForward,
             extend_selection: false,
         }));
@@ -89,6 +90,7 @@ fn repeated_chords_extend_both_selection_directions_across_wrapped_unicode_rows(
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 fn unshifted_row_edge_movement_uses_the_current_wrapped_row_without_selection() {
     let mut fixture = Fixture::new();
     fixture.paste("0123456789 abcdefghijklmnopqrstuvwxyz");
@@ -205,7 +207,7 @@ fn collapsed_substitutions_are_atomic_and_expanded_folds_use_exact_content_rows(
         }),
     ] {
         let mut fixture = Fixture::with_annotated_thought(content, vec![annotation]);
-        fixture.input(UiInput::Key(UiKey::Enter));
+        fixture.input(crate::key_input(UiKey::Enter));
         let _frame = draw(&mut fixture, 13, 8);
         move_to_grapheme(&mut fixture, 0);
         extend(&mut fixture, VisualRowEdge::End);
@@ -230,14 +232,14 @@ fn collapsed_substitutions_are_atomic_and_expanded_folds_use_exact_content_rows(
             graphemes: content.graphemes(true).count(),
         })],
     );
-    expanded.input(UiInput::Key(UiKey::Enter));
+    expanded.input(crate::key_input(UiKey::Enter));
     let _collapsed = draw(&mut expanded, 13, 8);
     move_to_grapheme(&mut expanded, 0);
-    expanded.input(UiInput::Key(UiKey::Move {
+    expanded.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::GraphemeForward,
         extend_selection: false,
     }));
-    expanded.input(UiInput::Key(UiKey::Enter));
+    expanded.input(crate::key_input(UiKey::Enter));
     let _expanded = draw(&mut expanded, 13, 8);
     move_to_grapheme(&mut expanded, 2);
     extend(&mut expanded, VisualRowEdge::End);
@@ -254,8 +256,8 @@ fn configured_fallback_and_mouse_anchor_share_the_same_undo_neutral_selection_pa
     let sequence = fixture.paste("mouse anchored wrapped content abcdefghijklmnopqrstuvwxyz");
     let _ack = fixture.app.acknowledge_persistence(sequence, true);
     let _frame = draw(&mut fixture, 20, 8);
-    fixture.input(UiInput::Key(UiKey::Character('!')));
-    let effects = fixture.effects(UiInput::Key(UiKey::PrimaryShiftCharacter('R')));
+    fixture.input(crate::key_input(UiKey::Character('!')));
+    let effects = fixture.effects(crate::key_input(UiKey::PrimaryShiftCharacter('R')));
     assert_eq!(
         effects
             .iter()
@@ -276,7 +278,7 @@ fn configured_fallback_and_mouse_anchor_share_the_same_undo_neutral_selection_pa
         PointerKind::Up(PointerButton::Left),
     );
     let anchor = fixture.app.editor_snapshot().expect("mouse cursor").cursor;
-    let effects = fixture.effects(UiInput::Key(UiKey::PrimaryShiftCharacter('R')));
+    let effects = fixture.effects(crate::key_input(UiKey::PrimaryShiftCharacter('R')));
     assert!(effects.is_empty());
     let selected = fixture.app.editor_snapshot().expect("fallback selection");
     assert_eq!(selected.selection.expect("selection").start, anchor);
@@ -295,7 +297,7 @@ fn visual_row_selection_palette_fallback_is_mouse_operable() {
     let _editor = draw(&mut fixture, 20, 8);
     move_to_grapheme(&mut fixture, 3);
     let expected = fixture.app.editor_snapshot().expect("editor").visual_lines[0].end_grapheme;
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let commands = fixture
         .app
         .prepare_frame(Rect::new(0, 0, 20, 8))
@@ -309,7 +311,7 @@ fn visual_row_selection_palette_fallback_is_mouse_operable() {
         PointerKind::Down(PointerButton::Left),
     );
     for character in "visual row end".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let _palette = draw(&mut fixture, 20, 8);
     let item = fixture
@@ -349,7 +351,7 @@ fn visual_row_selection_intentions_do_not_change_board_navigation_or_selection()
             edge: VisualRowEdge::End,
         },
     ] {
-        assert!(fixture.effects(UiInput::Key(key)).is_empty());
+        assert!(fixture.effects(crate::key_input(key)).is_empty());
         assert_eq!(fixture.app.state.focused_thought, focused);
     }
 }

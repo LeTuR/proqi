@@ -5,6 +5,12 @@ use crate::{domain::Direction, ports::editor::CursorMovement};
 use super::FastNavigation;
 use super::PastePayload;
 
+mod keystroke;
+pub use keystroke::{
+    KeyPhase, KeyStroke, LogicalKey, LogicalKeyState, LogicalMediaKey, LogicalModifierKey,
+    LogicalModifiers,
+};
+
 /// Directional edge of one wrapped visual editor row.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum VisualRowEdge {
@@ -58,6 +64,8 @@ pub struct PointerInput {
 /// Normalized keys accepted by the board UI.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UiKey {
+    /// Stable registry action whose owner does not need a parameterized intention.
+    Shortcut(super::ShortcutActionId),
     /// Request a clean application exit from any mode.
     Quit,
     /// Insert one Unicode scalar value.
@@ -117,17 +125,6 @@ pub enum UiKey {
         /// Edge resolved from the current rendered projection.
         edge: VisualRowEdge,
     },
-    /// A mode-aware vertical chord with distinct editor and board intentions.
-    ///
-    /// The UI mode translator resolves this before command dispatch. This lets
-    /// Alt and Primary accelerate editing without changing established board
-    /// or overlay navigation.
-    EditNavigation {
-        /// Movement applied while directly editing a thought.
-        editor_movement: CursorMovement,
-        /// Existing movement retained in board mode and overlays.
-        board_movement: CursorMovement,
-    },
     /// Vertical movement reported with both Primary and Shift modifiers.
     ///
     /// Board mode interprets this as thought reordering. Edit mode preserves
@@ -171,18 +168,9 @@ impl UiKey {
     /// Resolve the equivalent arrow and Vim spellings used by non-text lists.
     pub(crate) const fn list_navigation(self) -> Option<ListNavigation> {
         match self {
-            Self::Move { movement, .. }
-            | Self::EditNavigation {
-                board_movement: movement,
-                ..
+            Self::Move { movement, .. } | Self::PrimaryShiftMove { movement } => {
+                list_movement(movement)
             }
-            | Self::PrimaryShiftMove { movement } => list_movement(movement),
-            Self::Character('k' | 'K')
-            | Self::PrimaryCharacter('k' | 'K')
-            | Self::PrimaryShiftCharacter('k' | 'K') => Some(ListNavigation::Previous),
-            Self::Character('j' | 'J')
-            | Self::PrimaryCharacter('j' | 'J')
-            | Self::PrimaryShiftCharacter('j' | 'J') => Some(ListNavigation::Next),
             _ => None,
         }
     }
@@ -190,24 +178,9 @@ impl UiKey {
     /// Resolve the equivalent arrow and Vim spellings used by direction choosers.
     pub(crate) const fn direction(self) -> Option<Direction> {
         match self {
-            Self::Move { movement, .. }
-            | Self::EditNavigation {
-                board_movement: movement,
-                ..
+            Self::Move { movement, .. } | Self::PrimaryShiftMove { movement } => {
+                movement_direction(movement)
             }
-            | Self::PrimaryShiftMove { movement } => movement_direction(movement),
-            Self::Character('h' | 'H')
-            | Self::PrimaryCharacter('h' | 'H')
-            | Self::PrimaryShiftCharacter('h' | 'H') => Some(Direction::Left),
-            Self::Character('j' | 'J')
-            | Self::PrimaryCharacter('j' | 'J')
-            | Self::PrimaryShiftCharacter('j' | 'J') => Some(Direction::Down),
-            Self::Character('k' | 'K')
-            | Self::PrimaryCharacter('k' | 'K')
-            | Self::PrimaryShiftCharacter('k' | 'K') => Some(Direction::Up),
-            Self::Character('l' | 'L')
-            | Self::PrimaryCharacter('l' | 'L')
-            | Self::PrimaryShiftCharacter('l' | 'L') => Some(Direction::Right),
             _ => None,
         }
     }
@@ -247,8 +220,11 @@ const fn movement_direction(movement: CursorMovement) -> Option<Direction> {
 /// Input translated from a concrete terminal backend.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum UiInput {
-    /// One normalized key command.
+    /// Resolved semantic input used only by owner-level unit tests.
+    #[cfg(test)]
     Key(UiKey),
+    /// Neutral logical keyboard event awaiting registry dispatch.
+    KeyStroke(KeyStroke),
     /// One complete bracketed or clipboard paste.
     Paste(String),
     /// One complete paste with adapter-derived presentation provenance.
@@ -277,6 +253,38 @@ impl UiInput {
     #[must_use]
     pub const fn is_deliberate_interaction(&self) -> bool {
         match self {
+            #[cfg(test)]
+            Self::Key(_) => true,
+            Self::KeyStroke(stroke) => !matches!(stroke.phase, KeyPhase::Release),
+            Self::Paste(_) | Self::PasteAnnotated(_) => true,
+            Self::Pointer(pointer) => matches!(
+                pointer.kind,
+                PointerKind::Down(_)
+                    | PointerKind::Drag(_)
+                    | PointerKind::ScrollUp
+                    | PointerKind::ScrollDown
+            ),
+            Self::Resize { .. } | Self::HostFocusGained | Self::HostFocusLost => false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum RoutedInput {
+    KeyStroke(KeyStroke),
+    Key(UiKey),
+    Paste(String),
+    PasteAnnotated(PastePayload),
+    Resize { width: u16, height: u16 },
+    HostFocusGained,
+    HostFocusLost,
+    Pointer(PointerInput),
+}
+
+impl RoutedInput {
+    pub(crate) const fn is_deliberate_interaction(&self) -> bool {
+        match self {
+            Self::KeyStroke(stroke) => !matches!(stroke.phase, KeyPhase::Release),
             Self::Key(_) | Self::Paste(_) | Self::PasteAnnotated(_) => true,
             Self::Pointer(pointer) => matches!(
                 pointer.kind,
@@ -286,6 +294,22 @@ impl UiInput {
                     | PointerKind::ScrollDown
             ),
             Self::Resize { .. } | Self::HostFocusGained | Self::HostFocusLost => false,
+        }
+    }
+}
+
+impl From<UiInput> for RoutedInput {
+    fn from(input: UiInput) -> Self {
+        match input {
+            #[cfg(test)]
+            UiInput::Key(key) => Self::Key(key),
+            UiInput::KeyStroke(stroke) => Self::KeyStroke(stroke),
+            UiInput::Paste(value) => Self::Paste(value),
+            UiInput::PasteAnnotated(payload) => Self::PasteAnnotated(payload),
+            UiInput::Resize { width, height } => Self::Resize { width, height },
+            UiInput::HostFocusGained => Self::HostFocusGained,
+            UiInput::HostFocusLost => Self::HostFocusLost,
+            UiInput::Pointer(pointer) => Self::Pointer(pointer),
         }
     }
 }
@@ -303,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    fn non_text_list_aliases_share_one_typed_intention() {
+    fn non_text_list_movements_share_one_typed_intention() {
         for (key, expected) in [
             (movement(CursorMovement::VisualUp), ListNavigation::Previous),
             (
@@ -314,27 +338,19 @@ mod tests {
                 movement(CursorMovement::DocumentStart),
                 ListNavigation::Previous,
             ),
-            (UiKey::Character('k'), ListNavigation::Previous),
-            (UiKey::Character('K'), ListNavigation::Previous),
-            (UiKey::PrimaryCharacter('k'), ListNavigation::Previous),
-            (UiKey::PrimaryCharacter('K'), ListNavigation::Previous),
-            (UiKey::PrimaryShiftCharacter('K'), ListNavigation::Previous),
             (movement(CursorMovement::VisualDown), ListNavigation::Next),
             (
                 movement(CursorMovement::VisualJumpDown),
                 ListNavigation::Next,
             ),
             (movement(CursorMovement::DocumentEnd), ListNavigation::Next),
-            (UiKey::Character('j'), ListNavigation::Next),
-            (UiKey::Character('J'), ListNavigation::Next),
-            (UiKey::PrimaryCharacter('j'), ListNavigation::Next),
-            (UiKey::PrimaryCharacter('J'), ListNavigation::Next),
-            (UiKey::PrimaryShiftCharacter('J'), ListNavigation::Next),
         ] {
             assert_eq!(key.list_navigation(), Some(expected));
         }
         for key in [
             UiKey::Character('h'),
+            UiKey::Character('j'),
+            UiKey::Character('k'),
             UiKey::Character('l'),
             UiKey::Delete,
             UiKey::ModifiedDelete,
@@ -361,51 +377,32 @@ mod tests {
                 },
                 ListNavigation::Previous,
             ),
-            (
-                UiKey::EditNavigation {
-                    editor_movement: CursorMovement::VisualJumpDown,
-                    board_movement: CursorMovement::VisualDown,
-                },
-                ListNavigation::Next,
-            ),
         ] {
             assert_eq!(key.list_navigation(), Some(expected));
         }
     }
 
     #[test]
-    fn four_way_aliases_share_one_typed_direction() {
+    fn four_way_movements_share_one_typed_direction() {
         for (key, expected) in [
             (movement(CursorMovement::GraphemeBack), Direction::Left),
             (movement(CursorMovement::WordBack), Direction::Left),
-            (UiKey::Character('h'), Direction::Left),
-            (UiKey::Character('H'), Direction::Left),
-            (UiKey::PrimaryCharacter('H'), Direction::Left),
-            (UiKey::PrimaryShiftCharacter('H'), Direction::Left),
             (movement(CursorMovement::VisualDown), Direction::Down),
             (movement(CursorMovement::VisualJumpDown), Direction::Down),
             (movement(CursorMovement::DocumentEnd), Direction::Down),
-            (UiKey::Character('j'), Direction::Down),
-            (UiKey::Character('J'), Direction::Down),
-            (UiKey::PrimaryCharacter('J'), Direction::Down),
-            (UiKey::PrimaryShiftCharacter('J'), Direction::Down),
             (movement(CursorMovement::VisualUp), Direction::Up),
             (movement(CursorMovement::VisualJumpUp), Direction::Up),
             (movement(CursorMovement::DocumentStart), Direction::Up),
-            (UiKey::Character('k'), Direction::Up),
-            (UiKey::Character('K'), Direction::Up),
-            (UiKey::PrimaryCharacter('K'), Direction::Up),
-            (UiKey::PrimaryShiftCharacter('K'), Direction::Up),
             (movement(CursorMovement::GraphemeForward), Direction::Right),
             (movement(CursorMovement::WordForward), Direction::Right),
-            (UiKey::Character('l'), Direction::Right),
-            (UiKey::Character('L'), Direction::Right),
-            (UiKey::PrimaryCharacter('L'), Direction::Right),
-            (UiKey::PrimaryShiftCharacter('L'), Direction::Right),
         ] {
             assert_eq!(key.direction(), Some(expected));
         }
         for key in [
+            UiKey::Character('h'),
+            UiKey::Character('j'),
+            UiKey::Character('k'),
+            UiKey::Character('l'),
             UiKey::Delete,
             UiKey::ModifiedDelete,
             movement(CursorMovement::LineStart),
@@ -430,13 +427,6 @@ mod tests {
                     movement: CursorMovement::DocumentEnd,
                 },
                 Direction::Down,
-            ),
-            (
-                UiKey::EditNavigation {
-                    editor_movement: CursorMovement::VisualJumpUp,
-                    board_movement: CursorMovement::VisualUp,
-                },
-                Direction::Up,
             ),
         ] {
             assert_eq!(key.direction(), Some(expected));

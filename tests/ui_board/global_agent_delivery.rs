@@ -33,15 +33,15 @@ pub(super) fn target(
 }
 
 pub(super) fn open(fixture: &mut Fixture) -> u64 {
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "submit to agent".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     assert_eq!(
         fixture.app.palette_view().expect("commands").1,
         ["Submit to agent..."]
     );
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     let [Effect::DiscoverGlobalAgents { generation }] = effects.as_slice() else {
         panic!("expected current-server discovery: {effects:?}");
     };
@@ -51,7 +51,7 @@ pub(super) fn open(fixture: &mut Fixture) -> u64 {
 pub(super) fn prepare(fixture: &mut Fixture, content: &str) {
     let sequence = fixture.paste(content);
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 }
 
 #[test]
@@ -84,18 +84,18 @@ fn commands_only_target_search_requires_an_explicit_disposition() {
         ]),
     );
     for character in "béta".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let chooser = text(draw(&mut fixture, 72, 9).backend().buffer());
     assert!(chooser.contains("Béta"), "{chooser}");
     assert!(chooser.contains("世 界"), "{chooser}");
     assert!(!chooser.contains("Alpha"));
 
-    assert!(fixture.effects(UiInput::Key(UiKey::Enter)).is_empty());
+    assert!(fixture.effects(crate::key_input(UiKey::Enter)).is_empty());
     let disposition = text(draw(&mut fixture, 72, 8).backend().buffer());
     assert!(disposition.contains("Submit"));
     assert!(disposition.contains("Submit and keep"));
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     let [Effect::PrepareSubmission(attempt)] = effects.as_slice() else {
         panic!("expected durable reservation: {effects:?}");
     };
@@ -124,14 +124,14 @@ fn keep_and_remove_dispositions_share_receipt_matching_and_removal_contracts() {
         fixture
             .app
             .complete_global_agent_discovery(generation, Ok(vec![destination.clone()]));
-        fixture.input(UiInput::Key(UiKey::Enter));
+        fixture.input(crate::key_input(UiKey::Enter));
         if keep {
-            fixture.input(UiInput::Key(UiKey::Move {
+            fixture.input(crate::key_input(UiKey::Move {
                 movement: CursorMovement::VisualDown,
                 extend_selection: false,
             }));
         }
-        let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+        let effects = fixture.effects(crate::key_input(UiKey::Enter));
         let request = super::agent::start_submission(&mut fixture, &effects);
         let completion = super::agent::finish_submission(
             &mut fixture,
@@ -151,8 +151,8 @@ fn keep_and_remove_dispositions_share_receipt_matching_and_removal_contracts() {
             usize::from(keep)
         );
         if !keep {
-            fixture.input(UiInput::Key(UiKey::Escape));
-            fixture.input(UiInput::Key(UiKey::Undo));
+            fixture.input(crate::key_input(UiKey::Escape));
+            fixture.input(crate::key_input(UiKey::Undo));
             assert_eq!(fixture.app.state.board.live_thoughts().len(), 1);
         }
     }
@@ -175,12 +175,12 @@ fn global_provisional_receipt_does_not_refresh_adjacent_targets() {
     fixture
         .app
         .complete_global_agent_discovery(generation, Ok(vec![destination.clone()]));
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualDown,
         extend_selection: false,
     }));
-    let prepared = fixture.effects(UiInput::Key(UiKey::Enter));
+    let prepared = fixture.effects(crate::key_input(UiKey::Enter));
     let request = super::agent::start_submission(&mut fixture, &prepared);
     let completion = super::agent::finish_submission(
         &mut fixture,
@@ -223,7 +223,7 @@ fn blocked_unknown_launching_and_noninteractive_targets_stay_visible_but_disable
         );
         let rendered = text(draw(&mut fixture, 70, 7).backend().buffer());
         assert!(rendered.contains(availability.as_str()));
-        assert!(fixture.effects(UiInput::Key(UiKey::Enter)).is_empty());
+        assert!(fixture.effects(crate::key_input(UiKey::Enter)).is_empty());
         assert!(
             fixture
                 .app
@@ -239,7 +239,7 @@ fn stale_completion_is_ignored_and_reopening_refreshes_new_targets() {
     let mut fixture = Fixture::new();
     prepare(&mut fixture, "source");
     let stale = open(&mut fixture);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let current = open(&mut fixture);
     assert_ne!(stale, current);
     fixture.app.complete_global_agent_discovery(
@@ -366,10 +366,10 @@ fn discontiguous_selection_keeps_exact_board_order_for_global_delivery() {
     for content in ["first", "second", "third"] {
         prepare(&mut fixture, content);
     }
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character('k')));
-    fixture.input(UiInput::Key(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character('k')));
+    fixture.input(crate::key_input(UiKey::Character(' ')));
     let generation = open(&mut fixture);
     fixture.app.complete_global_agent_discovery(
         generation,
@@ -382,12 +382,12 @@ fn discontiguous_selection_keeps_exact_board_order_for_global_delivery() {
             AgentAvailability::Available,
         )]),
     );
-    fixture.input(UiInput::Key(UiKey::Enter));
-    fixture.input(UiInput::Key(UiKey::Move {
+    fixture.input(crate::key_input(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Move {
         movement: CursorMovement::VisualDown,
         extend_selection: false,
     }));
-    let effects = fixture.effects(UiInput::Key(UiKey::Enter));
+    let effects = fixture.effects(crate::key_input(UiKey::Enter));
     let request = super::agent::start_submission(&mut fixture, &effects);
     assert_eq!(request.content, "first\n\nthird");
 }
@@ -416,7 +416,7 @@ fn invocation_reference_annotations_remain_inert_exact_prompt_content() {
         .and_then(|batch| batch.sequence())
         .expect("persistence sequence");
     fixture.app.acknowledge_persistence(sequence, true);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
 
     let generation = open(&mut fixture);
     fixture.app.complete_global_agent_discovery(
@@ -430,8 +430,8 @@ fn invocation_reference_annotations_remain_inert_exact_prompt_content() {
             AgentAvailability::Available,
         )]),
     );
-    fixture.input(UiInput::Key(UiKey::Enter));
-    let prepared = fixture.effects(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
+    let prepared = fixture.effects(crate::key_input(UiKey::Enter));
     let request = super::agent::start_submission(&mut fixture, &prepared);
     assert_eq!(request.content, content);
     assert_eq!(request.target.pane_id(), "w2:p8");
@@ -470,8 +470,8 @@ fn source_change_during_discovery_aborts_before_journal_or_delivery() {
             AgentAvailability::Available,
         )]),
     );
-    fixture.input(UiInput::Key(UiKey::Enter));
-    let submission = fixture.effects(UiInput::Key(UiKey::Enter));
+    fixture.input(crate::key_input(UiKey::Enter));
+    let submission = fixture.effects(crate::key_input(UiKey::Enter));
     assert!(submission.is_empty());
     assert_eq!(
         fixture.app.status_text(),

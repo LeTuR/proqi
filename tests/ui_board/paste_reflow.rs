@@ -11,7 +11,7 @@ use ratatui_core::layout::Rect;
 use super::{Fixture, draw, text};
 
 fn request(fixture: &mut Fixture, key: UiKey) -> proqi::domain::RequestId {
-    let effects = fixture.effects(UiInput::Key(key));
+    let effects = fixture.effects(crate::key_input(key));
     let [Effect::ReadClipboard { request_id }] = effects.as_slice() else {
         panic!("expected one clipboard read, got {effects:?}");
     };
@@ -66,11 +66,11 @@ fn reflow_paste_is_one_atomic_board_operation_with_persistent_history() {
     );
     assert_eq!(fixture.app.status_text(), Some("pasted and reflowed"));
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert!(fixture.app.state.board.live_thoughts().is_empty());
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Redo));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Redo));
     assert_eq!(
         fixture.app.state.board.live_thoughts()[0].content,
         "first line wraps here\n\nsecond paragraph"
@@ -82,13 +82,13 @@ fn reflow_replaces_one_editor_selection_and_undo_restores_it() {
     let mut fixture = Fixture::new();
     fixture.paste("keep OLD suffix");
     for _ in 0.." suffix".chars().count() {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeBack,
             extend_selection: false,
         }));
     }
     for _ in 0.."OLD".chars().count() {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeBack,
             extend_selection: true,
         }));
@@ -100,7 +100,7 @@ fn reflow_replaces_one_editor_selection_and_undo_restores_it() {
         fixture.app.editor_snapshot().expect("editor").content,
         "keep new words suffix"
     );
-    fixture.input(UiInput::Key(UiKey::Undo));
+    fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(
         fixture.app.editor_snapshot().expect("editor").content,
         "keep OLD suffix"
@@ -120,7 +120,7 @@ fn whitespace_only_reflow_does_not_delete_a_selection_or_create_a_thought() {
 
     let mut edit = Fixture::new();
     edit.paste("selected");
-    edit.input(UiInput::Key(UiKey::SelectAll));
+    edit.input(crate::key_input(UiKey::SelectAll));
     let request_id = request(&mut edit, UiKey::PasteClipboardReflow);
     assert!(complete(&mut edit, request_id, "\n\n").is_empty());
     assert_eq!(
@@ -166,7 +166,7 @@ fn protected_attachment_payload_pastes_exactly_with_truthful_status() {
 fn a_delayed_reflow_read_never_crosses_owners() {
     let mut fixture = Fixture::new();
     let request_id = request(&mut fixture, UiKey::PasteClipboardReflow);
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     assert_eq!(fixture.app.interaction_mode(), InteractionMode::Board);
     assert!(complete(&mut fixture, request_id, "must\nnot paste").is_empty());
     assert!(fixture.app.state.board.live_thoughts().is_empty());
@@ -176,7 +176,7 @@ fn a_delayed_reflow_read_never_crosses_owners() {
 fn compose_materialization_preserves_reflow_kind_and_repeated_reads() {
     let mut fixture = Fixture::new();
     let first = request(&mut fixture, UiKey::PasteClipboardReflow);
-    fixture.input(UiInput::Key(UiKey::Character('x')));
+    fixture.input(crate::key_input(UiKey::Character('x')));
     let second = request(&mut fixture, UiKey::PasteClipboardReflow);
     complete(&mut fixture, first, " first\npart");
     complete(&mut fixture, second, " second\npart");
@@ -215,7 +215,7 @@ fn board_paste_pair_is_exact_then_reflow_while_text_and_query_owners_keep_their_
         let mut compose = Fixture::new();
         assert_eq!(
             compose
-                .effects(UiInput::Key(UiKey::Character(character)))
+                .effects(crate::key_input(UiKey::Character(character)))
                 .len(),
             1
         );
@@ -226,7 +226,7 @@ fn board_paste_pair_is_exact_then_reflow_while_text_and_query_owners_keep_their_
     }
 
     let mut exact = Fixture::new();
-    exact.input(UiInput::Key(UiKey::Escape));
+    exact.input(crate::key_input(UiKey::Escape));
     let request_id = request(&mut exact, UiKey::Character('p'));
     complete(&mut exact, request_id, "board\nexact");
     assert_eq!(
@@ -235,7 +235,7 @@ fn board_paste_pair_is_exact_then_reflow_while_text_and_query_owners_keep_their_
     );
 
     let mut reflow = Fixture::new();
-    reflow.input(UiInput::Key(UiKey::Escape));
+    reflow.input(crate::key_input(UiKey::Escape));
     let request_id = request(&mut reflow, UiKey::Character('P'));
     complete(&mut reflow, request_id, "board\nreflow");
     assert_eq!(
@@ -244,24 +244,24 @@ fn board_paste_pair_is_exact_then_reflow_while_text_and_query_owners_keep_their_
     );
 
     let mut board = Fixture::new();
-    board.input(UiInput::Key(UiKey::Escape));
-    board.input(UiInput::Key(UiKey::Character('/')));
-    board.input(UiInput::Key(UiKey::Character('p')));
-    board.input(UiInput::Key(UiKey::Character('P')));
+    board.input(crate::key_input(UiKey::Escape));
+    board.input(crate::key_input(UiKey::Character('/')));
+    board.input(crate::key_input(UiKey::Character('p')));
+    board.input(crate::key_input(UiKey::Character('P')));
     assert_eq!(board.app.search_view().expect("search query").0, "pP");
     assert!(
         board
-            .effects(UiInput::Key(UiKey::PasteClipboardReflow))
+            .effects(crate::key_input(UiKey::PasteClipboardReflow))
             .is_empty()
     );
-    board.input(UiInput::Key(UiKey::Escape));
-    board.input(UiInput::Key(UiKey::Character(':')));
-    board.input(UiInput::Key(UiKey::Character('p')));
-    board.input(UiInput::Key(UiKey::Character('P')));
+    board.input(crate::key_input(UiKey::Escape));
+    board.input(crate::key_input(UiKey::Character(':')));
+    board.input(crate::key_input(UiKey::Character('p')));
+    board.input(crate::key_input(UiKey::Character('P')));
     assert_eq!(board.app.palette_view().expect("palette query").0, "pP");
     assert!(
         board
-            .effects(UiInput::Key(UiKey::PasteClipboardReflow))
+            .effects(crate::key_input(UiKey::PasteClipboardReflow))
             .is_empty()
     );
 }
@@ -282,7 +282,7 @@ fn reflow_content_survives_storage_failure_and_uses_the_existing_retry() {
         "save this"
     );
     assert_eq!(
-        fixture.effects(UiInput::Key(UiKey::Character('r'))),
+        fixture.effects(crate::key_input(UiKey::Character('r'))),
         vec![Effect::RetryPersistence { sequence }]
     );
     fixture.app.acknowledge_persistence(sequence, true);
@@ -296,7 +296,7 @@ fn reflow_content_survives_storage_failure_and_uses_the_existing_retry() {
 fn delayed_reflow_completion_never_overwrites_a_storage_failure() {
     let mut fixture = Fixture::new();
     let sequence = fixture.paste("existing");
-    fixture.input(UiInput::Key(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Escape));
     let request_id = request(&mut fixture, UiKey::PasteClipboardReflow);
     fixture.app.acknowledge_persistence(sequence, false);
 
@@ -318,24 +318,24 @@ fn command_palette_reflow_restores_the_editor_selection_handoff() {
     let mut fixture = Fixture::new();
     fixture.paste("replace OLD here");
     for _ in 0.." here".len() {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeBack,
             extend_selection: false,
         }));
     }
     for _ in 0..3 {
-        fixture.input(UiInput::Key(UiKey::Move {
+        fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::GraphemeBack,
             extend_selection: true,
         }));
     }
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "paste and reflow".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let request_id = fixture
-        .effects(UiInput::Key(UiKey::Enter))
+        .effects(crate::key_input(UiKey::Enter))
         .into_iter()
         .find_map(|effect| match effect {
             Effect::ReadClipboard { request_id } => Some(request_id),
@@ -352,19 +352,19 @@ fn command_palette_reflow_restores_the_editor_selection_handoff() {
 #[test]
 fn paste_commands_are_discoverable_and_reflow_is_mouse_operable() {
     let mut fixture = Fixture::new();
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "paste".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let (_, entries, _) = fixture.app.palette_view().expect("palette");
     assert!(entries.iter().any(|entry| entry == "Paste exactly"));
     assert!(entries.iter().any(|entry| entry == "Paste and reflow"));
 
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "paste and reflow".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let item = fixture
         .app
@@ -392,11 +392,11 @@ fn paste_commands_are_discoverable_and_reflow_is_mouse_operable() {
 fn stale_palette_handoff_requests_no_clipboard_read() {
     let mut fixture = Fixture::new();
     fixture.paste("source");
-    fixture.input(UiInput::Key(UiKey::SelectAll));
-    fixture.input(UiInput::Key(UiKey::Escape));
-    fixture.input(UiInput::Key(UiKey::Character(':')));
+    fixture.input(crate::key_input(UiKey::SelectAll));
+    fixture.input(crate::key_input(UiKey::Escape));
+    fixture.input(crate::key_input(UiKey::Character(':')));
     for character in "paste and reflow".chars() {
-        fixture.input(UiInput::Key(UiKey::Character(character)));
+        fixture.input(crate::key_input(UiKey::Character(character)));
     }
     let thought_id = fixture.app.state.board.live_thoughts()[0].id;
     fixture
@@ -407,7 +407,7 @@ fn stale_palette_handoff_requests_no_clipboard_read() {
         .expect("source")
         .content
         .push('!');
-    assert!(fixture.effects(UiInput::Key(UiKey::Enter)).is_empty());
+    assert!(fixture.effects(crate::key_input(UiKey::Enter)).is_empty());
     assert_eq!(
         fixture.app.status_text(),
         Some("thought changed before paste was chosen")

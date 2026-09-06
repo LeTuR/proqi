@@ -156,10 +156,10 @@ fn parse_alias(alias: &AliasDocument, platform: ShortcutPlatform) -> Option<Vec<
     {
         return None;
     }
-    let expansions = match (primary, platform) {
-        (false, _) => vec![LogicalModifiers::NONE],
-        (true, ShortcutPlatform::MacOs) => vec![LogicalModifiers::SUPER, LogicalModifiers::META],
-        (true, ShortcutPlatform::Portable) => vec![LogicalModifiers::CONTROL],
+    let expansions = if primary {
+        platform.primary_modifiers().to_vec()
+    } else {
+        vec![LogicalModifiers::NONE]
     };
     Some(
         expansions

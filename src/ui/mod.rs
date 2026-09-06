@@ -37,7 +37,9 @@ pub use render::render;
 pub(crate) use render::render_with_outcome;
 pub use settings::{BoardDensity, KeyBindings, KeyboardEnhancement, UiSettings};
 pub(crate) use shortcut_registry::{CommandAvailability, CommandLabel, CommandMetadata};
-pub(crate) use shortcut_registry::{KeymapDocument, ShortcutPlatform};
+pub(crate) use shortcut_registry::{
+    KeymapDocument, ShortcutInspection, ShortcutPlatform, ShortcutStrokeInspection,
+};
 pub use shortcut_registry::{
     ShortcutActionId, ShortcutBinding, ShortcutBindingClaim, ShortcutContext, ShortcutContextStack,
     ShortcutDescriptor, ShortcutModifiers, ShortcutSafety,

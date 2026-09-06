@@ -951,11 +951,11 @@ duplicate, or quit command. `Primary+Y` remains the unshifted alternate redo
 chord. `Primary+Shift+V` is the explicit `Paste and reflow` action. An uppercase
 `V` report without a distinct Shift modifier remains exact paste.
 
-The configurable Board `paste` key must be one lowercase ASCII letter. That
-character pastes exactly and its uppercase counterpart reflows. Explicit
-configured commands keep precedence over either fallback. Help and footer
-labels list only the effective spellings, so a collision never advertises a
-shadowed route.
+The legacy configurable Board `paste` key must be one lowercase ASCII letter.
+That character pastes exactly and its uppercase counterpart reflows. Versioned
+configuration expresses both semantic actions directly. Explicit configured
+commands keep precedence over either fallback. Help and footer labels list only
+the effective spellings, so a collision never advertises a shadowed route.
 
 ### Edit mode
 

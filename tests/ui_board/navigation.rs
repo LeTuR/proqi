@@ -9,10 +9,7 @@ pub(super) fn visual(movement: CursorMovement, shifted: bool) -> UiInput {
     })
 }
 
-pub(super) fn durable_thought(fixture: &mut Fixture, content: &str) {
-    fixture.paste(content);
-    fixture.input(crate::key_input(UiKey::Escape));
-}
+pub(super) use super::durable_thought;
 
 #[test]
 fn keyboard_reordering_wraps_at_both_board_edges() {

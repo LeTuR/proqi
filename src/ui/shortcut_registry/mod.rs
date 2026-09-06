@@ -28,6 +28,7 @@ pub(crate) use dispatch::ResolvedShortcut;
 pub(crate) use dispatch::ShortcutPlatform;
 pub use dispatch::ShortcutRegistry;
 pub use errors::ShortcutRegistryError;
+pub(crate) use inspection::{ShortcutInspection, ShortcutStrokeInspection};
 pub(super) use inventory::fixed_character_binding;
 pub(crate) use model::{
     CommandAvailability, CommandLabel, CommandMetadata, HelpAvailability, HelpSurface,

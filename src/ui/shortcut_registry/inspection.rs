@@ -1,55 +1,158 @@
-//! Content-free inspection of the same resolution used by the active UI owner.
+//! Typed content-free inspection of the active registry resolution.
 
-use serde_json::{Value, json};
+pub(in crate::ui::shortcut_registry) mod intention;
 
-use super::{ShortcutContextStack, ShortcutPlatform, ShortcutRegistry};
-use crate::ui::{KeyPhase, KeyStroke, LogicalKey, LogicalKeyState, LogicalModifiers};
+use super::{
+    ShortcutActionId, ShortcutContext, ShortcutContextStack, ShortcutPlatform, ShortcutRegistry,
+};
+use crate::ui::{KeyPhase, KeyStroke, LogicalKey, LogicalKeyState, LogicalModifiers, UiKey};
 
-impl ShortcutRegistry {
-    pub(crate) fn inspect(&self, contexts: &ShortcutContextStack, stroke: KeyStroke) -> Value {
-        let resolved = self.dispatch(contexts, stroke);
-        let action = resolved.and_then(|value| value.action);
-        let classification = if stroke.phase == KeyPhase::Release {
-            "release_ignored"
-        } else if action.is_some_and(|action| known_no_op(contexts.active(), action)) {
-            "no_op"
-        } else if action.is_some() {
-            "resolved"
-        } else if matches!(stroke.key, LogicalKey::Character(character) if !character.is_control())
-            && super::validation::reserves_printable(stroke.modifiers)
-        {
-            if contexts
-                .active()
-                .is_some_and(super::inventory::bindings::vocabulary::is_text_context)
-            {
-                "reserved_literal"
-            } else {
-                "unbound"
-            }
-        } else {
-            "unbound"
-        };
-        json!({
-            "capture_cancelled": stroke.key == LogicalKey::Escape && stroke.phase != KeyPhase::Release,
-            "keystroke": stroke_value(stroke),
-            "platform": if self.platform() == ShortcutPlatform::MacOs { "macos" } else { "portable" },
-            "primary": if self.platform() == ShortcutPlatform::MacOs { vec!["Super", "Meta"] } else { vec!["Control"] },
-            "context_stack": contexts.as_slice().iter().map(|context| context.configuration_id()).collect::<Vec<_>>(),
-            "active_context": contexts.active().map(super::ShortcutContext::configuration_id),
-            "classification": classification,
-            "action": action.map(super::ShortcutActionId::diagnostics_id),
-            "ui_intention": action.zip(resolved).map(|(_, value)| format!("{:?}", value.intention)),
-            "binding_identity": action.and_then(|action| contexts.active().map(|context| format!("{}:{}:{}", context.configuration_id(), action.diagnostics_id(), binding_identity(stroke)))),
-        })
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum ShortcutClassification {
+    Resolved,
+    ReleaseIgnored,
+    NoOp,
+    ReservedLiteral,
+    Unbound,
+}
+
+impl ShortcutClassification {
+    pub(crate) const fn diagnostics_id(self) -> &'static str {
+        match self {
+            Self::Resolved => "resolved",
+            Self::ReleaseIgnored => "release_ignored",
+            Self::NoOp => "no_op",
+            Self::ReservedLiteral => "reserved_literal",
+            Self::Unbound => "unbound",
+        }
     }
 }
 
-fn stroke_value(stroke: KeyStroke) -> Value {
-    let key = match stroke.key {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ShortcutInspection {
+    pub(crate) stroke: KeyStroke,
+    pub(crate) platform: ShortcutPlatform,
+    pub(crate) context_stack: Vec<ShortcutContext>,
+    pub(crate) active_context: Option<ShortcutContext>,
+    pub(crate) classification: ShortcutClassification,
+    pub(crate) action: Option<ShortcutActionId>,
+    pub(crate) intention: Option<UiKey>,
+}
+
+pub(crate) struct ShortcutStrokeInspection {
+    pub(crate) key: String,
+    pub(crate) modifiers: Vec<&'static str>,
+    pub(crate) state: Vec<&'static str>,
+    pub(crate) phase: &'static str,
+}
+
+impl ShortcutInspection {
+    pub(crate) fn capture_cancelled(&self) -> bool {
+        self.stroke.key == LogicalKey::Escape && self.stroke.phase != KeyPhase::Release
+    }
+
+    pub(crate) fn intention_name(&self) -> Option<String> {
+        self.intention.map(intention::name)
+    }
+
+    pub(crate) const fn classification_id(&self) -> &'static str {
+        self.classification.diagnostics_id()
+    }
+
+    pub(crate) fn stroke_inspection(&self) -> ShortcutStrokeInspection {
+        ShortcutStrokeInspection {
+            key: key_name(self.stroke.key),
+            modifiers: modifier_names(self.stroke.modifiers),
+            state: [
+                (LogicalKeyState::KEYPAD, "Keypad"),
+                (LogicalKeyState::CAPS_LOCK, "CapsLock"),
+                (LogicalKeyState::NUM_LOCK, "NumLock"),
+            ]
+            .into_iter()
+            .filter_map(|(flag, name)| self.stroke.state.contains(flag).then_some(name))
+            .collect(),
+            phase: match self.stroke.phase {
+                KeyPhase::Press => "press",
+                KeyPhase::Repeat => "repeat",
+                KeyPhase::Release => "release",
+            },
+        }
+    }
+
+    pub(crate) const fn platform_id(&self) -> &'static str {
+        match self.platform {
+            ShortcutPlatform::MacOs => "macos",
+            ShortcutPlatform::Portable => "portable",
+        }
+    }
+
+    pub(crate) fn primary_names(&self) -> Vec<&'static str> {
+        self.platform
+            .primary_modifiers()
+            .iter()
+            .flat_map(|modifiers| modifier_names(*modifiers))
+            .collect()
+    }
+
+    pub(crate) fn binding_identity(&self) -> Option<String> {
+        self.action
+            .zip(self.active_context)
+            .map(|(action, context)| {
+                format!(
+                    "{}:{}:{}:{}",
+                    context.configuration_id(),
+                    action.diagnostics_id(),
+                    key_name(self.stroke.key),
+                    modifier_names(self.stroke.modifiers).join("+")
+                )
+            })
+    }
+}
+
+impl ShortcutRegistry {
+    pub(crate) fn inspect(
+        &self,
+        contexts: &ShortcutContextStack,
+        stroke: KeyStroke,
+    ) -> ShortcutInspection {
+        let resolved = self.dispatch(contexts, stroke);
+        let action = resolved.and_then(|value| value.action);
+        let active_context = contexts.active();
+        let classification = if stroke.phase == KeyPhase::Release {
+            ShortcutClassification::ReleaseIgnored
+        } else if action.is_some_and(|action| known_no_op(active_context, action)) {
+            ShortcutClassification::NoOp
+        } else if action.is_some() {
+            ShortcutClassification::Resolved
+        } else if matches!(stroke.key, LogicalKey::Character(character) if !character.is_control())
+            && super::validation::reserves_printable(stroke.modifiers)
+            && active_context.is_some_and(super::inventory::bindings::vocabulary::is_text_context)
+        {
+            ShortcutClassification::ReservedLiteral
+        } else {
+            ShortcutClassification::Unbound
+        };
+        ShortcutInspection {
+            stroke,
+            platform: self.platform(),
+            context_stack: contexts.as_slice().to_vec(),
+            active_context,
+            classification,
+            action,
+            intention: action.zip(resolved).map(|(_, value)| value.intention),
+        }
+    }
+}
+
+fn key_name(key: LogicalKey) -> String {
+    match key {
         LogicalKey::Character(character) => format!("U+{:04X}", u32::from(character)),
         key => super::contract::key_name(key),
-    };
-    let modifiers = [
+    }
+}
+
+fn modifier_names(modifiers: LogicalModifiers) -> Vec<&'static str> {
+    [
         (LogicalModifiers::CONTROL, "Control"),
         (LogicalModifiers::ALT, "Alt"),
         (LogicalModifiers::SHIFT, "Shift"),
@@ -58,38 +161,13 @@ fn stroke_value(stroke: KeyStroke) -> Value {
         (LogicalModifiers::HYPER, "Hyper"),
     ]
     .into_iter()
-    .filter_map(|(flag, name)| stroke.modifiers.contains(flag).then_some(name))
-    .collect::<Vec<_>>();
-    let state = [
-        (LogicalKeyState::KEYPAD, "Keypad"),
-        (LogicalKeyState::CAPS_LOCK, "CapsLock"),
-        (LogicalKeyState::NUM_LOCK, "NumLock"),
-    ]
-    .into_iter()
-    .filter_map(|(flag, name)| stroke.state.contains(flag).then_some(name))
-    .collect::<Vec<_>>();
-    json!({ "key": key, "modifiers": modifiers, "state": state,
-        "phase": match stroke.phase { KeyPhase::Press => "press", KeyPhase::Repeat => "repeat", KeyPhase::Release => "release" } })
+    .filter_map(|(flag, name)| modifiers.contains(flag).then_some(name))
+    .collect()
 }
 
-fn binding_identity(stroke: KeyStroke) -> String {
-    let value = stroke_value(stroke);
-    let key = value["key"].as_str().unwrap_or("unknown");
-    let modifiers = value["modifiers"]
-        .as_array()
-        .map(|values| {
-            values
-                .iter()
-                .filter_map(serde_json::Value::as_str)
-                .collect::<Vec<_>>()
-                .join("+")
-        })
-        .unwrap_or_default();
-    format!("{key}:{modifiers}")
-}
-
-fn known_no_op(context: Option<super::ShortcutContext>, action: super::ShortcutActionId) -> bool {
-    use super::{ShortcutActionId as Action, ShortcutContext as Context};
+fn known_no_op(context: Option<ShortcutContext>, action: ShortcutActionId) -> bool {
+    use ShortcutActionId as Action;
+    use ShortcutContext as Context;
     match action {
         Action::Close => context == Some(Context::Recovery),
         Action::FastPrevious

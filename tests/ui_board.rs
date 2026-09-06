@@ -20,11 +20,14 @@ use ratatui_core::{
     terminal::Terminal,
 };
 
+#[path = "support/board.rs"]
+mod board_support;
 #[path = "support/keyboard.rs"]
 mod keyboard_support;
 #[path = "support/snapshots.rs"]
 mod snapshot_support;
 
+use board_support::durable_thought;
 use keyboard_support::key_input;
 
 struct Fixture {

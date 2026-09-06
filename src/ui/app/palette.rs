@@ -4,6 +4,7 @@ mod binding;
 pub(super) mod command;
 mod dispatch;
 mod editor;
+mod invocation;
 
 use crate::{
     application::Effect,
@@ -12,48 +13,31 @@ use crate::{
 
 use super::{
     BoardApp, UiInput, UiKey, palette_handoff::EditorSelectionHandoff, query::QueryEditor,
-    screenshot::ScreenshotPaletteAction,
 };
-use crate::ui::{
-    CommandAvailability, CommandLabel, CommandMetadata, shortcut_registry::CommandExecution,
-};
+use crate::ui::{CommandMetadata, shortcut_registry::CommandExecution};
 
 use command::Command;
+use invocation::CommandInvocation;
 
 pub(super) struct PaletteState {
     commands: Vec<(Command, CommandMetadata, CommandExecution)>,
     query: QueryEditor,
     selected: usize,
     scroll: usize,
-    submit_supported: bool,
-    plain_newline_supported: bool,
-    screenshot_action: ScreenshotPaletteAction,
-    screenshot_retry: bool,
-    selection_handoff: Option<EditorSelectionHandoff>,
-    merge_handoff: Option<Vec<crate::domain::Thought>>,
+    invocation: CommandInvocation,
 }
 
 impl PaletteState {
     fn new(
         commands: Vec<(Command, CommandMetadata, CommandExecution)>,
-        submit_supported: bool,
-        plain_newline_supported: bool,
-        screenshot_action: ScreenshotPaletteAction,
-        screenshot_retry: bool,
-        selection_handoff: Option<EditorSelectionHandoff>,
-        merge_handoff: Option<Vec<crate::domain::Thought>>,
+        invocation: CommandInvocation,
     ) -> Self {
         Self {
             commands,
             query: QueryEditor::default(),
             selected: 0,
             scroll: 0,
-            submit_supported,
-            plain_newline_supported,
-            screenshot_action,
-            screenshot_retry,
-            selection_handoff,
-            merge_handoff,
+            invocation,
         }
     }
 
@@ -89,47 +73,16 @@ impl PaletteState {
         self.commands
             .iter()
             .copied()
-            .filter(|(_, metadata, _)| self.available(metadata.availability))
+            .filter(|(_, metadata, _)| self.invocation.available(metadata.availability))
             .map(|(command, metadata, execution)| {
-                (command, self.command_label(metadata.label), execution)
+                (
+                    command,
+                    self.invocation.command_label(metadata.label),
+                    execution,
+                )
             })
             .filter(|(_, label, _)| label.to_lowercase().contains(&query))
             .collect()
-    }
-
-    fn available(&self, availability: CommandAvailability) -> bool {
-        match availability {
-            CommandAvailability::Always => true,
-            CommandAvailability::Submission => self.submit_supported,
-            CommandAvailability::Editor => self.plain_newline_supported,
-            CommandAvailability::ScreenshotRetry => self.screenshot_retry,
-            CommandAvailability::Split => self.selection_handoff.is_some(),
-            CommandAvailability::Extract => self
-                .selection_handoff
-                .as_ref()
-                .is_some_and(EditorSelectionHandoff::has_selection),
-            CommandAvailability::Merge => self.merge_handoff.is_some(),
-            CommandAvailability::ScreenshotInbox => {
-                self.screenshot_action != ScreenshotPaletteAction::Unavailable
-            }
-        }
-    }
-
-    const fn command_label(&self, label: CommandLabel) -> &'static str {
-        match label {
-            CommandLabel::Static(label) => label,
-            CommandLabel::ScreenshotInbox {
-                enable,
-                disable,
-                resume,
-                unavailable,
-            } => match self.screenshot_action {
-                ScreenshotPaletteAction::Enable => enable,
-                ScreenshotPaletteAction::Disable => disable,
-                ScreenshotPaletteAction::Resume => resume,
-                ScreenshotPaletteAction::Unavailable => unavailable,
-            },
-        }
     }
 
     fn clamp(&mut self) {
@@ -142,7 +95,7 @@ impl BoardApp {
     pub(super) fn refresh_screenshot_palette_action(&mut self) {
         let action = self.screenshot_palette_action();
         if let Some(palette) = &mut self.palette {
-            palette.screenshot_action = action;
+            palette.invocation.set_screenshot_action(action);
             palette.clamp();
         }
     }
@@ -151,22 +104,9 @@ impl BoardApp {
         self.deactivate_range_latch();
         self.help = false;
         self.search = None;
-        let merge_handoff = (self.selection_len() >= 2).then(|| {
-            self.action_thought_ids()
-                .into_iter()
-                .filter_map(|id| self.state.board.thought(id).cloned())
-                .collect()
-        });
         let commands = self.settings.shortcuts.commands();
-        self.palette = Some(PaletteState::new(
-            commands,
-            self.supports_submission(),
-            !self.insertion_focused() && self.state.focused_thought.is_some(),
-            self.screenshot_palette_action(),
-            self.screenshot_retry_ready(),
-            self.palette_selection_handoff.take(),
-            merge_handoff,
-        ));
+        let invocation = self.capture_command_invocation();
+        self.palette = Some(PaletteState::new(commands, invocation));
     }
 
     pub(super) fn close_overlay(&mut self) {
@@ -193,11 +133,11 @@ impl BoardApp {
         let selection_handoff = self
             .palette
             .as_mut()
-            .and_then(|palette| palette.selection_handoff.take());
+            .and_then(|palette| palette.invocation.take_selection_handoff());
         let merge_handoff = self
             .palette
             .as_mut()
-            .and_then(|palette| palette.merge_handoff.take());
+            .and_then(|palette| palette.invocation.take_merge_handoff());
         self.palette = None;
         command.map_or_else(Vec::new, |execution| {
             self.execute_command(

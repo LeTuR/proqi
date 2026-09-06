@@ -23,10 +23,7 @@ fn unshifted_primary_characters() -> impl Iterator<Item = (Action, char)> {
         platform_defaults(descriptor, false)
             .iter()
             .filter_map(move |claim| {
-                if !matches!(
-                    claim.presentation,
-                    ShortcutBindingPresentation::Primary { .. }
-                ) {
+                if !matches!(claim.presentation, ShortcutBindingPresentation::Primary) {
                     return None;
                 }
                 let ShortcutModifiers::Exact(modifiers) = claim.binding.modifiers else {
@@ -34,7 +31,7 @@ fn unshifted_primary_characters() -> impl Iterator<Item = (Action, char)> {
                 };
                 match claim.binding.key {
                     LogicalKey::Character(character)
-                        if super::inventory::bindings::is_primary(modifiers, false)
+                        if super::ShortcutPlatform::Portable.is_primary(modifiers)
                             && !modifiers.contains(LogicalModifiers::SHIFT) =>
                     {
                         Some((descriptor.action, character))

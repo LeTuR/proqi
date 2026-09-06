@@ -12,7 +12,7 @@ use std::{
 };
 
 pub(crate) struct KeyInspection {
-    pub(crate) event: Option<serde_json::Value>,
+    pub(crate) event: Option<crate::ui::ShortcutInspection>,
     pub(crate) cancelled: bool,
 }
 

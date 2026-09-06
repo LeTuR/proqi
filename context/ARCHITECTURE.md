@@ -704,12 +704,12 @@ Search indexes are derived and rebuildable. User content remains canonical in
 ordinary tables.
 
 The application owns the exact first-run copy and its typed managed-Herdr or
-standalone variant, including the target-platform projection of Primary as Cmd
-on macOS or Ctrl elsewhere. It constructs every thought through the private
-`InstructionalTextBuilder`, appending each reviewed shortcut literal and its
-semantic range together before sealing an ordinary create action. No boundary
-infers shortcut annotations from completed prose, and persisted tutorial text
-is never migrated or rewritten. Only a fresh interactive
+standalone variant. The copy refers users to the resolved footer and Help
+surfaces instead of projecting platform shortcut labels itself. It constructs
+every thought through the private `InstructionalTextBuilder`, appending each
+reviewed shortcut literal and its semantic range together before sealing an
+ordinary create action. No boundary infers shortcut annotations from completed
+prose, and persisted tutorial text is never migrated or rewritten. Only a fresh interactive
 launch supplies that candidate to the store. SQLite begins one immediate write transaction, reads and conditionally
 advances the marker, creates the session, inserts all six ordinary thoughts,
 and rebuilds its derived search row before commit. A completed marker creates
@@ -1148,18 +1148,20 @@ canonical test suite.
 
 Schema version 1 resolves common and platform context/action alias lists before
 terminal entry. Runtime settings own exactly one resolved graph. The legacy
-character struct exists only at the input translation boundary. Omitted pairs
-inherit defaults; supplied lists replace every alias of the pair. Both platform
-graphs validate collisions, text reservation, invariant Escape and required
-recovery routes. Default compatibility includes uppercase reports without Shift;
-custom aliases have exact codepoint and modifier matching. Fast selection has
-separate action identities so physical modifiers do not control its meaning.
-Browser F2/F8 replace the text-stealing R/D management defaults.
+character struct seeds factory defaults and translates legacy configuration; it
+does not remain a second runtime dispatch source. Omitted pairs inherit defaults;
+supplied lists replace every alias of the pair. Both platform graphs validate
+collisions, text reservation, invariant Escape and required recovery routes.
+Default compatibility includes uppercase reports without Shift; custom aliases
+have exact codepoint and modifier matching. Fast selection has separate action
+identities so physical modifiers do not control its meaning. Browser F2/F8
+replace the text-stealing R/D management defaults.
 
-Presentation labels are cached from resolved claims once, then shared by Help,
-footer measurement, rendering, and hit geometry. Diagnostic capture decodes with
-the same terminal adapter and resolves with the same registry. Its explicit
-context stack describes the diagnostic selection, not another live process.
+Resolved presentation claims are cached once. Help, footer measurement,
+rendering, and hit geometry format labels from those shared claims. Diagnostic
+capture decodes with the same terminal adapter and resolves with the same
+registry. Its explicit context stack describes the diagnostic selection, not
+another live process.
 The bounded capture polls off the reducer thread, excludes non-key payloads,
 and owns raw mode/reporting with an RAII guard before reporting setup begins.
 No-event results make no claim about which upstream host consumed a chord.

@@ -1,5 +1,5 @@
 //! Configured command bindings use the Commands availability and execution owner.
-use super::{BoardApp, QueryEditor};
+use super::BoardApp;
 use crate::{
     application::Effect,
     ports::environment::{Clock, IdGenerator},
@@ -44,38 +44,31 @@ impl BoardApp {
             }
             _ => {}
         }
-        if self
+        let command = self
             .settings
             .shortcuts
             .descriptor(action)
-            .and_then(|descriptor| descriptor.commands)
-            .is_none()
-        {
+            .and_then(|descriptor| descriptor.commands.zip(descriptor.command_execution));
+        let Some((metadata, execution)) = command else {
+            return Vec::new();
+        };
+        let mut invocation = self.palette.take().map_or_else(
+            || self.capture_command_invocation(),
+            |palette| palette.invocation,
+        );
+        self.palette_selection_handoff = None;
+        if !invocation.available(metadata.availability) {
+            self.set_warning("command is unavailable in the current state");
             return Vec::new();
         }
-        // Reuse Commands availability, handoff capture and execution without
-        // rendering or dispatching a synthetic key sequence.
-        if self.palette.is_none() {
-            if self.editor_snapshot().is_some() {
-                self.capture_palette_selection_handoff();
-            }
-            self.open_palette();
-        }
-        if let Some(palette) = &mut self.palette {
-            palette.query = QueryEditor::default();
-        }
-        let index = self.palette.as_ref().and_then(|palette| {
-            palette
-                .matches()
-                .iter()
-                .position(|(candidate, _, _)| *candidate == action)
-        });
-        if let Some(index) = index {
-            self.execute_palette_index(index, ids, clock)
-        } else {
-            self.palette = None;
-            self.set_warning("command is unavailable in the current state");
-            Vec::new()
-        }
+        let selection_handoff = invocation.take_selection_handoff();
+        let merge_handoff = invocation.take_merge_handoff();
+        self.execute_command(
+            execution,
+            selection_handoff,
+            merge_handoff.as_deref(),
+            ids,
+            clock,
+        )
     }
 }

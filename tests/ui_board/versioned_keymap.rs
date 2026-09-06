@@ -1,6 +1,15 @@
 //! Resolved aliases drive real application effects, text ownership and controls.
-use super::navigation::durable_thought;
-use super::*;
+use proqi::{
+    application::Effect,
+    ports::editor::CursorMovement,
+    ui::{
+        HitTarget, KeyStroke, LogicalKey, LogicalModifiers, PointerButton, PointerKind, UiInput,
+        UiKey, UiSettings,
+    },
+};
+use ratatui_core::layout::Rect;
+
+use super::{Fixture, draw, durable_thought, key_input, snapshot_support};
 
 fn configured(document: &str) -> Fixture {
     let settings = UiSettings {
@@ -43,7 +52,11 @@ fn commands_only_binding_executes_with_the_existing_availability_and_effect_owne
     let mut fixture = configured(
         "schema_version=1\n[bindings.board]\n\"agents.refresh\"=[{key='F5'}]\n[bindings.commands]\n\"agents.refresh\"=[{key='F6'}]",
     );
-    durable_thought(&mut fixture, "thought");
+    for content in ["first", "second", "third"] {
+        durable_thought(&mut fixture, content);
+    }
+    fixture.input(key(LogicalKey::Character('k')));
+    fixture.input(key(LogicalKey::Character('v')));
     let effects = fixture.effects(key(LogicalKey::Function(5)));
     assert!(
         effects
@@ -51,6 +64,17 @@ fn commands_only_binding_executes_with_the_existing_availability_and_effect_owne
             .any(|effect| matches!(effect, Effect::DiscoverAgents))
     );
     assert!(fixture.app.palette_view().is_none());
+    fixture.input(key(LogicalKey::Character('k')));
+    let selected = fixture
+        .app
+        .state
+        .board
+        .live_thoughts()
+        .iter()
+        .filter(|thought| fixture.app.thought_selected(thought.id))
+        .map(|thought| thought.content.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(selected, ["first", "second"]);
     fixture.input(key(LogicalKey::Character(':')));
     let effects = fixture.effects(key(LogicalKey::Function(6)));
     assert!(

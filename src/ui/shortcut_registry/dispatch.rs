@@ -25,12 +25,35 @@ pub(crate) enum ShortcutPlatform {
 }
 
 impl ShortcutPlatform {
+    const MACOS_PRIMARY: [LogicalModifiers; 2] = [LogicalModifiers::SUPER, LogicalModifiers::META];
+    const PORTABLE_PRIMARY: [LogicalModifiers; 1] = [LogicalModifiers::CONTROL];
+
     pub(crate) const fn current() -> Self {
         if cfg!(target_os = "macos") {
             Self::MacOs
         } else {
             Self::Portable
         }
+    }
+
+    pub(super) const fn from_macos(macos: bool) -> Self {
+        if macos { Self::MacOs } else { Self::Portable }
+    }
+
+    pub(crate) const fn primary_modifiers(self) -> &'static [LogicalModifiers] {
+        match self {
+            Self::MacOs => &Self::MACOS_PRIMARY,
+            Self::Portable => &Self::PORTABLE_PRIMARY,
+        }
+    }
+
+    pub(super) fn is_primary(self, modifiers: LogicalModifiers) -> bool {
+        self.primary_modifiers().iter().any(|primary| {
+            modifiers.contains(*primary)
+                && modifiers
+                    .difference(primary.union(LogicalModifiers::SHIFT))
+                    .is_empty()
+        })
     }
 }
 

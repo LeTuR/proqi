@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use std::path::Path;
 
@@ -93,7 +93,7 @@ fn inspect_keypress(
         "cancelled"
     } else {
         event.as_ref().map_or("no_event_received", |event| {
-            if event["capture_cancelled"] == true {
+            if event.capture_cancelled() {
                 "cancelled"
             } else {
                 "event_received"
@@ -108,14 +108,52 @@ fn inspect_keypress(
         "Captured one logical event. Resolution uses the selected context stack; no application action was executed."
     };
     let data = json!({
-        "capture_schema_version": 1, "status": status, "event": event,
-        "context_source": "diagnostic_selection", "keymap_source": if defaults { "defaults" } else { "configuration" },
-        "context_stack": contexts.as_slice().iter().map(|context| context.configuration_id()).collect::<Vec<_>>(),
-        "timeout_ms": timeout_ms, "explanation": explanation,
+        "capture_schema_version": 1,
+        "status": status,
+        "event": event.as_ref().map(inspection_value),
+        "context_source": "diagnostic_selection",
+        "keymap_source": if defaults { "defaults" } else { "configuration" },
+        "context_stack": contexts
+            .as_slice()
+            .iter()
+            .map(|context| context.configuration_id())
+            .collect::<Vec<_>>(),
+        "timeout_ms": timeout_ms,
+        "explanation": explanation,
     });
     Ok(Outcome {
         human: format!("{explanation}\n{data}"),
         data,
+    })
+}
+
+fn inspection_value(inspection: &crate::ui::ShortcutInspection) -> Value {
+    let action = inspection
+        .action
+        .map(crate::ui::ShortcutActionId::diagnostics_id);
+    let stroke: crate::ui::ShortcutStrokeInspection = inspection.stroke_inspection();
+    json!({
+        "capture_cancelled": inspection.capture_cancelled(),
+        "keystroke": {
+            "key": stroke.key,
+            "modifiers": stroke.modifiers,
+            "state": stroke.state,
+            "phase": stroke.phase,
+        },
+        "platform": inspection.platform_id(),
+        "primary": inspection.primary_names(),
+        "context_stack": inspection
+            .context_stack
+            .iter()
+            .map(|context| context.configuration_id())
+            .collect::<Vec<_>>(),
+        "active_context": inspection
+            .active_context
+            .map(crate::ui::ShortcutContext::configuration_id),
+        "classification": inspection.classification_id(),
+        "action": action,
+        "ui_intention": inspection.intention_name(),
+        "binding_identity": inspection.binding_identity(),
     })
 }
 

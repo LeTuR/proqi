@@ -2,6 +2,7 @@
 
 use crate::ui::{LogicalKey, LogicalModifiers};
 
+mod diagnostic_name;
 mod metadata;
 
 pub(crate) use metadata::{
@@ -433,7 +434,7 @@ pub struct ShortcutBinding {
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) enum ShortcutBindingPresentation {
     DispatchOnly,
-    Primary { canonical: bool },
+    Primary,
     Explicit,
 }
 

@@ -9,6 +9,27 @@ use super::vocabulary::{
     command_modifiers, is_editor_context, is_query_cursor_context, is_text_context,
 };
 
+const MODAL_CHARACTER_BINDINGS: &[(Context, char, Action)] = &[
+    (Context::Browser, 'R', Action::RenameSession),
+    (Context::Browser, 'D', Action::BrowserTrash),
+    (Context::Recovery, 'r', Action::RetryStorage),
+    (Context::Recovery, 'w', Action::ExportRecovery),
+];
+
+pub(in crate::ui) fn fixed_character_binding(action: Action, context: Context) -> Option<char> {
+    MODAL_CHARACTER_BINDINGS
+        .iter()
+        .find_map(|&(owner, character, candidate)| {
+            (owner == context && candidate == action).then_some(character)
+        })
+}
+
+pub(super) fn fixed_character_keys() -> impl Iterator<Item = LogicalKey> {
+    MODAL_CHARACTER_BINDINGS
+        .iter()
+        .map(|&(_, character, _)| LogicalKey::Character(character))
+}
+
 pub(super) fn named_action(
     context: Context,
     key: LogicalKey,
@@ -29,29 +50,17 @@ fn modal_character_action(
     key: LogicalKey,
     modifiers: LogicalModifiers,
 ) -> Option<Action> {
-    match key {
-        LogicalKey::Character('R')
-            if context == Context::Browser && !command_modifiers(modifiers) =>
-        {
-            Some(Action::RenameSession)
-        }
-        LogicalKey::Character('D')
-            if context == Context::Browser && !command_modifiers(modifiers) =>
-        {
-            Some(Action::BrowserTrash)
-        }
-        LogicalKey::Character('r')
-            if context == Context::Recovery && !command_modifiers(modifiers) =>
-        {
-            Some(Action::RetryStorage)
-        }
-        LogicalKey::Character('w')
-            if context == Context::Recovery && !command_modifiers(modifiers) =>
-        {
-            Some(Action::ExportRecovery)
-        }
-        _ => None,
+    let LogicalKey::Character(character) = key else {
+        return None;
+    };
+    if command_modifiers(modifiers) {
+        return None;
     }
+    MODAL_CHARACTER_BINDINGS
+        .iter()
+        .find_map(|&(owner, candidate, action)| {
+            (owner == context && candidate == character).then_some(action)
+        })
 }
 
 fn text_named_action(

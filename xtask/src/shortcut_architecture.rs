@@ -112,6 +112,16 @@ fn ownership_findings(path: &Path, path_text: &str, visitor: &ShortcutVisitor) -
             path.display()
         ));
     }
+    if visitor
+        .detected
+        .contains(&Detected::StandaloneShortcutKeyConstant)
+        && !path_text.starts_with(REGISTRY_ROOT)
+    {
+        findings.push(format!(
+            "{}: standalone shortcut key constant is outside the shortcut registry",
+            path.display()
+        ));
+    }
     if visitor.detected.contains(&Detected::KeybindingsAccess)
         && !path_text.starts_with(REGISTRY_ROOT)
         && !KEYBINDING_PROJECTION_OWNERS.contains(&path_text)
@@ -138,6 +148,7 @@ enum Detected {
     CommandsInventory,
     SemanticCharacterLiteral,
     SemanticKeyPresentation,
+    StandaloneShortcutKeyConstant,
     KeybindingsAccess,
 }
 
@@ -163,6 +174,26 @@ impl<'ast> syn::visit::Visit<'ast> for ShortcutVisitor {
     fn visit_item_impl(&mut self, item: &'ast syn::ItemImpl) {
         if !has_test_only_configuration(&item.attrs) {
             syn::visit::visit_item_impl(self, item);
+        }
+    }
+
+    fn visit_item_const(&mut self, item: &'ast syn::ItemConst) {
+        if !has_test_only_configuration(&item.attrs) {
+            if item.ident.to_string().ends_with("_KEY") && is_char_type(&item.ty) {
+                self.detected
+                    .insert(Detected::StandaloneShortcutKeyConstant);
+            }
+            syn::visit::visit_item_const(self, item);
+        }
+    }
+
+    fn visit_item_static(&mut self, item: &'ast syn::ItemStatic) {
+        if !has_test_only_configuration(&item.attrs) {
+            if item.ident.to_string().ends_with("_KEY") && is_char_type(&item.ty) {
+                self.detected
+                    .insert(Detected::StandaloneShortcutKeyConstant);
+            }
+            syn::visit::visit_item_static(self, item);
         }
     }
 
@@ -347,6 +378,10 @@ fn collect_condition_semantic_bindings(expression: &syn::Expr, bindings: &mut Ve
 
 fn is_character_literal(expression: &syn::Expr) -> bool {
     matches!(expression, syn::Expr::Lit(literal) if matches!(literal.lit, syn::Lit::Char(_)))
+}
+
+fn is_char_type(value: &syn::Type) -> bool {
+    matches!(value, syn::Type::Path(path) if path.qself.is_none() && path.path.is_ident("char"))
 }
 
 fn token_stream_contains_character_literal(tokens: &proc_macro2::TokenStream) -> bool {

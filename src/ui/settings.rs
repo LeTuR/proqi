@@ -2,9 +2,6 @@
 
 use serde::Deserialize;
 
-pub(crate) const RECOVERY_RETRY_KEY: char = 'r';
-pub(crate) const RECOVERY_EXPORT_KEY: char = 'w';
-
 /// Optional enhanced keyboard reporting for compatible terminal emulators.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -169,7 +166,7 @@ impl KeyBindings {
     ///
     /// Returns an error for control characters or duplicate bindings.
     pub fn validate(&self) -> Result<(), &'static str> {
-        if matches!(self.quit, RECOVERY_RETRY_KEY | RECOVERY_EXPORT_KEY) {
+        if is_reserved_recovery_key(self.quit) {
             return Err("the quit binding cannot use the reserved recovery keys r or w");
         }
         if self.transform.is_control() {
@@ -242,6 +239,18 @@ impl KeyBindings {
         }
         Ok(())
     }
+}
+
+fn is_reserved_recovery_key(key: char) -> bool {
+    [
+        super::ShortcutActionId::RetryStorage,
+        super::ShortcutActionId::ExportRecovery,
+    ]
+    .into_iter()
+    .filter_map(|action| {
+        super::shortcut_registry::fixed_character_binding(action, super::ShortcutContext::Recovery)
+    })
+    .any(|reserved| key == reserved)
 }
 
 pub(crate) fn key_label(key: char) -> String {

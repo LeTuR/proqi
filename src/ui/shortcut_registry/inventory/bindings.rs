@@ -14,14 +14,20 @@ use crate::ui::shortcut_registry::{
         ShortcutBinding, ShortcutBindingClaim, ShortcutBindingPresentation, ShortcutModifiers,
     },
 };
-use named::named_action;
+pub(in crate::ui) use named::fixed_character_binding;
+use named::{fixed_character_keys, named_action};
 use vocabulary::{
     FIXED_KEYS, KEYBOARD_CONTEXTS, command_modifiers, is_editor_context, is_list_context,
     is_query_cursor_context, modifier_combinations,
 };
 
 pub(super) fn default_claims(macos: bool) -> BTreeMap<Action, Vec<ShortcutBindingClaim>> {
-    collect_claims(FIXED_KEYS.iter().copied(), |context, key, modifiers| {
+    let keys = FIXED_KEYS
+        .iter()
+        .copied()
+        .chain(fixed_character_keys())
+        .collect::<BTreeSet<_>>();
+    collect_claims(keys, |context, key, modifiers| {
         let action = fixed_action(context, key, modifiers, macos)?;
         Some((
             action,
@@ -41,8 +47,6 @@ pub(super) fn alias_claims(
         .map(LogicalKey::Character)
         .collect::<BTreeSet<_>>();
     for character in [
-        'r',
-        'w',
         keys.transform,
         keys.delete_sentence,
         keys.select_visual_row_start,

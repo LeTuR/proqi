@@ -2,10 +2,11 @@
 
 use crate::{
     application::InteractionMode,
-    ui::{KeyBindings, ShortcutActionId as Action},
+    ui::{KeyBindings, ShortcutActionId as Action, ShortcutContext as Context},
 };
 
 use super::{board_control_label, canonical_label, primary_label};
+use crate::ui::shortcut_registry::fixed_character_binding;
 
 pub(crate) struct FooterProjection {
     pub(crate) key: String,
@@ -24,7 +25,7 @@ pub(crate) fn footer_projection(
         .find(|descriptor| descriptor.action == action)?
         .footer?;
     Some(FooterProjection {
-        key: footer_key(action, compact, mode, keys),
+        key: footer_key(action, compact, mode, keys)?,
         text: if compact {
             metadata.compact_text
         } else {
@@ -38,7 +39,12 @@ pub(crate) fn footer_projection(
     })
 }
 
-fn footer_key(action: Action, compact: bool, mode: InteractionMode, keys: &KeyBindings) -> String {
+fn footer_key(
+    action: Action,
+    compact: bool,
+    mode: InteractionMode,
+    keys: &KeyBindings,
+) -> Option<String> {
     let editor_mode = matches!(
         mode,
         InteractionMode::Compose | InteractionMode::Edit { .. }
@@ -59,8 +65,10 @@ fn footer_key(action: Action, compact: bool, mode: InteractionMode, keys: &KeyBi
         Action::Help => crate::ui::settings::key_label(keys.help),
         Action::Quit => crate::ui::settings::key_label(keys.quit),
         Action::Close => "Esc".to_owned(),
-        Action::RetryStorage => "r".to_owned(),
-        Action::ExportRecovery => "w".to_owned(),
+        Action::RetryStorage | Action::ExportRecovery => {
+            let character = fixed_character_binding(action, Context::Recovery)?;
+            crate::ui::settings::key_label(character)
+        }
         Action::SubmitRemove if matches!(mode, InteractionMode::Edit { .. }) => {
             primary_label(action)
         }
@@ -71,6 +79,7 @@ fn footer_key(action: Action, compact: bool, mode: InteractionMode, keys: &KeyBi
         Action::SubmitKeep => crate::ui::settings::key_label(keys.submit_keep),
         _ => canonical_label(action),
     }
+    .into()
 }
 
 #[cfg(test)]
@@ -89,5 +98,17 @@ mod tests {
         assert_eq!(full.minimum_width, 7);
         assert_eq!(compact.minimum_width, 7);
         assert_eq!(compact.key, keys.copy.to_string());
+    }
+
+    #[test]
+    fn recovery_footer_keys_come_from_the_registry_binding_owner() {
+        let keys = KeyBindings::default();
+        for action in [Action::RetryStorage, Action::ExportRecovery] {
+            let character = fixed_character_binding(action, Context::Recovery)
+                .expect("recovery action has a fixed registry binding");
+            let projection = footer_projection(action, false, InteractionMode::Board, &keys)
+                .expect("recovery footer");
+            assert_eq!(projection.key, crate::ui::settings::key_label(character));
+        }
     }
 }

@@ -7,7 +7,7 @@ fn canonical_owners_and_explicit_test_fixtures_are_accepted() {
     assert!(
         check_source(
             Path::new("src/ui/shortcut_registry/inventory.rs"),
-            "use crate::ui::LogicalKey; const KEY: LogicalKey = LogicalKey::Enter;",
+            "use crate::ui::LogicalKey; const RETRY_KEY: char = 'r'; const KEY: LogicalKey = LogicalKey::Enter;",
         )
         .is_empty()
     );
@@ -25,6 +25,17 @@ fn canonical_owners_and_explicit_test_fixtures_are_accepted() {
         )
         .is_empty()
     );
+}
+
+#[test]
+fn standalone_shortcut_key_constants_outside_the_registry_are_rejected() {
+    for source in [
+        "const RETRY_KEY: char = 'r';",
+        "static EXPORT_KEY: char = 'w';",
+    ] {
+        let findings = check_source(Path::new("src/ui/settings.rs"), source);
+        assert!(findings[0].contains("standalone shortcut key constant"));
+    }
 }
 
 #[test]

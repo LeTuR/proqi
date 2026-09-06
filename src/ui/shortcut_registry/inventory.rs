@@ -3,6 +3,8 @@
 pub(super) mod bindings;
 pub(super) mod metadata;
 
+pub(in crate::ui) use bindings::fixed_character_binding;
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ui::settings::KeyBindings;

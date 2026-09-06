@@ -39,6 +39,8 @@ last item dispatches a stroke.
 | Invocation | Editor-backed invocation completion | Editor text |
 | InvocationQuery | Explicit invocation search | Query text |
 | Transfer | Cross-session transfer chooser | Query text |
+| GlobalDeliveryQuery | Global-delivery agent query | Query text |
+| GlobalDeliveryDisposition | Global-delivery completion choice | None, modal navigation wins |
 | Browser | Empty session-browser query | Query text, plus empty-query management aliases |
 | BrowserQuery | Nonempty session-browser query | Query text |
 | Rename | Board session-name editor | Name text |
@@ -50,10 +52,9 @@ last item dispatches a stroke.
 | ReleaseHighlights | Scrollable release highlights | None, modal navigation wins |
 | InsertionBoundary | Board insertion row | Board commands, with thought-only range and reorder no-ops |
 
-Compose, Edit, Commands, Search, Invocation, InvocationQuery, Transfer, Browser,
-BrowserQuery, Rename, and BrowserRename are the discovered text fields. A plain
-or shifted printable registry binding is invalid in those text-owning contexts.
-Browser management `R` and `D` exist only while its query is empty.
+Every context whose table row reserves editor, query, or name text rejects a
+plain or shifted printable registry binding. Browser management `R` and `D`
+exist only while its query is empty.
 
 ScreenshotCommitBarrier and UpdateBarrier are typed routing barriers, not
 shortcut contexts. The screenshot barrier defers the original `KeyStroke`
@@ -75,7 +76,7 @@ Every semantic action has one stable `ShortcutActionId`. Its descriptor owns:
 - one content-free diagnostics identity;
 - the mapping into an established typed UI intention or application action.
 
-The closed action inventory covers all 51 current Commands actions plus direct
+The closed action inventory covers all 52 current Commands actions plus direct
 close, confirm, text editing, navigation, selection, clipboard, history,
 submission, Board, Browser management, recovery, and direction actions. The
 source of truth is `ShortcutActionId::COMMANDS` plus the registry's

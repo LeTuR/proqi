@@ -73,12 +73,23 @@ fn ambiguous_bindings_are_rejected() {
 
 #[test]
 fn recovery_keys_cannot_be_used_for_quit() {
-    for reserved in ['r', 'w'] {
+    for action in [
+        super::super::ShortcutActionId::RetryStorage,
+        super::super::ShortcutActionId::ExportRecovery,
+    ] {
+        let reserved = super::super::shortcut_registry::fixed_character_binding(
+            action,
+            super::super::ShortcutContext::Recovery,
+        )
+        .expect("recovery action has a fixed registry binding");
         let bindings = KeyBindings {
             quit: reserved,
             ..KeyBindings::default()
         };
-        assert!(bindings.validate().is_err());
+        assert_eq!(
+            bindings.validate(),
+            Err("the quit binding cannot use the reserved recovery keys r or w")
+        );
     }
 }
 

@@ -20,6 +20,7 @@ pub(crate) use command_execution::{
 pub(crate) use dispatch::ShortcutRegistry;
 #[cfg(test)]
 pub(crate) use dispatch::{ResolvedShortcut, ShortcutPlatform};
+pub(super) use inventory::fixed_character_binding;
 pub(crate) use model::{
     CommandAvailability, CommandLabel, CommandMetadata, HelpAvailability, HelpSurface,
 };

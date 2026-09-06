@@ -8,6 +8,8 @@ use crate::ui::{
 use super::super::{ShortcutPlatform, ShortcutRegistry, inventory};
 use super::stroke;
 
+const SHORTCUTS_DOCUMENT: &str = include_str!("../../../../context/SHORTCUTS.md");
+
 #[test]
 fn every_commands_entry_has_one_matching_registry_descriptor() {
     let registry = ShortcutRegistry::resolve(&KeyBindings::default(), ShortcutPlatform::Portable)
@@ -20,6 +22,62 @@ fn every_commands_entry_has_one_matching_registry_descriptor() {
             Some(inventory::metadata::command_metadata(action, order, label))
         );
         assert!(descriptor.contexts.contains(&Context::Commands));
+    }
+}
+
+#[test]
+fn shortcut_inventory_document_tracks_contexts_and_commands_count() {
+    let context_rows = SHORTCUTS_DOCUMENT
+        .lines()
+        .skip_while(|line| *line != "| Context | Current owner | Text reservation |")
+        .skip(2)
+        .take_while(|line| line.starts_with('|'))
+        .count();
+    assert_eq!(
+        context_rows,
+        inventory::bindings::vocabulary::KEYBOARD_CONTEXTS.len(),
+        "inventory table must not contain missing or stale context rows"
+    );
+    for context in inventory::bindings::vocabulary::KEYBOARD_CONTEXTS {
+        let row_prefix = format!("| {context:?} |");
+        assert_eq!(
+            SHORTCUTS_DOCUMENT.matches(&row_prefix).count(),
+            1,
+            "{context:?} must have exactly one inventory table row"
+        );
+    }
+    let commands_count = format!("all {} current Commands actions", Action::COMMANDS.len());
+    assert!(
+        SHORTCUTS_DOCUMENT.contains(&commands_count),
+        "inventory must derive its Commands count from the typed action owner"
+    );
+}
+
+#[test]
+fn fixed_recovery_bindings_are_descriptor_owned_and_dispatchable() {
+    for platform in [ShortcutPlatform::MacOs, ShortcutPlatform::Portable] {
+        let registry =
+            ShortcutRegistry::resolve(&KeyBindings::default(), platform).expect("valid registry");
+        for action in [Action::RetryStorage, Action::ExportRecovery] {
+            let character = inventory::fixed_character_binding(action, Context::Recovery)
+                .expect("recovery action has a fixed registry binding");
+            let descriptor = registry.descriptor(action).expect("recovery descriptor");
+            let defaults = match platform {
+                ShortcutPlatform::MacOs => &descriptor.macos_defaults,
+                ShortcutPlatform::Portable => &descriptor.portable_defaults,
+            };
+            assert!(defaults.iter().any(|claim| {
+                claim.binding.key == LogicalKey::Character(character)
+                    && claim.contexts == [Context::Recovery]
+            }));
+            let resolved = registry
+                .dispatch(
+                    &ShortcutContextStack::new([Context::Recovery]),
+                    stroke(LogicalKey::Character(character), LogicalModifiers::NONE),
+                )
+                .expect("fixed recovery binding dispatches");
+            assert_eq!(resolved.action, Some(action));
+        }
     }
 }
 

@@ -1,11 +1,16 @@
 //! Unified terminal-independent shortcut registry and dispatcher.
 
 mod command_execution;
+mod config;
 mod context_policy;
-mod diagnostic_projection;
+mod contract;
 mod dispatch;
+mod errors;
+mod inspection;
 mod intentions;
 mod inventory;
+pub(crate) mod legacy;
+mod legacy_validation;
 mod model;
 pub(crate) mod presentation;
 mod validation;
@@ -17,9 +22,12 @@ pub(crate) use command_execution::{
     SubmissionCommand as PaletteSubmissionCommand,
     TransformationCommand as PaletteTransformationCommand,
 };
-pub(crate) use dispatch::ShortcutRegistry;
+pub(crate) use config::KeymapDocument;
 #[cfg(test)]
-pub(crate) use dispatch::{ResolvedShortcut, ShortcutPlatform};
+pub(crate) use dispatch::ResolvedShortcut;
+pub(crate) use dispatch::ShortcutPlatform;
+pub use dispatch::ShortcutRegistry;
+pub use errors::ShortcutRegistryError;
 pub(super) use inventory::fixed_character_binding;
 pub(crate) use model::{
     CommandAvailability, CommandLabel, CommandMetadata, HelpAvailability, HelpSurface,

@@ -3,7 +3,7 @@
 use crate::ui::input::UiKey;
 use crate::{
     ports::editor::CursorMovement,
-    ui::{FastNavigation, KeyStroke, LogicalModifiers, ShortcutContext as Context, VisualRowEdge},
+    ui::{FastNavigation, KeyStroke, ShortcutContext as Context, VisualRowEdge},
 };
 
 use super::{dispatch::ResolvedShortcut, model::ShortcutActionId as Action};
@@ -23,9 +23,24 @@ pub(super) fn literal(intention: UiKey) -> ResolvedShortcut {
 }
 
 pub(super) fn action_intention(action: Action, context: Context, stroke: KeyStroke) -> UiKey {
+    if context == Context::Commands
+        && action != Action::Quit
+        && super::command_execution::execution_for(action).is_some()
+    {
+        return UiKey::Shortcut(action);
+    }
     if matches!(context, Context::Board | Context::InsertionBoundary)
         && is_board_typed_action(action)
     {
+        return UiKey::Shortcut(action);
+    }
+    if matches!(
+        context,
+        Context::Compose | Context::Edit | Context::Invocation
+    ) && matches!(
+        action,
+        Action::MoveUp | Action::MoveDown | Action::Duplicate
+    ) {
         return UiKey::Shortcut(action);
     }
     if let Some((movement, extend_selection)) = movement_intention(action) {
@@ -61,14 +76,10 @@ pub(super) fn action_intention(action: Action, context: Context, stroke: KeyStro
         Action::MoveDown => UiKey::PrimaryShiftMove {
             movement: CursorMovement::DocumentEnd,
         },
-        Action::FastPrevious => fast(
-            FastNavigation::Previous,
-            stroke.modifiers.contains(LogicalModifiers::SHIFT),
-        ),
-        Action::FastNext => fast(
-            FastNavigation::Next,
-            stroke.modifiers.contains(LogicalModifiers::SHIFT),
-        ),
+        Action::FastPrevious => fast(FastNavigation::Previous, false),
+        Action::FastNext => fast(FastNavigation::Next, false),
+        Action::FastExtendPrevious => fast(FastNavigation::Previous, true),
+        Action::FastExtendNext => fast(FastNavigation::Next, true),
         Action::ExtendVisualRowStart => UiKey::ExtendVisualRow {
             edge: VisualRowEdge::Start,
         },
@@ -170,15 +181,6 @@ pub(super) fn fast(direction: FastNavigation, extend_selection: bool) -> UiKey {
         direction,
         extend_selection,
     }
-}
-
-pub(super) fn has_command_modifier(modifiers: LogicalModifiers) -> bool {
-    modifiers.intersects(
-        LogicalModifiers::CONTROL
-            .union(LogicalModifiers::SUPER)
-            .union(LogicalModifiers::META)
-            .union(LogicalModifiers::HYPER),
-    )
 }
 
 pub(super) fn opposite_ascii_case(character: char) -> Option<char> {

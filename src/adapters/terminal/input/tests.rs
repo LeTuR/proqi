@@ -56,10 +56,7 @@ fn primary_shift_s_remains_an_unassigned_board_chord() {
             KeyCode::Char(character),
             current_primary() | KeyModifiers::SHIFT,
         ));
-        assert_eq!(
-            translate(event.clone()),
-            Some(UiInput::Key(UiKey::PrimaryShiftCharacter(character)))
-        );
+        assert_eq!(translate(event.clone()), None);
     }
 }
 
@@ -76,7 +73,7 @@ fn logical_line_and_sentence_deletion_keep_distinct_primary_chords() {
                     KeyCode::Char(character),
                     modifier | KeyModifiers::SHIFT,
                 ))),
-                Some(UiInput::Key(UiKey::PrimaryShiftCharacter(character)))
+                None
             );
         }
         assert_eq!(
@@ -298,10 +295,7 @@ fn primary_shift_arrow_and_character_chords_remain_board_semantics() {
 fn unknown_primary_character_shortcuts_never_insert_text() {
     for modifier in current_primary_spellings() {
         let event = Event::Key(KeyEvent::new(KeyCode::Char('b'), modifier));
-        assert_eq!(
-            translate(event),
-            Some(UiInput::Key(UiKey::PrimaryCharacter('b')))
-        );
+        assert_eq!(translate(event), None);
     }
 }
 

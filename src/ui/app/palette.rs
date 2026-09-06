@@ -1,5 +1,6 @@
 //! Searchable command discovery and execution.
 
+mod binding;
 pub(super) mod command;
 mod dispatch;
 mod editor;
@@ -156,7 +157,7 @@ impl BoardApp {
                 .filter_map(|id| self.state.board.thought(id).cloned())
                 .collect()
         });
-        let commands = self.shortcut_registry.commands();
+        let commands = self.settings.shortcuts.commands();
         self.palette = Some(PaletteState::new(
             commands,
             self.supports_submission(),
@@ -253,6 +254,7 @@ impl BoardApp {
             };
         };
         match *key {
+            UiKey::Shortcut(action) => return self.execute_bound_command(action, ids, clock),
             UiKey::Escape => self.close_overlay(),
             UiKey::Enter => {
                 let selected = self.palette.as_ref().map_or(0, |palette| palette.selected);

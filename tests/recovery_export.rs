@@ -200,8 +200,14 @@ fn failed_recovery_uses_the_configured_quit_key() {
         .persistence_batch()
         .and_then(|batch| batch.sequence())
         .expect("sequence");
-    let mut settings = proqi::ui::UiSettings::default();
-    settings.keybindings.quit = 'z';
+    let settings = proqi::ui::UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            quit: 'z',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..proqi::ui::UiSettings::default()
+    };
     let mut app =
         BoardApp::with_settings(state, settings, proqi::adapters::editor::RopeEditorFactory);
     app.acknowledge_persistence(sequence, false);

@@ -61,6 +61,8 @@ pub(super) const FIXED_KEYS: &[LogicalKey] = &[
     LogicalKey::Character('z'),
     LogicalKey::Character('Z'),
     LogicalKey::Backspace,
+    LogicalKey::Function(2),
+    LogicalKey::Function(8),
     LogicalKey::Enter,
     LogicalKey::Left,
     LogicalKey::Right,

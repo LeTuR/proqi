@@ -121,3 +121,7 @@ mod update_migration;
 #[cfg(target_os = "macos")]
 #[path = "pty/watchdog.rs"]
 mod watchdog;
+
+#[cfg(target_os = "macos")]
+#[path = "pty/versioned_keymap.rs"]
+mod versioned_keymap;

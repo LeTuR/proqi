@@ -207,9 +207,9 @@ accidentally sharing thoughts.
 A pristine data store gives its first eligible fresh interactive session one
 once-only board of six ordinary practice thoughts. The board uses the same
 editing, ordering, persistence, search, deletion, and undo behavior as every
-other board. Its reviewed shortcut ranges use the same quiet semantic emphasis
-as other application-authored instructions and spell the platform modifier as
-Cmd on macOS or Ctrl elsewhere. The stored text remains ordinary canonical
+other board. Its durable guidance names actions and points to the resolved footer and Help,
+so changing a keymap cannot stale embedded key labels. Only invariant Escape
+is spelled directly and receives the existing quiet semantic emphasis. The stored text remains ordinary canonical
 thought content, so existing practice boards are never rewritten. Resume,
 continue, the session browser, intentionally emptied
 boards, JSON launches, and other noninteractive commands never seed it. JSON
@@ -866,15 +866,15 @@ bindings are:
 Final bindings remain configurable. The product must not depend on terminals
 forwarding `Cmd+C`, `Cmd+V`, or Primary keys consistently.
 
-Unmodified physical `Del` is an invariant second spelling of the configured
-Board delete command. Remapping the character binding does not remap or disable
-that physical alias. Modified `Del` and `Backspace` are not Board delete aliases.
-In Compose, Edit, search, rename, invocation, command, transfer, and other
-text-entry surfaces, every physical `Del` remains owned by that text surface
-according to its existing editing behavior, never deletes a thought, and `h`,
-`j`, `k`, and `l` remain content.
+The versioned keymap in [SHORTCUTS.md](SHORTCUTS.md) owns every semantic
+binding. By default, unmodified `Del` and `d` are aliases of Board deletion;
+version 1 can replace or disable either. Modified `Del` and Backspace remain
+unbound on the Board by default. Editors and query owners retain their local
+named-key editing defaults. Every text owner reserves ordinary and shifted
+printable input, including Option/Alt and Control+Alt layout text. Browser
+management uses F2 and F8 while its query is empty; R and D enter search text.
 
-Board vertical navigation has one spelling-independent modifier ladder: plain
+The default Board map has one spelling-independent modifier ladder: plain
 moves focus, Shift extends a range, and Primary+Shift reorders one thought.
 Other modifiers keep the base focus intention. At the insertion row, range and
 reorder are thought-only no-ops, while base focus retains the ordinary boundary
@@ -926,22 +926,25 @@ target folds without editing and asks for one deliberate repeat. Inline style
 annotations are not folds. The action does not replace logical-line deletion,
 and width-dependent visual-row deletion is not provided or planned.
 
-Many terminals consume Cmd shortcuts before a TUI can receive them. Proqi
+Terminal hosts can consume Cmd shortcuts before a TUI can receive them. Proqi
 therefore supports enhanced keyboard protocols where available, configurable
 bindings, and portable fallbacks. Core functionality never depends on a
 terminal forwarding Primary successfully.
 
-Ghostty consumes configured keybindings before the child process by default.
-Its current macOS defaults include Cmd chords for copy, both paste forms,
-select all, undo, redo, duplicate, submission, quit, and several arrow actions.
-To forward `Cmd+Shift+V` to Proqi on macOS, users may add
-`keybind = super+shift+v=csi:118;10u` to Ghostty's configuration. This explicitly
-sends the Kitty keyboard encoding for Super+Shift+V; merely removing the host
-binding is insufficient on Ghostty 1.3.1. Proqi does not claim guaranteed
-delivery, modify host configuration, or repeat a paste already performed by the
-host. The portable Board pair uses `p` for exact paste and `P` for reflow;
-command-palette actions, bracketed paste, and raw key diagnostics remain
-necessary fallbacks.
+For Ghostty, `keybind = super+shift+v=csi:118;10u` explicitly emits the
+CSI-u representation of logical Super+Shift+v. The example is validated using
+Ghostty and its bytes are tested through a real macOS PTY and Crossterm 0.29.
+This is not a promise for every layout or host mapping. Proqi never edits host
+configuration. The default Board pair uses p for exact paste and P for reflow.
+
+`proqi diagnostics keypress` captures one exact logical event using a bounded
+timeout and a selected context stack. It reports key, modifiers, phase, keypad
+and lock state, platform interpretation, registry action and UI intention.
+`--defaults` bypasses invalid user configuration. Escape always cancels capture.
+No event before the deadline is reported as no event received; Proqi cannot
+identify whether the OS, Karabiner, Ghostty, Herdr or another layer consumed it.
+No arbitrary terminal response, paste, session content or private topology is
+included. Terminal ownership is restored on every exit path.
 Distinctly reported Shift remains meaningful. A shifted reserved character
 chord never silently becomes the unshifted copy, cut, paste, select-all,
 duplicate, or quit command. `Primary+Y` remains the unshifted alternate redo

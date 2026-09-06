@@ -20,8 +20,11 @@ const CANCEL: &[Action] = &[Action::Close];
 pub(crate) fn browser_footer_projection(
     registry: &ShortcutRegistry,
     width: u16,
+    context: ShortcutContext,
 ) -> Vec<BrowserFooterProjection> {
-    let items: &[(&[Action], &str)] = if width >= 60 {
+    let items: &[(&[Action], &str)] = if context == ShortcutContext::BrowserRename {
+        &[(OPEN, "Save"), (CANCEL, "Cancel")]
+    } else if width >= 60 {
         &[
             (RENAME, "Rename"),
             (TRASH, "Trash"),
@@ -41,23 +44,18 @@ pub(crate) fn browser_footer_projection(
     };
     items
         .iter()
-        .filter_map(|(actions, label)| {
-            let key = if *actions == SELECT {
-                registry.binding_label_for_keys(
-                    ShortcutContext::Browser,
-                    &[
-                        (Action::FocusPrevious, crate::ui::LogicalKey::Up),
-                        (Action::FocusNext, crate::ui::LogicalKey::Down),
-                    ],
-                )
-            } else {
-                registry.binding_label(ShortcutContext::Browser, actions)
-            };
-            key.map(|key| BrowserFooterProjection {
+        .map(|(actions, label)| {
+            let key = actions
+                .iter()
+                .map(|action| registry.action_label(context, *action, true))
+                .filter(|label| !label.is_empty())
+                .collect::<Vec<_>>()
+                .join("/");
+            BrowserFooterProjection {
                 actions,
                 key,
                 label,
-            })
+            }
         })
         .collect()
 }
@@ -70,18 +68,24 @@ mod tests {
     #[test]
     fn established_responsive_browser_footer_is_registry_projected() {
         let registry = ShortcutRegistry::from_validated(&KeyBindings::default());
-        let wide = browser_footer_projection(&registry, 80);
+        let wide = browser_footer_projection(&registry, 80, ShortcutContext::Browser);
         assert_eq!(
             wide.iter()
                 .map(|item| item.key.as_str())
                 .collect::<Vec<_>>(),
-            ["R", "D", "↑↓", "Enter", "Esc"]
+            ["F2", "F8", "↑/↓", "Enter", "Esc"]
         );
         assert_eq!(
             wide.iter().map(|item| item.label).collect::<Vec<_>>(),
             ["Rename", "Trash", "Select", "Open", "Cancel"]
         );
-        assert_eq!(browser_footer_projection(&registry, 40)[3].label, "Back");
-        assert_eq!(browser_footer_projection(&registry, 30)[0].label, "Name");
+        assert_eq!(
+            browser_footer_projection(&registry, 40, ShortcutContext::Browser)[3].label,
+            "Back"
+        );
+        assert_eq!(
+            browser_footer_projection(&registry, 30, ShortcutContext::Browser)[0].label,
+            "Name"
+        );
     }
 }

@@ -3,6 +3,7 @@
 mod dispatch;
 mod edge_cases;
 mod inventory;
+mod mechanical_inventory;
 mod platform;
 mod validation;
 
@@ -16,3 +17,5 @@ fn stroke(key: LogicalKey, modifiers: LogicalModifiers) -> KeyStroke {
         state: LogicalKeyState::NONE,
     }
 }
+
+mod inspection;

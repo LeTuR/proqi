@@ -317,8 +317,14 @@ fn search_focus_transition_clears_an_anchored_range() {
 
 #[test]
 fn range_latch_uses_the_remappable_board_binding() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.range_select = 'b';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            range_select: 'b',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut fixture = Fixture::with_settings(settings);
     for content in ["first", "second"] {
         fixture.paste(content);

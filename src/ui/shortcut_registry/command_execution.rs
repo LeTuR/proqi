@@ -169,6 +169,8 @@ pub(crate) const fn execution_for(action: Action) -> Option<CommandExecution> {
         | A::ExtendPrevious
         | A::ExtendNext
         | A::FastPrevious
+        | A::FastExtendPrevious
+        | A::FastExtendNext
         | A::FastNext
         | A::MoveGraphemeBack
         | A::MoveGraphemeForward

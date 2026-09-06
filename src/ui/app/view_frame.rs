@@ -39,7 +39,7 @@ impl BoardApp {
             !self.agent_targets.is_empty(),
             has_status,
             self.settings.density,
-            &self.settings.keybindings,
+            &self.settings.shortcuts,
             self.board_viewport,
         );
         let height = self.focused_height(&first);
@@ -54,7 +54,7 @@ impl BoardApp {
             !self.agent_targets.is_empty(),
             has_status,
             self.settings.density,
-            &self.settings.keybindings,
+            &self.settings.shortcuts,
             viewport,
         );
         self.configure_overlay(&mut layout);
@@ -63,8 +63,8 @@ impl BoardApp {
         layout.configure_agent_controls_with_keys(
             &self.agent_targets,
             self.submission_mode(),
-            self.interaction_mode(),
-            &self.settings.keybindings,
+            self.footer_shortcut_context(),
+            &self.settings.shortcuts,
         );
         let summary = self.footer_summary(layout.footer_context.width.saturating_sub(4));
         let session_id = self

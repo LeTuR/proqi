@@ -6,11 +6,31 @@ use super::support::expect_command;
 
 #[test]
 fn invalid_shortcut_registry_is_rejected_before_alternate_screen_entry() {
+    for (source, expected) in [
+        (
+            "[keybindings]\nnew = 'e'\n",
+            "keybindings must be distinct printable characters",
+        ),
+        ("[keymap]\nschema_version=99\n", "version"),
+        (
+            "[keymap]\nschema_version=1\n[keymap.bindings.edit]\n\"clipboard.copy\"=[{key='ä'}]\n",
+            "steal printable",
+        ),
+        (
+            "[keymap]\nschema_version=1\n[keymap.bindings.board]\n\"context.close\"=[]\n",
+            "Escape",
+        ),
+        ("[keybindings]\n[keymap]\nschema_version=1\n", "keybindings"),
+    ] {
+        assert_rejected(source, expected);
+    }
+}
+
+fn assert_rejected(source: &str, expected: &str) {
     let state = tempfile::tempdir().expect("temporary state");
     let config = state.path().join("config");
     fs::create_dir(&config).expect("config directory");
-    fs::write(config.join("config.toml"), "[keybindings]\nnew = 'e'\n")
-        .expect("invalid shortcut config");
+    fs::write(config.join("config.toml"), source).expect("invalid shortcut config");
     let transcript = state.path().join("startup.transcript");
     let script = r"
         log_user 0
@@ -43,8 +63,5 @@ fn invalid_shortcut_registry_is_rejected_before_alternate_screen_entry() {
         "terminal alternate screen was entered before configuration rejection"
     );
     let output = String::from_utf8_lossy(&output);
-    assert!(
-        output.contains("keybindings must be distinct printable characters"),
-        "{output}"
-    );
+    assert!(output.contains(expected), "{output}");
 }

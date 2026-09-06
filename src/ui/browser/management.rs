@@ -21,6 +21,7 @@ impl SessionBrowser {
             session_id: item.hit.id,
             value: item.hit.name.clone().unwrap_or_default(),
         });
+        self.layout = None;
         BrowserAction::Continue
     }
 
@@ -38,20 +39,29 @@ impl SessionBrowser {
 
     pub(super) fn handle_rename(&mut self, input: UiInput) -> BrowserAction {
         match input {
-            UiInput::Key(UiKey::Escape | UiKey::Quit) => {
-                self.rename = None;
+            UiInput::Pointer(pointer)
+                if pointer.kind == crate::ui::PointerKind::Down(crate::ui::PointerButton::Left) =>
+            {
+                let hit = self
+                    .layout
+                    .as_ref()
+                    .map_or(super::BrowserHit::None, |layout| {
+                        layout.hit_test(pointer.column, pointer.row, &self.footer_controls)
+                    });
+                if hit == super::BrowserHit::Confirm {
+                    return self.confirm_rename();
+                }
+                if hit == super::BrowserHit::Cancel {
+                    self.cancel_rename();
+                }
                 BrowserAction::Continue
             }
-            UiInput::Key(UiKey::Enter) => {
-                let Some(rename) = self.rename.take() else {
-                    return BrowserAction::Continue;
-                };
-                let value = rename.value.trim().to_owned();
-                BrowserAction::Rename {
-                    session_id: rename.session_id,
-                    name: (!value.is_empty()).then_some(value),
-                }
+
+            UiInput::Key(UiKey::Escape | UiKey::Quit) => {
+                self.cancel_rename();
+                BrowserAction::Continue
             }
+            UiInput::Key(UiKey::Enter) => self.confirm_rename(),
             UiInput::Key(UiKey::Backspace | UiKey::Delete | UiKey::ModifiedDelete) => {
                 if let Some(rename) = &mut self.rename
                     && let Some((index, _)) = rename.value.grapheme_indices(true).next_back()
@@ -92,6 +102,23 @@ impl SessionBrowser {
             | UiInput::HostFocusGained
             | UiInput::HostFocusLost
             | UiInput::Pointer(_) => BrowserAction::Continue,
+        }
+    }
+
+    fn cancel_rename(&mut self) {
+        self.rename = None;
+        self.layout = None;
+    }
+
+    fn confirm_rename(&mut self) -> BrowserAction {
+        let Some(rename) = self.rename.take() else {
+            return BrowserAction::Continue;
+        };
+        self.layout = None;
+        let value = rename.value.trim().to_owned();
+        BrowserAction::Rename {
+            session_id: rename.session_id,
+            name: (!value.is_empty()).then_some(value),
         }
     }
 }

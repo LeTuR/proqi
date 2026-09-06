@@ -1078,7 +1078,7 @@ the existing Board focus contract.
 
 `Primary+Enter` and `Primary+Shift+Enter` normalize to distinct Submit and
 SubmitKeep intentions before plain Enter handling. Board resolves those typed
-intentions as invariant aliases of its configured submit-and-remove and
+intentions as resolved aliases of its configured submit-and-remove and
 submit-and-keep commands, so selection and insertion-row behavior stay identical
 to the configured character spellings. Edit routes them directly to its active
 thought, while Compose remains unchanged. Plain Enter therefore remains an
@@ -1090,19 +1090,17 @@ Vertical board input uses one semantic modifier ladder for both arrow and
 configured character spellings: plain input moves focus, Shift extends an
 anchored range, and Primary+Shift reorders one thought. Other modifiers resolve
 to the base focus intention. At the insertion row, range and reorder are
-thought-only no-ops while focus retains the boundary policy. Input normalization
-preserves otherwise unknown Primary character chords until the board keymap
-can resolve the configured shifted range key, including when enhanced keyboard
-reporting encodes the shifted character without a separate Shift flag. It must
-not let arrow and `j`/`k`-style bindings acquire different intentions.
+thought-only no-ops while focus retains the boundary policy. The registry resolves exact platform and context bindings before UI routing.
+Unbound modified character events do not acquire a fallback semantic action.
+The default and legacy maps retain compatible uppercase event spellings;
+custom versioned aliases are exact.
 
-The normalized unmodified physical `Delete` key is an invariant Board spelling
-of the configured delete command and therefore reaches the same typed action,
-locks, operation, persistence, and undo path. Modified physical Delete retains
-a distinct normalized value and has no Board command meaning. The configured
-character remains remappable independently. `Backspace` has no Board delete
-meaning. Compose and Edit interpret both Delete values as forward text deletion,
-while query owners retain their existing local text-editing behavior.
+The default unmodified `Delete` alias resolves to Board deletion through the
+same typed action, locks, operation, persistence and undo path as d. Versioned
+configuration can replace or disable every alias. Modified Delete retains its
+distinct normalized value for text owners and has no default Board command.
+Backspace remains distinct. Editors and query owners preserve their established
+named-key editing defaults.
 Unmodified Space retains its own normalized identity until the active owner
 handles it. Edit mode consults the canonical presentation projection before
 ordinary character insertion. When that projection resolves the exact canonical
@@ -1148,15 +1146,27 @@ parallel binding declarations, parallel shortcut metadata, and a second
 Commands inventory. Its accepted and rejected fixtures are part of the
 canonical test suite.
 
-Distinct Shift reports for reserved character chords remain typed shifted
-intentions unless an established action owns them. Uppercase character reports
-without a Shift flag retain the compatible unshifted action where the terminal
-encodes the chord that way. For the paste-reflow ASCII-letter Board fallback,
-the registry exposes the opposite-case spelling unless an explicit command owns
-it. Collision validation operates on the effective context-qualified bindings
-before terminal setup.
+Schema version 1 resolves common and platform context/action alias lists before
+terminal entry. Runtime settings own exactly one resolved graph. The legacy
+character struct exists only at the input translation boundary. Omitted pairs
+inherit defaults; supplied lists replace every alias of the pair. Both platform
+graphs validate collisions, text reservation, invariant Escape and required
+recovery routes. Default compatibility includes uppercase reports without Shift;
+custom aliases have exact codepoint and modifier matching. Fast selection has
+separate action identities so physical modifiers do not control its meaning.
+Browser F2/F8 replace the text-stealing R/D management defaults.
 
-Global `Primary+Q` is resolved before Help and Screenshot takeover navigation,
+Presentation labels are cached from resolved claims once, then shared by Help,
+footer measurement, rendering, and hit geometry. Diagnostic capture decodes with
+the same terminal adapter and resolves with the same registry. Its explicit
+context stack describes the diagnostic selection, not another live process.
+The bounded capture polls off the reducer thread, excludes non-key payloads,
+and owns raw mode/reporting with an RAII guard before reporting setup begins.
+No-event results make no claim about which upstream host consumed a chord.
+See [the complete versioned contract](SHORTCUTS.md).
+
+The Quit action, whose default Primary+Q alias is separately owned in each
+context, executes before Help and Screenshot takeover navigation,
 but after a commit-first Screenshot save barrier has admitted or deferred the
 input. Quit therefore retains the ordinary editor flush, durability failure,
 capture reconciliation, cancellation, and bounded terminal teardown barriers.

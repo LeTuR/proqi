@@ -26,8 +26,14 @@ fn compose_cursor_movement_never_creates_the_first_thought() {
 
 #[test]
 fn configured_next_and_arrow_down_share_the_insertion_confirmation() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.focus_down = 'g';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            focus_down: 'g',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut fixture = Fixture::with_settings(settings);
     super::navigation::durable_thought(&mut fixture, "existing");
     fixture.input(super::navigation::visual(CursorMovement::VisualDown, false));

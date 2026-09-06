@@ -10,8 +10,6 @@ use super::vocabulary::{
 };
 
 const MODAL_CHARACTER_BINDINGS: &[(Context, char, Action)] = &[
-    (Context::Browser, 'R', Action::RenameSession),
-    (Context::Browser, 'D', Action::BrowserTrash),
     (Context::Recovery, 'r', Action::RetryStorage),
     (Context::Recovery, 'w', Action::ExportRecovery),
 ];
@@ -35,6 +33,13 @@ pub(super) fn named_action(
     key: LogicalKey,
     modifiers: LogicalModifiers,
 ) -> Option<Action> {
+    if context == Context::Browser && modifiers.is_empty() {
+        match key {
+            LogicalKey::Function(2) => return Some(Action::RenameSession),
+            LogicalKey::Function(8) => return Some(Action::BrowserTrash),
+            _ => {}
+        }
+    }
     if let Some(action) = modal_character_action(context, key, modifiers) {
         return Some(action);
     }

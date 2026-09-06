@@ -13,9 +13,7 @@ const UI_REEXPORTS: &[&str] = &["src/ui/input.rs", "src/ui/mod.rs"];
 const KEYBINDING_PROJECTION_OWNERS: &[&str] = &[
     "src/ui/settings.rs",
     "src/adapters/terminal/settings.rs",
-    "src/ui/app.rs",
-    "src/ui/app/view.rs",
-    "src/ui/app/view_frame.rs",
+    "src/ui/mod.rs",
 ];
 
 pub(crate) fn required_owner_findings(root: &Path) -> Vec<String> {
@@ -24,6 +22,8 @@ pub(crate) fn required_owner_findings(root: &Path) -> Vec<String> {
         "src/ui/shortcut_registry/model.rs",
         "src/ui/shortcut_registry/inventory.rs",
         "src/ui/shortcut_registry/dispatch.rs",
+        "src/ui/shortcut_registry/config.rs",
+        "src/ui/shortcut_registry/inspection.rs",
         TERMINAL_TRANSLATION,
     ]
     .into_iter()
@@ -225,6 +225,9 @@ impl<'ast> syn::visit::Visit<'ast> for ShortcutVisitor {
             }
             "ShortcutBinding" => {
                 self.detected.insert(Detected::ShortcutBinding);
+            }
+            "KeyBindings" => {
+                self.detected.insert(Detected::KeybindingsAccess);
             }
             _ => {}
         }

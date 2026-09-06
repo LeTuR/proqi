@@ -345,8 +345,14 @@ fn plain_transform_merges_selection_and_escape_transform_uses_one_shot_handoff()
 
 #[test]
 fn contextual_transform_is_remappable_and_does_not_claim_compose_primary_input() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.transform = 'g';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            transform: 'g',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut fixture = Fixture::with_settings(settings);
     assert!(
         fixture

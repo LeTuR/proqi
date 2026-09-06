@@ -2,8 +2,14 @@ use super::*;
 
 #[test]
 fn remapped_board_binding_changes_behavior_and_visible_hint() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.new = 't';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            new: 't',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut fixture = Fixture::with_settings(settings);
     super::navigation::durable_thought(&mut fixture, "existing");
     fixture.input(crate::key_input(UiKey::Character('n')));

@@ -28,7 +28,6 @@ const THEME_SCHEMA_VERSION: u16 = 1;
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct LoadedSettings {
     pub(crate) ui: UiSettings,
-    pub(crate) shortcut_registry: crate::ui::ShortcutRegistry,
     pub(crate) theme: ThemeRecipe,
     pub(crate) invocation_roots: Vec<AdditionalInvocationRoot>,
     pub(crate) screenshot: ScreenshotSettings,
@@ -62,7 +61,8 @@ struct SettingsDocument {
     theme: String,
     theme_overrides: ThemeOverrides,
     keyboard_enhancement: KeyboardEnhancement,
-    keybindings: KeyBindings,
+    keybindings: Option<KeyBindings>,
+    keymap: Option<crate::ui::KeymapDocument>,
     density: BoardDensity,
     invocation_roots: Vec<InvocationRootDocument>,
     screenshot_inbox: ScreenshotSettingsDocument,
@@ -79,7 +79,8 @@ impl Default for SettingsDocument {
             theme: "auto".to_owned(),
             theme_overrides: ThemeOverrides::default(),
             keyboard_enhancement: KeyboardEnhancement::default(),
-            keybindings: KeyBindings::default(),
+            keybindings: None,
+            keymap: None,
             density: BoardDensity::default(),
             invocation_roots: Vec::new(),
             screenshot_inbox: ScreenshotSettingsDocument::default(),
@@ -138,7 +139,20 @@ fn parse_settings(config_dir: &Path, content: &str) -> Result<LoadedSettings, Te
             "merge_separator must contain between 1 and 1024 UTF-8 bytes".to_owned(),
         ));
     }
-    let shortcut_registry = crate::ui::ShortcutRegistry::current(&document.keybindings)
+    if document.keybindings.is_some() && document.keymap.is_some() {
+        return Err(TerminalError::Config(
+            "keybindings and keymap cannot be combined; migrate the legacy map explicitly"
+                .to_owned(),
+        ));
+    }
+    let keys = document.keybindings.unwrap_or_default();
+    let shortcut_registry = document
+        .keymap
+        .as_ref()
+        .map_or_else(
+            || crate::ui::ShortcutRegistry::current(&keys),
+            |keymap| keymap.resolve(crate::ui::ShortcutPlatform::current()),
+        )
         .map_err(|error| TerminalError::Config(error.to_string()))?;
     let ui = UiSettings {
         check_for_updates: document.check_for_updates,
@@ -147,7 +161,7 @@ fn parse_settings(config_dir: &Path, content: &str) -> Result<LoadedSettings, Te
         list_indent_width: document.list_indent_width,
         merge_separator: document.merge_separator,
         keyboard_enhancement: document.keyboard_enhancement,
-        keybindings: document.keybindings,
+        shortcuts: shortcut_registry,
         density: document.density,
     };
     let (theme, theme_source) = load_theme(config_dir, &document.theme, document.theme_overrides)?;
@@ -155,7 +169,6 @@ fn parse_settings(config_dir: &Path, content: &str) -> Result<LoadedSettings, Te
     let screenshot = screenshot::validate(document.screenshot_inbox)?;
     Ok(LoadedSettings {
         ui,
-        shortcut_registry,
         theme,
         invocation_roots,
         screenshot,
@@ -309,8 +322,12 @@ fn parse_toml<T: for<'de> Deserialize<'de>>(
     content: &str,
     label: &str,
 ) -> Result<T, TerminalError> {
-    toml::from_str(content)
-        .map_err(|error| TerminalError::Config(format!("invalid {label}: {error}")))
+    toml::from_str(content).map_err(|error: toml::de::Error| {
+        let position = error.span().map_or(0, |span| span.start);
+        TerminalError::Config(format!(
+            "invalid {label} at byte {position}: malformed TOML, unknown field, or invalid value; check the configuration schema"
+        ))
+    })
 }
 
 fn ensure_private(path: &Path) -> Result<(), TerminalError> {

@@ -8,11 +8,22 @@ use crate::{
         agent::AgentTarget,
         editor::{EditCommand, EditorSnapshot},
     },
-    ui::{HitTarget, KeyBindings},
+    ui::HitTarget,
 };
 use std::borrow::Cow;
 
 impl BoardApp {
+    pub(in crate::ui) fn footer_shortcut_context(&self) -> crate::ui::ShortcutContext {
+        crate::ui::ShortcutContext::surface(
+            self.interaction_mode(),
+            self.insertion_focused(),
+            matches!(
+                self.state.durability,
+                crate::application::DurabilityState::Failed { .. }
+            ),
+        )
+    }
+
     pub(super) fn current_content(&self, thought_id: ThoughtId) -> Option<String> {
         self.pending_edit
             .as_ref()
@@ -346,22 +357,8 @@ impl BoardApp {
             .map_or((false, false), |palette| palette.overflow(visible))
     }
 
-    /// Active board bindings used by hints and command translation.
-    #[must_use]
-    pub const fn keybindings(&self) -> &KeyBindings {
-        &self.settings.keybindings
-    }
-
     pub(in crate::ui) const fn shortcut_registry(&self) -> &crate::ui::ShortcutRegistry {
-        &self.shortcut_registry
-    }
-
-    pub(in crate::ui) fn board_shortcut_action(
-        &self,
-        character: char,
-    ) -> Option<crate::ui::ShortcutActionId> {
-        self.shortcut_registry
-            .board_action_for_intention(super::UiKey::Character(character))
+        &self.settings.shortcuts
     }
 
     /// Currently verified submission targets, empty when the enhancement is unavailable.

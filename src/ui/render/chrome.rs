@@ -19,7 +19,7 @@ pub(super) fn render_footer(
 ) {
     render_context(frame, app, layout, theme);
     render_session_identity(frame, app, layout, theme);
-    let keys = app.keybindings();
+    let keys = app.shortcut_registry();
     for (target, area) in &layout.controls {
         if matches!(target, HitTarget::RenameSession | HitTarget::CopySessionId) {
             continue;
@@ -33,20 +33,19 @@ fn render_control(
     app: &BoardApp,
     target: HitTarget,
     area: ratatui_core::layout::Rect,
-    keys: &crate::ui::KeyBindings,
+    keys: &crate::ui::ShortcutRegistry,
     theme: &Theme,
 ) {
+    let context = app.footer_shortcut_context();
     let label = match target {
         HitTarget::Agent(direction) => app
             .agent_targets()
             .iter()
             .find(|target| target.adjacent_direction() == Some(direction))
             .map(crate::ui::control_labels::agent),
-        _ => crate::ui::control_labels::action(target, false, app.interaction_mode(), keys)
+        _ => crate::ui::control_labels::action(target, false, context, keys)
             .filter(|label| label.width() <= area.width)
-            .or_else(|| {
-                crate::ui::control_labels::action(target, true, app.interaction_mode(), keys)
-            }),
+            .or_else(|| crate::ui::control_labels::action(target, true, context, keys)),
     };
     let Some(label) = label else {
         return;
@@ -82,20 +81,20 @@ fn render_context(frame: &mut Frame<'_>, app: &BoardApp, layout: &LayoutSnapshot
         }
     );
     let status = app.status_view();
-    let left = status.map_or_else(
-        || {
-            if failed {
-                if recovery_only {
-                    "save failed · w Export recovery"
-                } else {
-                    "save failed · r Retry · w Export recovery"
-                }
-            } else {
-                ""
-            }
-        },
-        |(message, _)| message,
-    );
+    let recovery = if failed {
+        use crate::ui::{ShortcutActionId as Action, ShortcutContext as Context};
+        let registry = app.shortcut_registry();
+        let export = registry.action_label(Context::Recovery, Action::ExportRecovery, true);
+        if recovery_only {
+            format!("save failed · {export} Export recovery")
+        } else {
+            let retry = registry.action_label(Context::Recovery, Action::RetryStorage, true);
+            format!("save failed · {retry} Retry · {export} Export recovery")
+        }
+    } else {
+        String::new()
+    };
+    let left = status.map_or(recovery.as_str(), |(message, _)| message);
     let status_area = crate::ui::geometry::inset_horizontal(layout.footer_status, 2);
     let color = status.map_or_else(
         || if failed { theme.error } else { theme.muted },

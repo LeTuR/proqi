@@ -161,3 +161,31 @@ fn literal_text_insertion_and_typed_action_consumers_are_accepted() {
         .is_empty()
     );
 }
+
+#[test]
+fn legacy_keymap_state_cannot_return_to_runtime_or_presentation_owners() {
+    for path in [
+        "src/ui/app.rs",
+        "src/ui/app/view_frame.rs",
+        "src/ui/shortcuts.rs",
+    ] {
+        for source in [
+            "struct State { keys: crate::ui::KeyBindings }",
+            "fn keys(app: App) { let _ = app.settings.keybindings; }",
+        ] {
+            assert!(
+                check_source(Path::new(path), source)
+                    .iter()
+                    .any(|finding| finding.contains("configured keybinding access"))
+            );
+        }
+    }
+    assert!(
+        check_source(
+            Path::new("src/adapters/terminal/settings.rs"),
+            "struct LegacyDocument { keybindings: Option<crate::ui::KeyBindings> }"
+        )
+        .is_empty()
+    );
+    assert!(check_source(Path::new("src/ui/render/chrome.rs"), "fn label(registry: &ShortcutRegistry) { registry.action_label(context, action, compact); }").is_empty());
+}

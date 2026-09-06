@@ -183,6 +183,11 @@ impl LogicalKeyState {
     pub const CAPS_LOCK: Self = Self(1 << 1);
     /// Num Lock was active.
     pub const NUM_LOCK: Self = Self(1 << 2);
+    /// Whether every state in `other` is present.
+    #[must_use]
+    pub const fn contains(self, other: Self) -> bool {
+        self.0 & other.0 == other.0
+    }
     /// Combine enhanced-keyboard state flags.
     #[must_use]
     pub const fn union(self, other: Self) -> Self {

@@ -138,11 +138,18 @@ fn insertion_boundary_accepts_mixed_unsupported_focus_modifiers() {
 
 #[test]
 fn remapped_vertical_bindings_share_the_same_modifier_ladder() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.focus_up = 'i';
-    settings.keybindings.focus_down = 'm';
-    settings.keybindings.range_up = 'I';
-    settings.keybindings.range_down = 'M';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            focus_up: 'i',
+            focus_down: 'm',
+            range_up: 'I',
+            range_down: 'M',
+            screenshot_inbox: 'b',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut fixture = Fixture::with_settings(settings);
     for content in ["first", "second", "third"] {
         durable_thought(&mut fixture, content);

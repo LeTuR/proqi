@@ -341,38 +341,35 @@ fn mouse_uses_rendered_rows_and_footer_geometry() {
         })),
         BrowserAction::Trash(id)
     );
-    for column in [20, 31] {
-        assert_eq!(
-            browser.handle(UiInput::Pointer(PointerInput {
-                column: footer.x.saturating_add(column),
-                row: footer.y,
-                kind: PointerKind::Down(PointerButton::Left),
-                extend_selection: false,
-            })),
-            BrowserAction::Continue,
-            "non-action footer label at column {column} must not reuse adjacent hit geometry"
-        );
-    }
     assert_eq!(
         browser.handle(UiInput::Pointer(PointerInput {
-            column: footer.x.saturating_add(43),
+            column: footer.x.saturating_add(22),
+            row: footer.y,
+            kind: PointerKind::Down(PointerButton::Left),
+            extend_selection: false,
+        })),
+        BrowserAction::Continue,
+        "Select label must not reuse adjacent hit geometry"
+    );
+    assert_eq!(
+        browser.handle(UiInput::Pointer(PointerInput {
+            column: footer.x.saturating_add(46),
             row: footer.y,
             kind: PointerKind::Down(PointerButton::Left),
             extend_selection: false,
         })),
         BrowserAction::Cancel
     );
-
     let narrow = browser.prepare_frame(ratatui_core::layout::Rect::new(0, 0, 44, 10));
     assert_eq!(
         browser.handle(UiInput::Pointer(PointerInput {
-            column: narrow.footer.x.saturating_add(20),
+            column: narrow.footer.x.saturating_add(22),
             row: narrow.footer.y,
             kind: PointerKind::Down(PointerButton::Left),
             extend_selection: false,
         })),
-        BrowserAction::Continue,
-        "the narrow Enter label must not inherit the Trash hit target"
+        BrowserAction::Open(id),
+        "the narrow Enter label opens the selected session"
     );
 }
 
@@ -415,7 +412,9 @@ fn keyboard_rename_and_trash_are_explicit_browser_actions() {
     let id = entry.hit.id;
     let mut browser = SessionBrowser::new(vec![entry], Timestamp::from_millis(20));
     assert_eq!(
-        browser.handle(crate::key_input(UiKey::Character('R'))),
+        browser.handle(UiInput::KeyStroke(proqi::ui::KeyStroke::press(
+            proqi::ui::LogicalKey::Function(2)
+        ))),
         BrowserAction::Continue
     );
     for character in "Release queue".chars() {
@@ -429,7 +428,9 @@ fn keyboard_rename_and_trash_are_explicit_browser_actions() {
         }
     );
     assert_eq!(
-        browser.handle(crate::key_input(UiKey::Character('D'))),
+        browser.handle(UiInput::KeyStroke(proqi::ui::KeyStroke::press(
+            proqi::ui::LogicalKey::Function(8)
+        ))),
         BrowserAction::Trash(id)
     );
 }

@@ -22,6 +22,33 @@ const fn help(
 
 const HELP: &[(Action, HelpMetadata)] = &[
     (
+        Action::RetryStorage,
+        help(
+            HelpSurface::Recovery,
+            0,
+            "Retry failed save",
+            HelpAvailability::Always,
+        ),
+    ),
+    (
+        Action::ExportRecovery,
+        help(
+            HelpSurface::Recovery,
+            1,
+            "Export recovery",
+            HelpAvailability::Always,
+        ),
+    ),
+    (
+        Action::Quit,
+        help(
+            HelpSurface::Recovery,
+            2,
+            "Quit after recovery",
+            HelpAvailability::Always,
+        ),
+    ),
+    (
         Action::New,
         help(HelpSurface::Board, 0, "New", HelpAvailability::Always),
     ),
@@ -253,7 +280,7 @@ const HELP: &[(Action, HelpMetadata)] = &[
         help(
             HelpSurface::Editor,
             13,
-            "5-row · PgUp/PgDn",
+            "Move 5 rows",
             HelpAvailability::Always,
         ),
     ),
@@ -296,6 +323,7 @@ pub(super) fn help_contexts(metadata: &[HelpMetadata]) -> impl Iterator<Item = C
     metadata
         .iter()
         .flat_map(|item| match item.surface {
+            HelpSurface::Recovery => [Some(Context::Recovery), None],
             HelpSurface::Board => [Some(Context::Board), None],
             HelpSurface::Editor => [Some(Context::Compose), Some(Context::Edit)],
         })

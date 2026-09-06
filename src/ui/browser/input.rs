@@ -21,15 +21,18 @@ impl SessionBrowser {
         self.handle_resolved_input(input)
     }
 
-    fn resolve_shortcut_input(&self, input: UiInput) -> Option<UiInput> {
-        let context = if self.rename.is_some() {
+    pub(in crate::ui) fn shortcut_context(&self) -> crate::ui::ShortcutContext {
+        if self.rename.is_some() {
             crate::ui::ShortcutContext::BrowserRename
         } else if self.query.is_empty() {
             crate::ui::ShortcutContext::Browser
         } else {
             crate::ui::ShortcutContext::BrowserQuery
-        };
-        let contexts = crate::ui::ShortcutContextStack::new([context]);
+        }
+    }
+
+    fn resolve_shortcut_input(&self, input: UiInput) -> Option<UiInput> {
+        let contexts = crate::ui::ShortcutContextStack::new([self.shortcut_context()]);
         match input {
             UiInput::KeyStroke(stroke) => self
                 .shortcut_registry
@@ -147,10 +150,11 @@ impl SessionBrowser {
         let Some(layout) = &self.layout else {
             return BrowserAction::Continue;
         };
-        match layout.hit_test(pointer.column, pointer.row, &self.shortcut_registry) {
+        match layout.hit_test(pointer.column, pointer.row, &self.footer_controls) {
             BrowserHit::Cancel => BrowserAction::Cancel,
             BrowserHit::Rename => self.begin_rename(),
             BrowserHit::Trash => self.trash_selected(),
+            BrowserHit::Confirm => self.activate(),
             BrowserHit::Item(item_index) => {
                 let Some(position) = self.filtered.iter().position(|index| *index == item_index)
                 else {

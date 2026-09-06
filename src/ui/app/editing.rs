@@ -113,6 +113,9 @@ impl BoardApp {
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
     ) -> Vec<Effect> {
+        if let UiKey::Shortcut(action) = key {
+            return self.execute_bound_command(action, ids, clock);
+        }
         let Some(key) = normalize_edit_key(key) else {
             return Vec::new();
         };

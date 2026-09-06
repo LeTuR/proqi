@@ -70,8 +70,18 @@ pub(super) enum DiagnosticsCommand {
         #[arg(long, value_name = "PATH")]
         output: Option<PathBuf>,
     },
-    /// Show one raw terminal key event and its normalized Proqi action.
-    Keypress,
+    /// Capture one logical key with bounded, content-redacted contextual resolution.
+    Keypress {
+        /// Context stack, bottom to top. Uses stable keymap context identifiers.
+        #[arg(long, default_value = "board", value_delimiter = ',')]
+        context: Vec<String>,
+        /// Bounded capture duration, in milliseconds.
+        #[arg(long, default_value_t = 5000, value_parser = clap::value_parser!(u64).range(100..=60000))]
+        timeout_ms: u64,
+        /// Inspect factory bindings without loading configuration, including invalid files.
+        #[arg(long)]
+        defaults: bool,
+    },
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]

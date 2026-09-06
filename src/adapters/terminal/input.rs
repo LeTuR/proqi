@@ -1,8 +1,7 @@
 //! Crossterm event normalization and lossless input delivery.
 
 use std::{
-    fmt,
-    io::{self, stdout},
+    fmt, io,
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -12,23 +11,20 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use crossterm::{
-    event::{self, Event, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags},
-    execute,
-};
+use crossterm::event::{self, Event};
 
 use crate::ui::UiInput;
 
 use super::{
     TerminalError,
-    control::{compatible_keyboard_flags, reset_keyboard_reporting},
     supervisor::{ShutdownDeadline, join_before},
 };
 
 use translation::translate;
 
+mod inspection;
 mod translation;
+pub(crate) use inspection::inspect_keypress;
 
 #[derive(Debug, Eq, PartialEq)]
 pub(super) enum InputFailure {
@@ -60,80 +56,6 @@ trait EventSource: Send {
 }
 
 struct CrosstermEventSource;
-
-pub(crate) struct KeyInspection {
-    pub(crate) raw_event: String,
-    pub(crate) matched_action: Option<String>,
-}
-
-pub(crate) fn inspect_keypress(
-    shortcut_registry: &crate::ui::ShortcutRegistry,
-) -> Result<KeyInspection, TerminalError> {
-    let guard = RawInputGuard::enter()?;
-    eprintln!("Press one key to inspect its terminal event and Proqi action.");
-    let (raw_event, stroke) = loop {
-        let event = event::read()?;
-        let raw_event = match &event {
-            Event::Key(key) => format!("{key:?}"),
-            _ => format!("{event:?}"),
-        };
-        if let Some(UiInput::KeyStroke(stroke)) = translate(event) {
-            break (raw_event, stroke);
-        }
-    };
-    guard.finish()?;
-    Ok(KeyInspection {
-        raw_event,
-        matched_action: shortcut_registry.legacy_keypress_action(stroke),
-    })
-}
-
-struct RawInputGuard {
-    active: bool,
-    keyboard_active: bool,
-}
-
-impl RawInputGuard {
-    fn enter() -> io::Result<Self> {
-        enable_raw_mode()?;
-        let keyboard_active = execute!(
-            stdout(),
-            PushKeyboardEnhancementFlags(compatible_keyboard_flags())
-        )
-        .is_ok();
-        Ok(Self {
-            active: true,
-            keyboard_active,
-        })
-    }
-
-    fn finish(mut self) -> io::Result<()> {
-        self.restore()
-    }
-
-    fn restore(&mut self) -> io::Result<()> {
-        let keyboard = if self.keyboard_active {
-            execute!(stdout(), PopKeyboardEnhancementFlags)
-        } else {
-            Ok(())
-        };
-        self.keyboard_active = false;
-        let reset = reset_keyboard_reporting();
-        let raw = if self.active {
-            disable_raw_mode()
-        } else {
-            Ok(())
-        };
-        self.active = false;
-        keyboard.and(reset).and(raw)
-    }
-}
-
-impl Drop for RawInputGuard {
-    fn drop(&mut self) {
-        let _restored = self.restore();
-    }
-}
 
 impl EventSource for CrosstermEventSource {
     fn poll(&mut self, timeout: Duration) -> io::Result<bool> {

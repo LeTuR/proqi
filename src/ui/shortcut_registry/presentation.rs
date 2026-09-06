@@ -1,4 +1,4 @@
-//! Registry-owned labels shared by Help, footer controls, and validation.
+//! Labels derived exclusively from the active resolved binding graph.
 
 mod browser;
 mod footer;
@@ -8,212 +8,249 @@ pub(crate) use browser::browser_footer_projection;
 pub(crate) use footer::footer_projection;
 pub(crate) use help::{HelpItem, help_items};
 
-use std::sync::OnceLock;
-
-use crate::ui::{KeyBindings, LogicalKey, LogicalModifiers, settings};
-
 use super::{
-    inventory,
-    model::{
-        ShortcutActionId as Action, ShortcutBindingPresentation, ShortcutDescriptor,
-        ShortcutModifiers,
-    },
+    ShortcutActionId as Action, ShortcutBinding, ShortcutContext as Context, ShortcutModifiers,
+    ShortcutPlatform, ShortcutRegistry,
 };
+use crate::ui::{LogicalKey, LogicalModifiers};
 
-pub(crate) fn primary_label(action: Action) -> String {
-    label(action, false)
-}
-
-pub(crate) fn shifted_primary_label(action: Action) -> String {
-    label(action, true)
-}
-
-pub(crate) fn redo_label() -> String {
-    format!(
-        "{}/{}",
-        shifted_primary_label(Action::Redo),
-        primary_label(Action::Redo)
-    )
-}
-
-pub(crate) const FAST_NAVIGATION_HELP_LABEL: &str = "Alt+↑/↓";
-
-#[cfg(test)]
-pub(crate) const FAST_NAVIGATION_README_LABEL: &str = "Alt+↑ / ↓ or Page Up / Page Down";
-
-pub(crate) fn board_label(action: Action, keys: &KeyBindings) -> String {
-    let primary = canonical_label(action);
-    let fallbacks = board_fallbacks(action, keys);
-    if fallbacks.is_empty() {
-        primary
-    } else {
-        format!("{primary}/{}", fallback_label(&fallbacks))
-    }
-}
-
-pub(crate) fn board_control_label(action: Action, keys: &KeyBindings, compact: bool) -> String {
-    let fallbacks = board_fallbacks(action, keys);
-    if fallbacks.is_empty() {
-        return canonical_label(action);
-    }
-    if compact {
-        fallback_label(&fallbacks)
-    } else {
-        board_label(action, keys)
-    }
-}
-
-pub(crate) fn canonical_label(action: Action) -> String {
-    primary_suffix(action, None, true)
-        .or_else(|| primary_suffix(action, Some(false), false))
-        .or_else(|| primary_suffix(action, Some(true), false))
-        .map_or_else(|| "Primary".to_owned(), |suffix| primary(&suffix))
-}
-
-pub(crate) fn reserved_unshifted_character(character: char) -> bool {
-    unshifted_primary_characters().any(|(_, candidate)| candidate.eq_ignore_ascii_case(&character))
-}
-
-pub(crate) fn reserved_shifted_configuration_suffix(character: char) -> bool {
-    unshifted_primary_characters().any(|(action, candidate)| {
-        action != Action::DeleteLogicalLine && candidate.eq_ignore_ascii_case(&character)
-    })
-}
-
-fn label(action: Action, shifted: bool) -> String {
-    primary_suffix(action, Some(shifted), false)
-        .map_or_else(|| "Primary".to_owned(), |suffix| primary(&suffix))
-}
-
-fn primary_suffix(action: Action, shifted: Option<bool>, canonical: bool) -> Option<String> {
-    let (key, binding_shifted) = primary_binding(action, shifted, canonical)?;
-    let key = match key {
-        LogicalKey::Character(character) => character.to_ascii_uppercase().to_string(),
-        LogicalKey::Enter => "Enter".to_owned(),
-        _ => return None,
-    };
-    Some(if binding_shifted {
-        format!("Shift+{key}")
-    } else {
-        key
-    })
-}
-
-fn primary_binding(
-    action: Action,
-    shifted: Option<bool>,
-    canonical: bool,
-) -> Option<(LogicalKey, bool)> {
-    let macos = cfg!(target_os = "macos");
-    let descriptor = canonical_descriptors()
-        .iter()
-        .find(|descriptor| descriptor.action == action)?;
-    platform_defaults(descriptor, macos)
-        .iter()
-        .find_map(|claim| {
-            let ShortcutBindingPresentation::Primary {
-                canonical: is_canonical,
-            } = claim.presentation
-            else {
-                return None;
-            };
-            let ShortcutModifiers::Exact(modifiers) = claim.binding.modifiers else {
-                return None;
-            };
-            let binding_shifted = modifiers.contains(LogicalModifiers::SHIFT);
-            (super::inventory::bindings::is_primary(modifiers, macos)
-                && shifted.is_none_or(|expected| expected == binding_shifted)
-                && (!canonical || is_canonical))
-                .then_some((claim.binding.key, binding_shifted))
-        })
-}
-
-fn unshifted_primary_characters() -> impl Iterator<Item = (Action, char)> {
-    canonical_descriptors().iter().flat_map(|descriptor| {
-        platform_defaults(descriptor, false)
+impl ShortcutRegistry {
+    pub(super) fn project_bindings(
+        &self,
+    ) -> std::collections::BTreeMap<(Context, Action), Vec<ShortcutBinding>> {
+        self.descriptors
             .iter()
-            .filter_map(move |claim| {
-                if !matches!(
-                    claim.presentation,
-                    ShortcutBindingPresentation::Primary { .. }
-                ) {
-                    return None;
-                }
-                let ShortcutModifiers::Exact(modifiers) = claim.binding.modifiers else {
-                    return None;
-                };
-                match claim.binding.key {
-                    LogicalKey::Character(character)
-                        if super::inventory::bindings::is_primary(modifiers, false)
-                            && !modifiers.contains(LogicalModifiers::SHIFT) =>
-                    {
-                        Some((descriptor.action, character))
-                    }
-                    _ => None,
-                }
+            .flat_map(|descriptor| {
+                descriptor.contexts.iter().map(|context| {
+                    (
+                        (*context, descriptor.action),
+                        self.build_presented_bindings(*context, descriptor.action),
+                    )
+                })
             })
-    })
-}
-
-fn canonical_descriptors() -> &'static [ShortcutDescriptor] {
-    static DESCRIPTORS: OnceLock<Vec<ShortcutDescriptor>> = OnceLock::new();
-    DESCRIPTORS.get_or_init(|| inventory::descriptors(&KeyBindings::default()))
-}
-
-fn platform_defaults(
-    descriptor: &ShortcutDescriptor,
-    macos: bool,
-) -> &[super::model::ShortcutBindingClaim] {
-    if macos {
-        &descriptor.macos_defaults
-    } else {
-        &descriptor.portable_defaults
+            .collect()
     }
-}
 
-fn primary(suffix: &str) -> String {
-    settings::primary_key_label(suffix)
-}
+    pub(crate) fn labels(&self, context: Context, action: Action) -> Vec<String> {
+        self.projected_bindings
+            .get(&(context, action))
+            .into_iter()
+            .flatten()
+            .map(|binding| self.label_binding(*binding))
+            .collect()
+    }
 
-fn board_fallbacks(action: Action, keys: &KeyBindings) -> Vec<char> {
-    super::context_policy::effective_board_bindings(keys)
-        .into_iter()
-        .filter_map(|(key, mapped)| (mapped == action).then_some(key))
-        .collect()
-}
-
-fn fallback_label(fallbacks: &[char]) -> String {
-    fallbacks
-        .iter()
-        .map(|character| settings::key_label(*character))
-        .collect::<Vec<_>>()
-        .join("/")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn every_primary_projection_is_derived_from_an_effective_descriptor_default() {
-        for descriptor in canonical_descriptors() {
-            for shifted in [false, true] {
-                assert!(
-                    primary_binding(descriptor.action, Some(shifted), false).is_none()
-                        || label(descriptor.action, shifted) != "Primary"
-                );
+    fn build_presented_bindings(&self, context: Context, action: Action) -> Vec<ShortcutBinding> {
+        let claims = self.action_claims(context, action);
+        let preferred = claims
+            .iter()
+            .filter(|claim| {
+                claim.presentation != super::model::ShortcutBindingPresentation::DispatchOnly
+            })
+            .map(|claim| claim.binding)
+            .collect::<std::collections::BTreeSet<_>>();
+        let mut bindings = claims
+            .into_iter()
+            .map(|claim| claim.binding)
+            .collect::<Vec<_>>();
+        bindings.sort_by_key(|binding| {
+            let ShortcutModifiers::Exact(modifiers) = binding.modifiers else {
+                return (true, true, 3);
+            };
+            let ordinary = !modifiers.intersects(
+                LogicalModifiers::SUPER
+                    .union(LogicalModifiers::META)
+                    .union(LogicalModifiers::CONTROL),
+            );
+            let key_order = match binding.key {
+                LogicalKey::Character(_) => 0,
+                LogicalKey::Up | LogicalKey::Down => 1,
+                _ => 2,
+            };
+            (
+                ordinary,
+                !modifiers.contains(LogicalModifiers::SHIFT),
+                key_order,
+            )
+        });
+        let mut labels = std::collections::BTreeSet::new();
+        let mut presented = Vec::new();
+        for binding in &bindings {
+            if !preferred.contains(binding) && redundant(binding, &bindings)
+                || self.meta_alias(binding, &bindings)
+                || uppercase_compatibility(binding, &bindings)
+            {
+                continue;
             }
+            let label = self.label_binding(*binding);
+            if labels.insert(label) {
+                presented.push(*binding);
+            }
+        }
+        presented
+    }
+
+    pub(crate) fn action_label(&self, context: Context, action: Action, compact: bool) -> String {
+        let labels = self.labels(context, action);
+        if compact {
+            labels
+                .into_iter()
+                .min_by_key(|label| crate::ports::text_layout::terminal_cell_width(label))
+                .unwrap_or_default()
+        } else {
+            labels.join("/")
         }
     }
 
-    #[test]
-    fn paste_fallbacks_report_only_effective_aliases() {
-        let keys = KeyBindings {
-            paste: 'g',
-            submit_keep: 'G',
-            ..KeyBindings::default()
+    fn meta_alias(&self, binding: &ShortcutBinding, bindings: &[ShortcutBinding]) -> bool {
+        let ShortcutModifiers::Exact(modifiers) = binding.modifiers else {
+            return false;
         };
-        assert_eq!(board_fallbacks(Action::PasteExact, &keys), vec!['g']);
-        assert!(board_fallbacks(Action::PasteReflow, &keys).is_empty());
+        self.platform() == ShortcutPlatform::MacOs
+            && modifiers.contains(LogicalModifiers::META)
+            && bindings.iter().any(|other| {
+                other.key == binding.key
+                    && other.modifiers
+                        == ShortcutModifiers::Exact(
+                            modifiers
+                                .difference(LogicalModifiers::META)
+                                .union(LogicalModifiers::SUPER),
+                        )
+            })
     }
+
+    pub(crate) fn help_label(&self, context: Context, actions: &[Action]) -> String {
+        let mut groups: Vec<(LogicalModifiers, Vec<String>)> = Vec::new();
+        for binding in actions
+            .iter()
+            .filter_map(|action| self.projected_bindings.get(&(context, *action)))
+            .flatten()
+        {
+            let ShortcutModifiers::Exact(modifiers) = binding.modifiers else {
+                continue;
+            };
+            let key = key_label(binding.key, modifiers);
+            if let Some((_, keys)) = groups
+                .iter_mut()
+                .find(|(candidate, _)| *candidate == modifiers)
+            {
+                keys.extend((!keys.contains(&key)).then_some(key));
+            } else {
+                groups.push((modifiers, vec![key]));
+            }
+        }
+        groups
+            .into_iter()
+            .map(|(modifiers, keys)| {
+                let prefix = self.modifier_label(modifiers);
+                let keys = keys.join("/");
+                if prefix.is_empty() {
+                    keys
+                } else {
+                    format!("{prefix}+{keys}")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("/")
+    }
+
+    fn label_binding(&self, binding: ShortcutBinding) -> String {
+        let ShortcutModifiers::Exact(modifiers) = binding.modifiers else {
+            return String::new();
+        };
+        let prefix = self.modifier_label(modifiers);
+        let key = key_label(binding.key, modifiers);
+        if prefix.is_empty() {
+            key
+        } else {
+            format!("{prefix}+{key}")
+        }
+    }
+
+    fn modifier_label(&self, modifiers: LogicalModifiers) -> String {
+        let mut parts = Vec::new();
+        for (flag, name) in [
+            (LogicalModifiers::CONTROL, "Ctrl"),
+            (
+                LogicalModifiers::ALT,
+                if self.platform() == ShortcutPlatform::MacOs {
+                    "Option"
+                } else {
+                    "Alt"
+                },
+            ),
+            (
+                LogicalModifiers::SUPER,
+                if self.platform() == ShortcutPlatform::MacOs {
+                    "Cmd"
+                } else {
+                    "Super"
+                },
+            ),
+            (LogicalModifiers::META, "Meta"),
+            (LogicalModifiers::HYPER, "Hyper"),
+            (LogicalModifiers::SHIFT, "Shift"),
+        ] {
+            if modifiers.contains(flag) {
+                parts.push(name.to_owned());
+            }
+        }
+        parts.join("+")
+    }
+}
+
+fn key_label(key: LogicalKey, modifiers: LogicalModifiers) -> String {
+    match key {
+        LogicalKey::Up => "↑".to_owned(),
+        LogicalKey::Down => "↓".to_owned(),
+        LogicalKey::Left => "←".to_owned(),
+        LogicalKey::Right => "→".to_owned(),
+        LogicalKey::Escape => "Esc".to_owned(),
+        LogicalKey::Delete => "Del".to_owned(),
+        LogicalKey::Character(character)
+            if !modifiers.is_empty() && character.is_ascii_lowercase() =>
+        {
+            character.to_uppercase().collect()
+        }
+        LogicalKey::Character(character)
+            if !modifiers.is_empty() && character.is_ascii_uppercase() =>
+        {
+            format!("U+{:04X}", u32::from(character))
+        }
+        LogicalKey::Character(character)
+            if crate::ports::text_layout::terminal_cell_width(&character.to_string()) == 0 =>
+        {
+            format!("U+{:04X}", u32::from(character))
+        }
+        key => super::contract::key_name(key),
+    }
+}
+
+fn redundant(binding: &ShortcutBinding, bindings: &[ShortcutBinding]) -> bool {
+    let ShortcutModifiers::Exact(modifiers) = binding.modifiers else {
+        return false;
+    };
+    bindings.iter().any(|candidate| {
+        let ShortcutModifiers::Exact(other) = candidate.modifiers else {
+            return false;
+        };
+        candidate.key == binding.key && other != modifiers && modifiers.contains(other)
+    })
+}
+
+fn uppercase_compatibility(binding: &ShortcutBinding, bindings: &[ShortcutBinding]) -> bool {
+    let LogicalKey::Character(character) = binding.key else {
+        return false;
+    };
+    let ShortcutModifiers::Exact(modifiers) = binding.modifiers else {
+        return false;
+    };
+    character.is_ascii_uppercase()
+        && bindings.iter().any(|candidate| {
+            candidate.key == LogicalKey::Character(character.to_ascii_lowercase())
+                && (candidate.modifiers == binding.modifiers
+                    || !modifiers.contains(LogicalModifiers::SHIFT)
+                        && candidate.modifiers
+                            == ShortcutModifiers::Exact(modifiers.union(LogicalModifiers::SHIFT)))
+        })
 }

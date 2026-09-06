@@ -56,6 +56,32 @@ pub enum ShortcutContext {
     InsertionBoundary,
 }
 
+impl ShortcutContext {
+    pub(crate) fn surface(
+        mode: crate::application::InteractionMode,
+        insertion: bool,
+        failed: bool,
+    ) -> Self {
+        if failed {
+            Self::Recovery
+        } else if insertion && matches!(mode, crate::application::InteractionMode::Board) {
+            Self::InsertionBoundary
+        } else {
+            mode.into()
+        }
+    }
+}
+
+impl From<crate::application::InteractionMode> for ShortcutContext {
+    fn from(mode: crate::application::InteractionMode) -> Self {
+        match mode {
+            crate::application::InteractionMode::Board => Self::Board,
+            crate::application::InteractionMode::Compose => Self::Compose,
+            crate::application::InteractionMode::Edit { .. } => Self::Edit,
+        }
+    }
+}
+
 /// Explicit bottom-to-top active keyboard ownership.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ShortcutContextStack(Vec<ShortcutContext>);
@@ -137,6 +163,8 @@ pub enum ShortcutActionId {
     ExtendNext,
     FastPrevious,
     FastNext,
+    FastExtendPrevious,
+    FastExtendNext,
     MoveGraphemeBack,
     MoveGraphemeForward,
     MoveWordBack,
@@ -195,14 +223,8 @@ impl ShortcutActionId {
         (Self::PlainNewline, "Insert plain newline"),
         (Self::DeleteLogicalLine, "Delete logical line"),
         (Self::DeleteSentence, "Delete sentence"),
-        (
-            Self::JumpUp,
-            "Jump cursor up 5 visual rows (Alt+↑ or Page Up)",
-        ),
-        (
-            Self::JumpDown,
-            "Jump cursor down 5 visual rows (Alt+↓ or Page Down)",
-        ),
+        (Self::JumpUp, "Jump cursor up 5 visual rows"),
+        (Self::JumpDown, "Jump cursor down 5 visual rows"),
         (
             Self::SelectVisualRowStart,
             "Extend selection to visual row start",
@@ -325,6 +347,8 @@ impl ShortcutActionId {
             ExtendNext => "board.range_next",
             FastPrevious => "navigation.fast_previous",
             FastNext => "navigation.fast_next",
+            FastExtendPrevious => "navigation.fast_extend_previous",
+            FastExtendNext => "navigation.fast_extend_next",
             MoveGraphemeBack => "editor.grapheme_back",
             MoveGraphemeForward => "editor.grapheme_forward",
             MoveWordBack => "editor.word_back",
@@ -405,11 +429,12 @@ pub struct ShortcutBinding {
     pub(crate) modifiers: ShortcutModifiers,
 }
 
-/// Whether a default binding is also the canonical source for Primary-key copy.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Presentation provenance within the single resolved binding graph.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) enum ShortcutBindingPresentation {
     DispatchOnly,
     Primary { canonical: bool },
+    Explicit,
 }
 
 /// One effective binding together with the contexts in which it claims input.

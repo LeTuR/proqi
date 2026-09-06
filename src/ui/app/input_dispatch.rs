@@ -82,7 +82,8 @@ impl BoardApp {
     ) -> Option<UiInput> {
         match input {
             UiInput::KeyStroke(stroke) => self
-                .shortcut_registry
+                .settings
+                .shortcuts
                 .dispatch(contexts, stroke)
                 .map(|resolved| UiInput::Key(resolved.intention)),
             UiInput::Key(key) => Some(UiInput::Key(key)),

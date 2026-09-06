@@ -180,34 +180,37 @@ modifier on macOS.
 | Type `$name`, `/name`, or supported `@name` | Fuzzy-find and complete a local invocation |
 | `↑` / `↓` or `Primary+P` / `Primary+N`; `Enter` / `Tab`; `Esc` | Navigate, insert, or close invocation results |
 
-Unmodified physical `Del` is an invariant Board alias. Remapping the `delete`
-character changes `d`, not the physical key. Modified `Del` is not a Board
-command. In text editors and searchable query fields, `Del` remains a
-text-editing key, never a thought delete, and `h`, `j`, `k`, and `l` remain
-literal text. List-only menus and four-way choosers ignore irrelevant modifiers
-equally for arrows and their Vim-style aliases.
+By default, unmodified `Del` and `d` share the Board delete action. The versioned
+keymap can replace or disable either alias. Modified `Del` is unbound on the
+Board by default. Text contexts reserve ordinary, shifted, Option/Alt and
+AltGr-compatible printable input. Named editing keys remain contextual.
+The session Browser uses F2 to rename and F8 to trash while its query is empty;
+uppercase R and D remain search text. List and direction defaults preserve
+symmetric arrow and Vim-style navigation.
 
-Standard Primary chords are the canonical commands across Board and Edit.
-Configurable Board characters such as `y`, `x`, `u`, `s`, `S`, and `q` remain
-portable aliases when a terminal consumes a system chord. Ghostty consumes
-configured keybindings before Proqi receives input. Its macOS defaults include
-the common macOS clipboard, selection, history, duplicate, submission, quit,
-and Cmd-arrow chords. A host binding for `Cmd+Shift+V` may perform an ordinary
-bracketed paste before Proqi can observe the chord. That paste stays exact.
-
-To forward the chord to Proqi, add this line to Ghostty's configuration and
-reload it:
+Primary chords and Board characters such as `y`, `x`, `u`, `s`, `S`, and `q`
+are ordinary aliases of the same configurable actions. A host can consume a
+chord before Proqi receives it. A host-performed bracketed paste stays exact.
+For Ghostty, this explicit binding emits logical Super+Shift+v for Smart Paste:
 
 ```ini
 keybind = super+shift+v=csi:118;10u
 ```
 
-This sends the Kitty keyboard encoding for Super+Shift+V. Merely using `unbind`
-is insufficient on Ghostty 1.3.1 for this Super-modified key. Proqi does not
-promise delivery of intercepted chords, change Ghostty settings, or repeat a
-host paste. Use `p` for exact paste or `P` for reflow on the Board, choose the
-corresponding action in Commands, or run `proqi diagnostics keypress` when the
-chord does not reach the application.
+The example passes Ghostty's config validator and its emitted bytes are covered
+by real macOS PTY tests. It is not a guarantee for every keyboard layout or host
+mapping. Proqi never modifies host configuration. To inspect delivery:
+
+```sh
+proqi diagnostics keypress --context board,edit --timeout-ms 5000
+proqi --json diagnostics keypress --context board --defaults
+```
+
+Capture reports the logical key, exact modifiers, phase, state, selected context
+and configured action. Escape cancels. `--defaults` works even with invalid
+configuration. A timeout reports no key event received; Proqi cannot know which
+layer, if any, consumed the chord. It records no paste, session content or raw
+terminal responses. Use the Board fallback or Commands when delivery is blocked.
 
 Exact paste is always the default. Explicit paste and reflow joins copied prose
 lines, collapses repeated spaces and tabs, and reduces blank runs to one paragraph
@@ -345,34 +348,38 @@ theme = "auto" # auto, light, dark, limited, or a bounded local theme file
 density = "comfortable" # or compact
 merge_separator = "\n\n" # one blank line between merged thoughts
 
-[keybindings]
-new = "n"
-edit = "e"
-delete = "d" # remaps the character only; physical Del remains available
-submit_remove = "s"
-submit_keep = "S"
-undo = "u"
-focus_up = "k"
-focus_down = "j"
-transform = "t" # merge selection; Esc,t splits or extracts the last editor range
-screenshot_inbox = "i"
-paste = "p" # Board p pastes exactly; its uppercase P counterpart reflows
-delete_sentence = "U" # Primary+Shift+U, use another unreserved uppercase suffix to remap
-select_visual_row_start = "H" # Primary+Shift+H fallback
-select_visual_row_end = "L" # Primary+Shift+L fallback
+[keymap]
+schema_version = 1
+
+[keymap.bindings.board]
+"submission.submit_remove" = [
+  { key = "Enter", modifiers = ["Primary"] },
+  { key = "s" },
+  { key = "F5" },
+]
+"submission.submit_keep" = [] # keyboard aliases disabled; Commands stays available
+"thought.delete" = [{ key = "d" }, { key = "Delete" }]
+
+[keymap.macos.edit]
+"submission.submit_remove" = [{ key = "Enter", modifiers = ["Super", "Alt"] }]
+
+[keymap.portable.edit]
+"submission.submit_remove" = [{ key = "F5" }]
 ```
 
-Thought transformations are contextual and remappable. In an editor, use
-`Primary+T` to split at the cursor, or to extract the
-exact selection. `Esc`, then `t`, is the portable immediate fallback. On the
-board, select two or more contiguous thoughts and press `t` to merge them with
-the configured exact separator. The command palette exposes all three actions
-for keyboard and mouse discovery. If an older config already assigns plain `t`
-to another board action, that established action keeps precedence and the
-footer omits the shadowed board spelling until `transform` is remapped. The
-Primary chord and command-palette actions remain available. Bindings reserved
-for established Primary shortcuts are rejected instead of silently disabling
-the configured transformation chord.
+Each supplied context/action list replaces all its default aliases. Omitted
+pairs retain defaults; platform overrides replace common lists. Control, Alt,
+Shift, Super, Meta and Hyper are independent logical modifiers. Primary expands
+to Super/Meta on macOS and Control elsewhere. Unknown identifiers, collisions,
+text theft, and removal of Escape or required recovery routes fail before
+terminal setup.
+
+The legacy `[keybindings]` table remains accepted through explicit translation,
+including its historical aliases. It cannot be mixed with `[keymap]`. See the
+[versioned contract and migration guide](context/SHORTCUTS.md) and
+[complete action/context inventory](context/KEYMAP_ACTIONS.md).
+Thought transformations retain their default Primary+T and Board `t` behavior;
+Commands remains available for split, extract and merge when a chord is unbound.
 
 Unsafe theme contrast is rejected. See the
 [theme example](docs/themes/proqi-dark.toml). Invocation roots stay local.
@@ -383,7 +390,7 @@ On macOS, Cmd plus horizontal arrows uses the current wrapped row and
 Option retains word movement. Elsewhere, Ctrl plus horizontal arrows retains
 word movement, including with Shift. If the terminal intercepts the macOS
 Cmd-arrow selection chords, use the command palette or the configured
-shifted Primary suffixes above.
+versioned `editor.extend_visual_row_start` and `editor.extend_visual_row_end` aliases.
 
 ## Compatibility and contributing
 

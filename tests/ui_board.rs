@@ -486,3 +486,6 @@ mod top_boundary_snapshots;
 mod transformations;
 #[path = "ui_board/visual_row_selection.rs"]
 mod visual_row_selection;
+
+#[path = "ui_board/versioned_keymap.rs"]
+mod versioned_keymap;

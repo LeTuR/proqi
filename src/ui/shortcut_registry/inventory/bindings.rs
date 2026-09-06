@@ -79,8 +79,15 @@ fn collect_claims(
     ) -> Option<(Action, ShortcutBindingPresentation)>,
 ) -> BTreeMap<Action, Vec<ShortcutBindingClaim>> {
     let keys = keys.into_iter().collect::<Vec<_>>();
-    let mut grouped: BTreeMap<(Action, LogicalKey, LogicalModifiers, bool, bool), Vec<Context>> =
-        BTreeMap::new();
+    let mut grouped: BTreeMap<
+        (
+            Action,
+            LogicalKey,
+            LogicalModifiers,
+            ShortcutBindingPresentation,
+        ),
+        Vec<Context>,
+    > = BTreeMap::new();
     let candidates = KEYBOARD_CONTEXTS.iter().copied().flat_map(|context| {
         keys.iter().copied().flat_map(move |key| {
             modifier_combinations().map(move |modifiers| (context, key, modifiers))
@@ -90,17 +97,22 @@ fn collect_claims(
         let Some((action, presentation)) = resolve(context, key, modifiers) else {
             continue;
         };
-        let (is_primary_presentation, canonical) = match presentation {
-            ShortcutBindingPresentation::DispatchOnly => (false, false),
-            ShortcutBindingPresentation::Primary { canonical } => (true, canonical),
+        let action = match action {
+            Action::FastPrevious if modifiers.contains(LogicalModifiers::SHIFT) => {
+                Action::FastExtendPrevious
+            }
+            Action::FastNext if modifiers.contains(LogicalModifiers::SHIFT) => {
+                Action::FastExtendNext
+            }
+            other => other,
         };
         grouped
-            .entry((action, key, modifiers, is_primary_presentation, canonical))
+            .entry((action, key, modifiers, presentation))
             .or_default()
             .push(context);
     }
     let mut claims: BTreeMap<Action, Vec<ShortcutBindingClaim>> = BTreeMap::new();
-    for ((action, key, modifiers, is_primary_presentation, canonical), contexts) in grouped {
+    for ((action, key, modifiers, presentation), contexts) in grouped {
         claims
             .entry(action)
             .or_default()
@@ -110,11 +122,7 @@ fn collect_claims(
                     modifiers: ShortcutModifiers::Exact(modifiers),
                 },
                 contexts,
-                presentation: if is_primary_presentation {
-                    ShortcutBindingPresentation::Primary { canonical }
-                } else {
-                    ShortcutBindingPresentation::DispatchOnly
-                },
+                presentation,
             });
     }
     claims
@@ -192,7 +200,11 @@ fn primary_action(context: Context, key: LogicalKey, shifted: bool) -> Option<Ac
             LogicalKey::Character('c' | 'C') if !shifted => Action::Copy,
             LogicalKey::Character('x' | 'X') if !shifted => Action::Cut,
             LogicalKey::Character('v' | 'V') if !shifted => Action::PasteExact,
-            LogicalKey::Character('d' | 'D') if !shifted => Action::Duplicate,
+            LogicalKey::Character('d' | 'D')
+                if !shifted && matches!(context, Context::Board | Context::InsertionBoundary) =>
+            {
+                Action::Duplicate
+            }
             LogicalKey::Character('u' | 'U') if !shifted => Action::DeleteLogicalLine,
             LogicalKey::Character('z' | 'Z') if shifted => Action::Redo,
             LogicalKey::Character('y' | 'Y') if !shifted => Action::Redo,

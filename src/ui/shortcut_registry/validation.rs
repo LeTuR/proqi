@@ -1,9 +1,6 @@
 //! Typed load-time validation of the effective shortcut graph.
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ui::{LogicalKey, LogicalModifiers, settings::KeyBindings};
 
@@ -16,163 +13,7 @@ use super::{
     },
 };
 
-/// Deterministic configuration failure reported before terminal setup.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum ShortcutRegistryError {
-    InvalidOverride(&'static str),
-    DuplicateBinding {
-        context: Context,
-        first: Action,
-        second: Action,
-    },
-    DuplicateContext {
-        action: Action,
-        context: Context,
-    },
-    InvalidModifier {
-        action: Action,
-    },
-    TextInputTheft {
-        action: Action,
-        context: Context,
-    },
-    InvariantEscapeLoss {
-        context: Context,
-    },
-    UnreachableRecovery(Action),
-    MissingDescriptor(Action),
-    DuplicateDescriptor(Action),
-    MissingDiagnostics(Action),
-    DuplicateDiagnostics(&'static str),
-    StaleCommandsReference(Action),
-    MissingCommandExecution(Action),
-    StaleCommandExecution(Action),
-    UnexpectedCommandExecution(Action),
-    StaleHelpReference(Action),
-    StaleFooterReference(Action),
-}
-
-impl fmt::Display for ShortcutRegistryError {
-    #[expect(
-        clippy::too_many_lines,
-        reason = "the closed typed validation error contract keeps every actionable message exhaustive"
-    )]
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidOverride(message) => formatter.write_str(message),
-            Self::DuplicateBinding {
-                context,
-                first,
-                second,
-            } => write!(
-                formatter,
-                "shortcut actions {} and {} claim the same binding in {context:?}",
-                first.diagnostics_id(),
-                second.diagnostics_id()
-            ),
-            Self::DuplicateContext { action, context } => write!(
-                formatter,
-                "shortcut action {} repeats context {context:?}",
-                action.diagnostics_id()
-            ),
-            Self::InvalidModifier { action } => write!(
-                formatter,
-                "shortcut action {} has an ineligible modifier combination",
-                action.diagnostics_id()
-            ),
-            Self::TextInputTheft { action, context } => write!(
-                formatter,
-                "shortcut action {} would steal printable input in {context:?}",
-                action.diagnostics_id()
-            ),
-            Self::InvariantEscapeLoss { context } => {
-                write!(
-                    formatter,
-                    "Escape must remain the close or cancel route in {context:?}"
-                )
-            }
-            Self::UnreachableRecovery(action) => write_action_error(
-                formatter,
-                *action,
-                "required recovery action",
-                "is unreachable",
-            ),
-            Self::MissingDescriptor(action) => write_action_error(
-                formatter,
-                *action,
-                "shortcut action",
-                "has no registry descriptor",
-            ),
-            Self::DuplicateDescriptor(action) => write_action_error(
-                formatter,
-                *action,
-                "shortcut action",
-                "has duplicate registry descriptors",
-            ),
-            Self::MissingDiagnostics(action) => write!(
-                formatter,
-                "shortcut action {action:?} has no diagnostics identity"
-            ),
-            Self::DuplicateDiagnostics(identity) => {
-                write!(
-                    formatter,
-                    "shortcut diagnostics identity {identity} is duplicated"
-                )
-            }
-            Self::StaleCommandsReference(action) => write_action_error(
-                formatter,
-                *action,
-                "Commands references missing shortcut action",
-                "",
-            ),
-            Self::MissingCommandExecution(action) => write_action_error(
-                formatter,
-                *action,
-                "Commands action",
-                "has no execution owner",
-            ),
-            Self::StaleCommandExecution(action) => write_action_error(
-                formatter,
-                *action,
-                "Commands action",
-                "has the wrong execution owner",
-            ),
-            Self::UnexpectedCommandExecution(action) => write_action_error(
-                formatter,
-                *action,
-                "non-Commands action",
-                "has a Commands execution owner",
-            ),
-            Self::StaleHelpReference(action) => write_action_error(
-                formatter,
-                *action,
-                "Help references missing shortcut action",
-                "",
-            ),
-            Self::StaleFooterReference(action) => write_action_error(
-                formatter,
-                *action,
-                "footer references missing shortcut action",
-                "",
-            ),
-        }
-    }
-}
-
-fn write_action_error(
-    formatter: &mut fmt::Formatter<'_>,
-    action: Action,
-    subject: &str,
-    problem: &str,
-) -> fmt::Result {
-    if problem.is_empty() {
-        write!(formatter, "{subject} {}", action.diagnostics_id())
-    } else {
-        write!(formatter, "{subject} {} {problem}", action.diagnostics_id())
-    }
-}
-
-impl std::error::Error for ShortcutRegistryError {}
+pub(crate) use super::errors::ShortcutRegistryError;
 
 pub(super) fn validate_registry(
     keys: &KeyBindings,
@@ -193,6 +34,7 @@ pub(super) fn validate_descriptors(
     validate_binding_claims(descriptors, platform)?;
     validate_escape(descriptors, platform)?;
     validate_recovery(descriptors, platform)?;
+    validate_escape_routes(descriptors, platform)?;
     validate_presentation_references(descriptors)?;
     validate_commands(descriptors)
 }
@@ -305,21 +147,29 @@ fn validate_text_safety(
 ) -> Result<(), ShortcutRegistryError> {
     let printable =
         matches!(binding.key, LogicalKey::Character(character) if !character.is_control());
-    let unmodified = matches!(
+    let reserved_text = matches!(
         binding.modifiers,
         ShortcutModifiers::Exact(modifiers)
-            if modifiers.is_empty() || modifiers == LogicalModifiers::SHIFT
+            if reserves_printable(modifiers)
     );
-    let established_browser_management = context == Context::Browser
-        && matches!(action, Action::RenameSession | Action::BrowserTrash);
-    if inventory::bindings::vocabulary::is_text_context(context)
-        && printable
-        && unmodified
-        && !established_browser_management
-    {
+    if inventory::bindings::vocabulary::is_text_context(context) && printable && reserved_text {
         return Err(ShortcutRegistryError::TextInputTheft { action, context });
     }
     Ok(())
+}
+
+pub(super) fn reserves_printable(modifiers: LogicalModifiers) -> bool {
+    modifiers
+        .difference(LogicalModifiers::SHIFT.union(LogicalModifiers::ALT))
+        .is_empty()
+        || modifiers.contains(LogicalModifiers::CONTROL.union(LogicalModifiers::ALT))
+            && modifiers
+                .difference(
+                    LogicalModifiers::CONTROL
+                        .union(LogicalModifiers::ALT)
+                        .union(LogicalModifiers::SHIFT),
+                )
+                .is_empty()
 }
 
 fn validate_escape(
@@ -374,6 +224,40 @@ fn validate_recovery(
         };
         if !reachable {
             return Err(ShortcutRegistryError::UnreachableRecovery(action));
+        }
+    }
+    Ok(())
+}
+
+fn validate_escape_routes(
+    descriptors: &[ShortcutDescriptor],
+    platform: ShortcutPlatform,
+) -> Result<(), ShortcutRegistryError> {
+    for (context, action) in [
+        (Context::Board, Action::OpenCommands),
+        (Context::Board, Action::Quit),
+        (Context::InsertionBoundary, Action::OpenCommands),
+        (Context::InsertionBoundary, Action::Quit),
+    ] {
+        let reachable = descriptors
+            .iter()
+            .find(|descriptor| descriptor.action == action)
+            .is_some_and(|descriptor| {
+                let (defaults, aliases) = match platform {
+                    ShortcutPlatform::MacOs => {
+                        (&descriptor.macos_defaults, &descriptor.macos_aliases)
+                    }
+                    ShortcutPlatform::Portable => {
+                        (&descriptor.portable_defaults, &descriptor.portable_aliases)
+                    }
+                };
+                defaults
+                    .iter()
+                    .chain(aliases)
+                    .any(|claim| claim.contexts.contains(&context))
+            });
+        if !reachable {
+            return Err(ShortcutRegistryError::UnreachableAction { context, action });
         }
     }
     Ok(())

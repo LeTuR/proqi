@@ -30,6 +30,8 @@ pub(super) const DIRECT_ACTIONS: &[Action] = &[
     Action::MoveDown,
     Action::FastPrevious,
     Action::FastNext,
+    Action::FastExtendPrevious,
+    Action::FastExtendNext,
     Action::MoveGraphemeBack,
     Action::MoveGraphemeForward,
     Action::MoveWordBack,
@@ -110,6 +112,7 @@ pub(super) const ESCAPE_CONTEXTS: &[Context] = &[
     Context::Screenshot,
     Context::Direction,
     Context::ReleaseHighlights,
+    Context::Recovery,
 ];
 
 pub(super) fn descriptors(keys: &KeyBindings) -> Vec<ShortcutDescriptor> {
@@ -157,7 +160,20 @@ fn descriptor(
         .collect::<BTreeSet<_>>();
     contexts.extend(metadata::help_contexts(&help));
     if command.is_some() {
-        contexts.insert(Context::Commands);
+        contexts.extend([
+            Context::Commands,
+            Context::Board,
+            Context::InsertionBoundary,
+            Context::Compose,
+            Context::Edit,
+            Context::Invocation,
+        ]);
+    }
+    if action == Action::Help {
+        contexts.insert(Context::Recovery);
+    }
+    if matches!(action, Action::OpenCommands | Action::OpenSearch) {
+        contexts.extend([Context::Compose, Context::Edit, Context::Invocation]);
     }
     let mut contexts = contexts.into_iter().collect::<Vec<_>>();
     contexts.sort_unstable();

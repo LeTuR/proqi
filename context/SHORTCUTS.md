@@ -1,9 +1,10 @@
-# Shortcut architecture and current inventory
+# Versioned keymap and terminal delivery contract
 
-This document records the behavior-preserving shortcut foundation. It is an
-implementation contract, not a public keymap redesign. The public TOML schema,
-visible labels, Help content, footer content, Commands inventory, and current
-defaults remain unchanged.
+Shortcut schema version 1 configures every semantic key and fallback through one
+resolved registry. Defaults retain the foundation behavior except that Browser
+management now uses F2 (Rename) and F8 (Trash), reserving uppercase R and D for
+search text. Recovery Escape is explicitly modeled as a safe no-op when there
+is no cancellable overlay; it never discards failed persistence.
 
 ## Input pipeline and ownership
 
@@ -41,7 +42,7 @@ last item dispatches a stroke.
 | Transfer | Cross-session transfer chooser | Query text |
 | GlobalDeliveryQuery | Global-delivery agent query | Query text |
 | GlobalDeliveryDisposition | Global-delivery completion choice | None, modal navigation wins |
-| Browser | Empty session-browser query | Query text, plus empty-query management aliases |
+| Browser | Empty session-browser query | All query text; F2/F8 management while empty |
 | BrowserQuery | Nonempty session-browser query | Query text |
 | Rename | Board session-name editor | Name text |
 | BrowserRename | Session Browser name editor | Name text |
@@ -53,8 +54,12 @@ last item dispatches a stroke.
 | InsertionBoundary | Board insertion row | Board commands, with thought-only range and reorder no-ops |
 
 Every context whose table row reserves editor, query, or name text rejects a
-plain or shifted printable registry binding. Browser management `R` and `D`
-exist only while its query is empty.
+plain, shifted, Option/Alt, or Control+Alt (AltGr-compatible) printable binding.
+Crossterm cannot reliably distinguish AltGr-produced text from a deliberate
+Control+Alt character chord, so the latter is reserved too. Literal insertion,
+IME commits and bracketed paste never re-enter shortcut lookup. Named Alt or
+Control+Alt keys remain independently configurable. Browser management uses
+F2 and F8 only while its query is empty; R and D are always query text.
 
 ScreenshotCommitBarrier and UpdateBarrier are typed routing barriers, not
 shortcut contexts. The screenshot barrier defers the original `KeyStroke`
@@ -83,25 +88,83 @@ source of truth is `ShortcutActionId::COMMANDS` plus the registry's
 `DIRECT_ACTIONS`; parity tests reject missing descriptors, duplicate identities,
 stale Help, footer, or Commands references, and missing diagnostics.
 
-## Existing configuration projection
+## Configuration schema version 1
 
-The existing `[keybindings]` object is parsed unchanged and translated into
-registry overrides at load time. It contains:
+Place the following in the existing platform-native `config.toml`:
 
-- Board characters for new, edit, delete, copy, cut, submit and remove, submit
-  and keep, undo, focus up and down, range up and down, collapse, selection,
-  contextual transform, select all, range selection, search, Commands, Help,
-  quit, and Screenshot Inbox;
-- the lowercase exact-paste character and compatible uppercase reflow spelling;
-- shifted Primary suffixes for sentence deletion and visual-row selection to
-  the start or end;
-- historical TOML aliases `send`, `submit`, `move_up`, and `move_down`.
+```toml
+[keymap]
+schema_version = 1
 
-Historical shadowing remains intentional compatibility: an explicit Board
-command wins over the transform or paste fallback using the same character.
-Uppercase reports without a distinct Shift bit retain their established
-compatibility. Unmodified physical Delete remains the invariant Board delete
-alias, while modified Delete and Backspace remain distinct.
+[keymap.bindings.board]
+"submission.submit_remove" = [
+  { key = "Enter", modifiers = ["Primary"] },
+  { key = "s" },
+  { key = "F5" },
+]
+"submission.submit_keep" = []
+"thought.delete" = [{ key = "Delete" }, { key = "d" }]
+
+[keymap.macos.edit]
+"submission.submit_remove" = [{ key = "Enter", modifiers = ["Super", "Alt"] }]
+
+[keymap.portable.edit]
+"submission.submit_remove" = [{ key = "Enter", modifiers = ["Control", "Shift"] }]
+"submission.submit_keep" = [] # removes the default collision on this chord
+```
+
+`bindings` applies to both policies; `macos` and `portable` replace the common
+list for the same context/action pair. Every supplied list replaces **all**
+factory aliases for that pair, including Primary and Board fallback spellings.
+Omitted pairs inherit defaults. `[]` explicitly disables keyboard access where
+safe; mouse and Commands actions retain their semantic identities. There is no
+implicit append, case folding, expression language, chord sequence, or hidden
+last-wins conflict resolution. All custom characters and modifiers match the
+logical event exactly. For example, add both `h` and `H` explicitly when a host
+can report an uppercase codepoint without Shift. Existing factory and legacy
+aliases retain the foundation's uppercase compatibility.
+
+Context identifiers are the snake_case spellings in the registry, including
+`insertion_boundary`, `invocation_query`, `browser_rename`, and both
+`global_delivery_*` owners. See [the complete action inventory](KEYMAP_ACTIONS.md)
+for stable action identifiers and eligible contexts. Actions such as
+`submission.submit_to_agent` may be bound without acquiring a factory shortcut.
+
+An alias contains one `key` and an optional list of exact modifiers. Modifiers
+are `Control`, `Alt`, `Shift`, `Super`, `Meta`, `Hyper`, or policy shorthand
+`Primary`. Primary expands independently to Super and Meta on macOS, and Control
+on Linux/Windows. Combining Primary with Control, Super or Meta is rejected;
+spell the exact modifiers instead. Duplicate modifiers and duplicate expanded
+aliases are errors. Each action/context list has at most 128 aliases, within
+the existing 64 KiB config limit. Both platform graphs validate before startup.
+
+Keys are one non-control Unicode scalar, `Space`, `Escape`, `Enter`, `Backspace`,
+`Delete`, `Insert`, `Tab`, `BackTab`, `Left`, `Right`, `Up`, `Down`, `Home`, `End`,
+`PageUp`, `PageDown`, F1 through F35, `Null`, `CapsLock`, `ScrollLock`, `NumLock`,
+`PrintScreen`, `Pause`, `Menu`, `KeypadBegin`, or the `Media.*` and `Modifier.*`
+names in the registry's logical vocabulary. Keypad and lock state are retained
+for inspection but do not independently change an action's binding. Press and
+repeat dispatch identically; release never executes a command.
+
+Multiple aliases have stable labels generated once from the resolved graph.
+Help shows the available aliases; compact footers choose a shortest spelling.
+Compatible redundant modifier spellings are omitted from labels, and paired
+macOS Super/Meta spellings use the conventional Cmd label. A remaining exact
+Meta-only alias is labeled Meta. An unbound mouse action has no keyboard label.
+Measurement and hit testing use the exact same projection as rendering.
+
+## Legacy translation
+
+`[keybindings]` remains accepted as a one-time input translation, including its
+historical `send`, `submit`, `move_up`, and `move_down` aliases and established
+fallback-shadowing rules. No legacy character map is retained in runtime
+settings. Supplying `[keybindings]` together with `[keymap]` is rejected as
+ambiguous. Translate an action's entire alias list when migrating; a remapped
+versioned list also removes its default Primary and named-key aliases.
+Legacy Delete remapping still changes only its character spelling. In version
+1, physical Delete is an ordinary configurable alias and may be removed.
+Browser R/D are the explicit text-safety migration for all configurations.
+No user configuration file is rewritten automatically.
 
 ## Validation and recovery
 
@@ -113,7 +176,47 @@ identities. Overlay overlap is valid because only the top context is active.
 
 The recovery-critical set is global durable quit, retry failed storage, and
 export recovery. Their effective Recovery-context bindings are validated after
-platform and configuration expansion. No new recovery UI is introduced.
+platform and configuration expansion. Board Commands and Quit must also retain
+at least one binding; editors and overlays retain Escape back to their owner.
+Recovery Help and footer guidance use the Recovery map, including remapped
+retry and export labels. Escape never bypasses the persistence exit barrier.
+
+## Interactive key capture
+
+```sh
+proqi diagnostics keypress --context board,edit --timeout-ms 5000
+proqi --json diagnostics keypress --context help --defaults
+```
+
+The diagnostic owns raw mode for one decoded key event, with a 100 to 60000 ms
+bound (5000 ms by default). Escape cancels regardless of the configured keymap.
+`--defaults` bypasses all config loading, allowing capture even when normal
+startup rejects the configuration. Without it, configuration errors occur
+before terminal ownership. The context stack is explicitly selected for this
+diagnostic; it does not inspect a different running application or execute an
+action. Its top owner uses the same resolver as the TUI.
+
+Capture JSON has `capture_schema_version = 1`, `status`, `context_source`,
+`keymap_source`, selected `context_stack`, `timeout_ms`, `explanation`, and an
+optional `event`. A received event includes the logical key (characters as
+Unicode codepoints), exact modifiers, phase, relevant state, platform policy,
+context stack/top owner, classification, stable action/binding identity, and
+UI intention. Reserved text and unbound input have no executed action. Arbitrary
+terminal responses and paste contents are never included.
+
+Statuses distinguish `event_received`, `cancelled`, and `no_event_received`.
+The last means no key event reached this capture before its deadline. Proqi
+cannot determine whether Ghostty, the OS, Karabiner, Herdr or another layer
+consumed a chord. Terminal state is restored on completion, cancellation,
+timeout, errors and unwinding; no discovery runs on the reducer thread.
+
+Ghostty can emit CSI-u with an explicit `csi:` action. For Smart Paste the
+existing example is `keybind = super+shift+v=csi:118;10u`, which emits
+`ESC [ 118 ; 10 u` (logical v, Shift+Super). The payload is covered through the
+real macOS PTY/Crossterm decoder. Alternate logical keys, layouts, host mappings
+and protocol support can produce different results. Check the event delivered
+in the intended pane with the diagnostic. No Proqi operation edits Karabiner,
+Ghostty, Herdr, shell, OS or keyboard configuration.
 
 ## Design references and licenses
 
@@ -135,3 +238,13 @@ copied from these references.
 
 Proqi retains a smaller typed contract. It does not implement when-clause
 expressions, user-authored context predicates, or the Kitty protocol itself.
+
+The empty insertion row independently retains Commands and Quit aliases, because
+Escape cannot expose another owner when no thought exists. Factory Primary+D
+in text-entry contexts was previously dropped by the editor. It is now unbound
+there, preserving its no-op behavior; an explicitly configured Duplicate alias
+executes the Commands action after the pending edit is committed.
+
+A modified uppercase-only logical codepoint is displayed explicitly, for example
+`Ctrl+U+0044`, to distinguish it from the conventional `Ctrl+D` label for lowercase
+`d`. Equivalent case aliases for the same action share the conventional label.

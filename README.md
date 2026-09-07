@@ -82,8 +82,9 @@ only when ready.
    a verified adjacent agent through Herdr.
 
 Proqi is a prompt composer—not a task manager, Markdown IDE, or agent harness.
-Standalone work uses the clipboard. Native submission works **only** through
-verified [Herdr](https://github.com/herdrdev/herdr), never arbitrary terminals,
+Standalone work uses the clipboard. Native submission works **only** through a
+verified installed integration—[Herdr](https://github.com/herdrdev/herdr) or
+[thurbox](https://github.com/Thurbeen/thurbox)—never arbitrary terminals,
 agents, or multiplexers.
 
 ## Install

@@ -40,8 +40,11 @@ fn prove_protocol(protocol: u32) {
 
     let capabilities = gateway.capabilities().expect("capabilities");
     assert_eq!(capabilities.protocol, protocol);
+    let context = capabilities
+        .context
+        .expect("Herdr publishes the current Proqi pane");
     let targets = gateway
-        .adjacent_targets(&capabilities.context)
+        .adjacent_targets(&context)
         .expect("verified targets");
     let [target] = targets.as_slice() else {
         panic!("expected one verified target");
@@ -49,7 +52,7 @@ fn prove_protocol(protocol: u32) {
     assert_eq!(target.protocol, protocol);
     assert_eq!(
         gateway
-            .adjacent_targets(&capabilities.context)
+            .adjacent_targets(&context)
             .expect("repeated verified targets"),
         targets
     );
@@ -70,7 +73,7 @@ fn prove_protocol(protocol: u32) {
     let global_targets = gateway.global_targets().expect("current-server targets");
     let global = global_targets
         .iter()
-        .find(|target| target.workspace_id() == "w2" && target.tab_id() == "w2:t4")
+        .find(|target| target.scope() == ["w2".to_owned(), "w2:t4".to_owned()])
         .expect("cross-workspace global target");
     let global_exact = "global $(touch never); Grüße\n第二行\u{1b}[31m";
     let global_receipt = gateway
@@ -80,8 +83,10 @@ fn prove_protocol(protocol: u32) {
             content: global_exact.to_owned(),
         })
         .expect("accepted global prompt");
-    assert_eq!(global_receipt.target.workspace_id(), "w2");
-    assert_eq!(global_receipt.target.tab_id(), "w2:t4");
+    assert_eq!(
+        global_receipt.target.scope(),
+        ["w2".to_owned(), "w2:t4".to_owned()]
+    );
     assert_eq!(
         fixture.prompt_bytes().as_deref(),
         Some(global_exact.as_bytes())

@@ -9,9 +9,10 @@ use std::{
 
 use crate::{
     adapters::{
+        agents::CompositeAgentGateway,
         attachment::FileAttachmentStore,
         clipboard::PlatformClipboard,
-        herdr::{HerdrGateway, HerdrPauseNotifier},
+        herdr::HerdrPauseNotifier,
         invocation::FilesystemInvocationCatalog,
         process::{CancellationFlag, SystemProcessRunner},
         recovery::FileRecoveryExporter,
@@ -306,7 +307,8 @@ fn external_loop(
     let mut recovery = FileRecoveryExporter::new(recovery);
     let mut attachments = FileAttachmentStore::new(attachment);
     let mut notifications = HerdrPauseNotifier::from_environment_with_runner(runner.clone());
-    let mut agents = HerdrGateway::from_environment_with_runner(presentation_source, runner);
+    let mut agents =
+        CompositeAgentGateway::from_environment_with_runner(presentation_source, runner);
     let mut invocations = FilesystemInvocationCatalog::cancellable(
         invocation_roots,
         std::sync::Arc::new(cancellation),
@@ -413,8 +415,14 @@ fn discover_invocation_references(
 fn discover_agents(agents: &mut impl AgentGateway) -> ExternalResult {
     match agents.capabilities() {
         Ok(capability) => {
-            let pane_id = Some(capability.context.pane_id.clone());
-            let result = agents.adjacent_targets(&capability.context);
+            let Some(context) = capability.context else {
+                return ExternalResult::AgentsDiscovered {
+                    pane_id: None,
+                    result: Ok(Vec::new()),
+                };
+            };
+            let pane_id = Some(context.pane_id.clone());
+            let result = agents.adjacent_targets(&context);
             ExternalResult::AgentsDiscovered { pane_id, result }
         }
         Err(error) => ExternalResult::AgentsDiscovered {

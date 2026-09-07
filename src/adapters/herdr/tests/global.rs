@@ -97,10 +97,9 @@ fn current_server_discovery_keeps_cross_tab_workspace_and_disabled_states_truthf
         3
     );
     assert!(targets.iter().any(|target| {
-        target.workspace_id() == "w2"
-            && target.tab_id() == "w2:t1"
+        target.scope() == ["w2".to_owned(), "w2:t1".to_owned()]
             && target.readiness == AgentState::Done
-            && target.workspace_label.as_deref() == Some("Other")
+            && target.location.first().map(String::as_str) == Some("Other")
     }));
     assert_eq!(
         targets
@@ -135,7 +134,7 @@ fn current_server_discovery_keeps_cross_tab_workspace_and_disabled_states_truthf
     assert_eq!(requests[0].args, ["api", "schema", "--json"]);
     assert_eq!(requests[1].args, ["api", "snapshot"]);
     assert_eq!(requests[2].args, ["pane", "current", "--current"]);
-    assert!(targets.iter().all(|target| target.pane_id() != "w1:p1"));
+    assert!(targets.iter().all(|target| target.delivery_id() != "w1:p1"));
 }
 
 #[test]
@@ -189,7 +188,7 @@ fn global_submission_revalidates_exact_address_and_accepts_label_renames() {
 
     assert_eq!(receipt.target.agent_name, "after");
     assert_eq!(
-        receipt.target.workspace_label.as_deref(),
+        receipt.target.location.first().map(String::as_str),
         Some("Renamed workspace")
     );
     assert_eq!(receipt.post_state, Some(AgentState::Working));

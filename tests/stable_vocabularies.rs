@@ -3,7 +3,9 @@
 use proqi::{
     domain::Direction,
     ports::{
-        agent::{AgentError, AgentFailureCode, AgentState, SubmissionDisposition},
+        agent::{
+            AgentError, AgentFailureCode, AgentState, SubmissionDisposition, SubmissionRouteKind,
+        },
         control::ControlRejectionCode,
         store::SubmissionAttemptState,
     },
@@ -25,6 +27,22 @@ fn durable_and_external_vocabularies_have_stable_spellings() {
         ControlRejectionCode::RequestIdConflict.as_str(),
         "request_id_conflict"
     );
+}
+
+#[test]
+fn every_durable_submission_route_keeps_one_stable_spelling() {
+    let spellings = [
+        (SubmissionRouteKind::AdjacentPane, "adjacent_pane"),
+        (SubmissionRouteKind::HerdrAgent, "herdr_agent"),
+        (SubmissionRouteKind::ThurboxSession, "thurbox_session"),
+    ];
+    for (kind, expected) in spellings {
+        assert_eq!(kind.as_str(), expected);
+        assert_eq!(
+            serde_json::to_value(kind).expect("route kind JSON"),
+            serde_json::Value::String(expected.to_owned())
+        );
+    }
 }
 
 #[test]

@@ -105,9 +105,8 @@ pub(super) mod contract {
                 height: 20,
             },
         };
-        let address = crate::ports::agent::HerdrAgentAddress::new(
-            source.workspace_id.clone(),
-            source.tab_id.clone(),
+        let address = crate::ports::agent::AgentAddress::new(
+            vec![source.workspace_id.clone(), source.tab_id.clone()],
             "w1:p2".to_owned(),
             HarnessKind::new(harness).expect("harness"),
             AgentSessionBinding::established("session").expect("session"),

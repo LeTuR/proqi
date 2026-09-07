@@ -1,4 +1,4 @@
-//! Searchable current-server target and explicit disposition chooser.
+//! Searchable global target and explicit disposition chooser.
 
 use crate::{
     application::Effect,
@@ -115,7 +115,7 @@ impl BoardApp {
         effects
     }
 
-    /// Apply one generation-matched current-server discovery completion.
+    /// Apply one generation-matched global discovery completion.
     pub fn complete_global_agent_discovery(
         &mut self,
         generation: u64,
@@ -139,13 +139,12 @@ impl BoardApp {
         match result {
             Ok(mut discovered) => {
                 discovered.sort_by(|left, right| {
-                    left.workspace_label
-                        .cmp(&right.workspace_label)
-                        .then_with(|| left.tab_label.cmp(&right.tab_label))
+                    left.provider
+                        .cmp(&right.provider)
+                        .then_with(|| left.location.cmp(&right.location))
                         .then_with(|| left.agent_name.cmp(&right.agent_name))
-                        .then_with(|| left.workspace_id().cmp(right.workspace_id()))
-                        .then_with(|| left.tab_id().cmp(right.tab_id()))
-                        .then_with(|| left.pane_id().cmp(right.pane_id()))
+                        .then_with(|| left.scope().cmp(right.scope()))
+                        .then_with(|| left.delivery_id().cmp(right.delivery_id()))
                 });
                 *targets = discovered;
                 *failure = None;

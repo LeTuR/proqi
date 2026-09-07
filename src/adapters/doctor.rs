@@ -85,6 +85,7 @@ pub fn inspect(paths: &AppPaths) -> DoctorReport {
         environment::check_update_cache(&paths.cache_dir),
         environment::check_terminal(),
         environment::check_herdr(),
+        environment::check_thurbox(),
     ];
     let overall_status = checks
         .iter()

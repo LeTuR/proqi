@@ -446,6 +446,8 @@ mod kilo;
 mod modifier_parity;
 #[path = "ui_board/movement_symmetry.rs"]
 mod movement_symmetry;
+#[path = "ui_board/multi_integration_delivery.rs"]
+mod multi_integration_delivery;
 #[path = "ui_board/navigation.rs"]
 mod navigation;
 #[path = "ui_board/palette.rs"]

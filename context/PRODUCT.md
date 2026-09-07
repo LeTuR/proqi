@@ -29,9 +29,9 @@ while adding only the structure that materially improves agent work:
 - Continuous reflow when its terminal pane is resized.
 
 Native copy and paste remain the universal transfer mechanism. In supported
-Herdr environments, direct submission to a verified adjacent agent and
-Commands-only submission to a verified current-server agent are optional
-progressive enhancements.
+Herdr environments, direct submission to a verified adjacent agent is an
+optional progressive enhancement. Commands-only submission to a verified agent
+is another, and it spans every installed integration.
 
 ## Product principles
 
@@ -704,9 +704,10 @@ terminal. Submission controls appear only when an installed integration can
 identify an eligible adjacent agent with confidence.
 
 The searchable Commands overlay also exposes `Submit to agent...`. It discovers
-compatible coding agents in other tabs and workspaces on the current Herdr
-server. This global path has no dedicated shortcut, footer control, or
-always-visible action. After choosing a target, the user explicitly chooses
+compatible coding agents across every installed integration in one list:
+other tabs and workspaces on the current Herdr server, and sessions on the
+current thurbox machine. This global path has no dedicated shortcut, footer
+control, or always-visible action. After choosing a target, the user explicitly chooses
 `Submit`, which removes only after an accepted receipt, or `Submit and keep`.
 The existing adjacent `s`, `S`, Primary aliases, directional chooser, footer
 controls, and mouse behavior remain unchanged.
@@ -715,6 +716,16 @@ Herdr is the first supported integration. It provides directional pane lookup,
 agent detection, optional session identity, readiness state, and an agent-aware
 prompt operation. Proqi uses that semantic operation instead of simulating
 arbitrary terminal keystrokes.
+
+thurbox is the second. It provides a session inventory with an honest state
+vocabulary, the registered agent observed holding each session, and a send
+operation that types exact text into that session. It has no panes Proqi can
+address, so it offers global submission only: no directional lookup, no
+adjacent controls, and no `Live in Herdr` equivalent in the invocation picker.
+Neither integration weakens the other. Each is optional, each is discovered
+independently, and an integration that is absent or unqualified simply
+contributes nothing to the list. `PROQI_DISABLE_THURBOX` turns the thurbox
+integration off the way `PROQI_DISABLE_HERDR` turns Herdr's off.
 
 A submission target is eligible only when all of the following are true:
 
@@ -726,12 +737,22 @@ A submission target is eligible only when all of the following are true:
 - The target exposes enough identity to show the user where the thought will
   go.
 
-For a global route, verified workspace, tab, pane, harness, and stable or
-qualified provisional session identity replace adjacency geometry. Discovery
-is limited to the current Herdr server. Idle, done, and working targets are
-eligible. Blocked and unknown targets, plus targets still launching or not yet
-interactive, remain visible in the chooser with delivery disabled and truthful
-feedback. Duplicate display names are harmless because labels are not identity.
+For a global route, the integration's own verified address, harness, and stable
+or qualified provisional session identity replace adjacency geometry. Herdr
+addresses a pane inside a workspace and tab; thurbox addresses one session.
+Idle, done, and working targets are eligible. Blocked and unknown targets, plus
+targets still launching or not yet interactive, remain visible in the chooser
+with delivery disabled and truthful feedback. Duplicate display names are
+harmless because labels are not identity.
+
+A thurbox row is identified by its session name, working directory, and enough
+of its session identity to separate it from the other listed sessions. Two
+sessions created from the same generated naming pattern in the same repository
+therefore stay distinguishable. The complete session identity is what the
+prompt is delivered to, and it matches the search query in full. A thurbox session whose pane holds
+an observed agent that cannot report its own state is offered for delivery with
+a truthful `unknown` readiness, never as `idle`. A session with no observed
+agent and no state reporting is a plain shell and is not listed at all.
 
 Directional lookup is never trusted without these independent checks. The
 product never guesses a target and never falls back to raw input injection.
@@ -1667,8 +1688,8 @@ The current direction is grounded in these public primary sources:
 
 - Sending to unverified panes, unrelated tabs, or arbitrary terminal processes.
 - Raw keystroke injection as a substitute for an agent-aware prompt operation.
-- Direct Codex, Claude Code, Hermes, or model-provider API integrations. The
-  first version integrates through Herdr's local semantic CLI only.
+- Direct Codex, Claude Code, Hermes, or model-provider API integrations. Proqi
+  integrates only through the local semantic CLI of an installed integration.
 - Cloud accounts, synchronization, or collaboration.
 - Shared live editing of one session.
 - AI generation, rewriting, ranking, or automatic prompt organization.

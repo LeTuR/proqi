@@ -5,14 +5,15 @@ pub(super) fn integration_context(
     verified_at: crate::domain::Timestamp,
 ) -> Option<crate::domain::IntegrationContext> {
     let direction = target.adjacent_direction()?;
+    let mut scope = target.scope().iter();
     Some(crate::domain::IntegrationContext {
-        provider: "herdr".to_owned(),
+        provider: target.provider.clone(),
         direction,
         agent_kind: target.agent_kind().as_str().to_owned(),
         agent_name: target.agent_name.clone(),
-        workspace_hint: Some(target.workspace_id().to_owned()),
-        tab_hint: Some(target.tab_id().to_owned()),
-        pane_hint: Some(target.pane_id().to_owned()),
+        workspace_hint: scope.next().cloned(),
+        tab_hint: scope.next().cloned(),
+        pane_hint: Some(target.delivery_id().to_owned()),
         verified_at,
     })
 }

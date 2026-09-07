@@ -8,14 +8,12 @@ pub(super) fn target_fingerprint(target: &AgentTarget) -> [u8; 32] {
     let mut hasher = Sha256::new();
     let identity = target.identity();
     hasher.update(crate::ports::store::SUBMISSION_ROUTE_VERSION.to_be_bytes());
-    for field in [
-        identity.provider.as_str(),
-        identity.route_kind.as_str(),
-        identity.workspace_id.as_str(),
-        identity.tab_id.as_str(),
-        identity.target_pane_id.as_str(),
-        identity.agent_kind.as_str(),
-    ] {
+    let scope = identity.scope.iter().map(String::as_str);
+    for field in [identity.provider.as_str(), identity.route_kind.as_str()]
+        .into_iter()
+        .chain(scope)
+        .chain([identity.target_id.as_str(), identity.agent_kind.as_str()])
+    {
         hasher.update(field.as_bytes());
         hasher.update([0]);
     }

@@ -218,9 +218,8 @@ fn agent_target() -> AgentTarget {
             height: 20,
         },
     };
-    let address = crate::ports::agent::HerdrAgentAddress::new(
-        source.workspace_id.clone(),
-        source.tab_id.clone(),
+    let address = crate::ports::agent::AgentAddress::new(
+        vec![source.workspace_id.clone(), source.tab_id.clone()],
         "w1:p2".to_owned(),
         HarnessKind::new(CODEX_AGENT_KIND).expect("agent kind"),
         AgentSessionBinding::established("session").expect("agent session"),

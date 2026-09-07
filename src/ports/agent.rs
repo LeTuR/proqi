@@ -8,7 +8,7 @@ use crate::domain::SubmissionId;
 
 mod route;
 mod target;
-pub use route::{HerdrAgentAddress, SubmissionRoute, SubmissionRouteKind};
+pub use route::{AgentAddress, SubmissionRoute, SubmissionRouteKind};
 pub use target::{AgentAvailability, AgentTarget, AgentTargetIdentity};
 
 /// Canonical adjacent-agent kind label for the Codex harness.
@@ -26,10 +26,34 @@ pub const KILO_AGENT_KIND: &str = "kilo";
 /// Canonical adjacent-agent kind label for the Pi harness.
 pub const PI_AGENT_KIND: &str = "pi";
 
+/// Maximum display characters retained from an integration's agent name.
+pub const MAX_AGENT_NAME_CHARS: usize = 32;
+
+/// Maximum display characters retained from an integration's location label.
+pub const MAX_LOCATION_LABEL_CHARS: usize = 48;
+
+/// Return bounded, control-free display text from one integration snapshot value.
+///
+/// Foreign labels reach the terminal directly, so every integration trims them
+/// the same way: control characters removed, length bounded, surrounding
+/// whitespace removed, and an empty result reported as absent.
+#[must_use]
+pub fn bounded_integration_label(value: &str, maximum: usize) -> Option<String> {
+    let bounded = value
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(maximum)
+        .collect::<String>()
+        .trim()
+        .to_owned();
+    (!bounded.is_empty()).then_some(bounded)
+}
+
 /// Validated, open-ended harness kind reported by an integration.
 ///
-/// This is intentionally not an enum: Herdr may add harnesses independently of
-/// Proqi, and established-session harnesses require no Proqi code change.
+/// This is intentionally not an enum: an integration may add harnesses
+/// independently of Proqi, and established-session harnesses require no Proqi
+/// code change.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct HarnessKind(String);
 
@@ -144,8 +168,8 @@ pub struct AgentCapabilities {
     pub protocol: u32,
     /// Prompt delivery behaviors verified for this provider version.
     pub delivery: AgentDeliveryCapabilities,
-    /// Current Proqi pane.
-    pub context: PaneContext,
+    /// Current Proqi pane, absent for an integration without pane adjacency.
+    pub context: Option<PaneContext>,
 }
 
 /// Durable board behavior after one accepted prompt submission.
@@ -177,7 +201,7 @@ pub struct AgentDeliveryCapabilities {
 }
 
 impl AgentDeliveryCapabilities {
-    /// Current Herdr semantic contract: immediate submission only.
+    /// Current semantic contract of every integration: immediate submission only.
     pub const SUBMIT_ONLY: Self = Self { submit: true };
 
     /// Whether semantic immediate submission is explicitly supported.
@@ -281,7 +305,7 @@ pub struct SubmissionReceipt {
 /// Fail-closed integration error. Every variant leaves the thought unchanged.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
 pub enum AgentError {
-    /// Herdr is not installed or Proqi is not inside a managed pane.
+    /// The integration is not installed, or its required context is absent.
     #[error("agent integration is unavailable: {0}")]
     Unavailable(String),
     /// Installed capability or protocol is unsupported.
@@ -296,7 +320,7 @@ pub enum AgentError {
     /// A bounded process call timed out.
     #[error("agent integration timed out")]
     TimedOut,
-    /// Herdr rejected the semantic prompt operation.
+    /// The integration rejected the semantic prompt operation.
     #[error("agent submission was rejected ({code}): {message}")]
     Rejected {
         /// Stable provider code.
@@ -338,10 +362,11 @@ pub trait AgentGateway {
     ///
     /// # Errors
     ///
-    /// Fails closed on stale context, ambiguous identity, or malformed topology.
+    /// Fails closed on stale context, ambiguous identity, or malformed topology,
+    /// and reports `Unsupported` for an integration without pane adjacency.
     fn adjacent_targets(&mut self, context: &PaneContext) -> Result<Vec<AgentTarget>, AgentError>;
 
-    /// Discover compatible coding agents across the current Herdr server.
+    /// Discover compatible coding agents across every installed integration.
     ///
     /// # Errors
     ///

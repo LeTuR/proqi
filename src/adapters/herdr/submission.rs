@@ -21,6 +21,11 @@ pub(super) fn submit<R: ProcessRunner>(
     let refreshed = match &request.target.route {
         SubmissionRoute::AdjacentPane { source, .. } => gateway.adjacent_targets(source)?,
         SubmissionRoute::HerdrAgent(_) => gateway.global_targets()?,
+        SubmissionRoute::ThurboxSession(_) => {
+            return Err(AgentError::Unsupported(
+                "Herdr cannot deliver to a thurbox session route".to_owned(),
+            ));
+        }
     };
     let verified = refreshed
         .into_iter()
@@ -43,7 +48,7 @@ pub(super) fn submit<R: ProcessRunner>(
         )));
     }
     let response: Envelope<PromptBody> = gateway.json(
-        &["agent", "prompt", target.pane_id(), &request.content],
+        &["agent", "prompt", target.delivery_id(), &request.content],
         SUBMISSION_TIMEOUT,
     )?;
     let mut accepted_target = target.clone();
@@ -59,10 +64,15 @@ fn verify_prompted(
     target: &crate::ports::agent::AgentTarget,
     response: &PromptBody,
 ) -> Result<crate::ports::agent::AgentSessionBinding, AgentError> {
+    let [workspace_id, tab_id] = target.scope() else {
+        return Err(AgentError::Malformed(
+            "verified Herdr target lost its workspace and tab identity".to_owned(),
+        ));
+    };
     if response.kind != "agent_prompted"
-        || response.agent.pane_id != target.pane_id()
-        || response.agent.workspace_id != target.workspace_id()
-        || response.agent.tab_id != target.tab_id()
+        || response.agent.pane_id != target.delivery_id()
+        || &response.agent.workspace_id != workspace_id
+        || &response.agent.tab_id != tab_id
         || response.agent.agent.as_deref() != Some(target.agent_kind().as_str())
     {
         return Err(AgentError::Malformed(

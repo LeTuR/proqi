@@ -169,6 +169,32 @@ pub(super) fn check_herdr() -> DoctorCheck {
     })
 }
 
+pub(super) fn check_thurbox() -> DoctorCheck {
+    timed("thurbox", "integration", || {
+        let mut gateway = crate::adapters::thurbox::ThurboxGateway::from_environment();
+        match gateway.capabilities() {
+            Ok(capabilities) => result(
+                DoctorStatus::Ok,
+                "thurbox session submission is compatible",
+                json!({"available": true, "provider": capabilities.provider, "protocol": capabilities.protocol, "version": capabilities.version}),
+                None,
+            ),
+            Err(crate::ports::agent::AgentError::Unavailable(_)) => result(
+                DoctorStatus::Skipped,
+                "thurbox is not available for this user",
+                json!({"available": false}),
+                None,
+            ),
+            Err(error) => result(
+                DoctorStatus::Warning,
+                "thurbox compatibility could not be verified",
+                json!({"available": true}),
+                Some(&error.to_string()),
+            ),
+        }
+    })
+}
+
 fn regular_files(directory: &Path) -> Vec<PathBuf> {
     fs::read_dir(directory)
         .ok()

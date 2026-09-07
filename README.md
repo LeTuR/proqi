@@ -100,6 +100,24 @@ brew trust --formula oborchers/tap/proqi
 brew upgrade --formula oborchers/tap/proqi
 ```
 
+On x86-64 Linux, one line installs a verified release:
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/oborchers/proqi/main/scripts/install.sh | sh
+```
+
+The script checks the published SHA-256 checksum, proves the executable starts
+on this host, and installs `proqi` into `~/.local/bin` without `sudo`. Re-run it
+to upgrade. Choose another location or pin a release:
+
+```shell
+curl -fsSL https://raw.githubusercontent.com/oborchers/proqi/main/scripts/install.sh |
+  sh -s -- --prefix ~/.local --version 0.8.0
+```
+
+Linux releases are built for x86-64 glibc only. On any other Linux host the
+script explains why and installs nothing.
+
 Or use Rust 1.88+:
 
 ```shell
@@ -107,7 +125,8 @@ cargo install proqi --locked
 ```
 
 The [latest release](https://github.com/oborchers/proqi/releases/latest) has
-checksummed macOS/Linux archives and an `amd64` Debian package. Proqi never runs
+checksummed macOS/Linux archives, shell completions, and an `amd64` Debian
+package for a system-wide install your package manager tracks. Proqi never runs
 `sudo`, package managers, or updates implicitly. Uninstalling preserves data.
 
 ## Start and resume

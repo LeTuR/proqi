@@ -22,6 +22,7 @@ const REQUIRED_ASSETS: &[&str] = &[
     ".claude/skills/proqi-screenshot/SKILL.md",
     "scripts/readme-screenshot-inbox-record.exp",
     "scripts/readme-demo-seed.exp",
+    "scripts/install.sh",
 ];
 const PUBLIC_TEXT: &[&str] = &[
     "README.md",
@@ -36,6 +37,7 @@ const PUBLIC_TEXT: &[&str] = &[
     "scripts/readme-screenshot-inbox-record.exp",
     "scripts/readme-demo.sh",
     "scripts/social-preview.sh",
+    "scripts/install.sh",
 ];
 const FORBIDDEN: &[&str] = &[
     "/Users/",
@@ -54,6 +56,7 @@ pub(crate) fn check(root: &Path) -> Result<(), String> {
     check_dimensions_and_sizes(root)?;
     check_shell(root, "scripts/readme-demo.sh")?;
     check_shell(root, "scripts/social-preview.sh")?;
+    check_shell(root, "scripts/install.sh")?;
     println!("public assets: links, direction, privacy, dimensions, and scripts are valid");
     Ok(())
 }
@@ -99,6 +102,9 @@ fn check_readme_links(root: &Path) -> Result<(), String> {
         if !readme.contains(required) {
             return Err(format!("README does not link required asset: {required}"));
         }
+    }
+    if !readme.contains("scripts/install.sh") {
+        return Err("README does not document the Linux installer script".to_owned());
     }
     Ok(())
 }

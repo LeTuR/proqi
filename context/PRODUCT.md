@@ -1592,6 +1592,19 @@ Published artifacts also receive SHA-256 checksums, SPDX JSON SBOMs, and GitHub
 OIDC Sigstore build-provenance attestations. Paid Apple signing and notarization
 are not used.
 
+Linux additionally has one repository-owned shell installer,
+`scripts/install.sh`, run as `curl -fsSL <raw url> | sh`. It resolves one
+release, verifies that release's published SHA-256 checksum, proves the
+downloaded executable starts on the host, and only then installs the executable
+and its standalone-archive marker under a user-writable prefix that defaults to
+`~/.local`. It never runs `sudo`, a package manager, or an APT repository.
+Because Linux releases target x86-64 glibc only, the installer refuses other
+architectures and musl systems with a specific explanation instead of installing
+an executable that cannot start. A failed run leaves no partial installation and
+no temporary state. Re-running it installs the requested release over the
+previous one. Every other platform keeps its existing documented installation
+path.
+
 Pull requests and `main` use one aggregate CI contract. Direct owner pushes
 remain allowed, force pushes do not. Immutable `vX.Y.Z` tags start a protected
 release workflow that builds, verifies, and publishes a GitHub Release.

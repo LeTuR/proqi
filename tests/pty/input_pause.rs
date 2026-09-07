@@ -186,9 +186,21 @@ impl WatchedWorkflow {
     }
 
     fn read_process(&mut self) -> Pid {
-        let process_path = self.process_path.clone();
-        wait_for_path(self, &process_path);
-        let process = read_process(&process_path).expect("positive Proqi PID");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let process = loop {
+            if let Some(process) = read_process(&self.process_path) {
+                break process;
+            }
+            assert!(
+                !self.watcher_finished(),
+                "PTY watchdog exited before publishing its Proqi PID"
+            );
+            assert!(
+                Instant::now() < deadline,
+                "positive Proqi PID was not published before its deadline"
+            );
+            thread::sleep(Duration::from_millis(10));
+        };
         self.process = Some(process);
         process
     }

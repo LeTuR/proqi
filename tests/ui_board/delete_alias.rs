@@ -75,8 +75,14 @@ fn configured_character_and_physical_delete_share_bulk_selection_and_undo() {
 
 #[test]
 fn physical_delete_is_invariant_while_the_character_binding_remains_remappable() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.delete = 'z';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            delete: 'z',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut fixture = Fixture::with_settings(settings);
     durable_thought(&mut fixture, "remapped");
 
@@ -258,9 +264,8 @@ fn mixed_delete_spellings_do_not_create_a_second_operation_after_the_board_empti
 fn public_shortcut_documentation_records_the_alias_and_text_entry_boundary() {
     let readme = include_str!("../../README.md");
     assert!(readme.contains("`d` or `Del` (`Entf` on German keyboards)"));
-    assert!(readme.contains("Unmodified physical `Del` is an invariant Board alias"));
-    assert!(readme.contains("Modified `Del` is not a Board"));
-    assert!(readme.contains("`h`, `j`, `k`, and"));
-    assert!(readme.contains("`l` remain"));
-    assert!(readme.contains("literal text. List-only"));
+    assert!(readme.contains("unmodified `Del` and `d` share the Board delete action"));
+    assert!(readme.contains("Modified `Del` is unbound on the"));
+    assert!(readme.contains("Text contexts reserve ordinary, shifted, Option/Alt and"));
+    assert!(readme.contains("AltGr-compatible printable input"));
 }

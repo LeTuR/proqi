@@ -207,9 +207,9 @@ accidentally sharing thoughts.
 A pristine data store gives its first eligible fresh interactive session one
 once-only board of six ordinary practice thoughts. The board uses the same
 editing, ordering, persistence, search, deletion, and undo behavior as every
-other board. Its reviewed shortcut ranges use the same quiet semantic emphasis
-as other application-authored instructions and spell the platform modifier as
-Cmd on macOS or Ctrl elsewhere. The stored text remains ordinary canonical
+other board. Its durable guidance names actions and points to the resolved footer and Help,
+so changing a keymap cannot stale embedded key labels. Only invariant Escape
+is spelled directly and receives the existing quiet semantic emphasis. The stored text remains ordinary canonical
 thought content, so existing practice boards are never rewritten. Resume,
 continue, the session browser, intentionally emptied
 boards, JSON launches, and other noninteractive commands never seed it. JSON
@@ -324,7 +324,7 @@ Bracketed paste is treated as one semantic input event.
 - `Primary+V`, the remappable Board fallback `p`, bracketed paste, and
   `Paste exactly` preserve the complete payload byte for byte. Exact paste
   remains the default.
-- `Primary+Shift+V`, the paired Board fallback `P`, and `Paste and reflow`
+- `Primary+Shift+V`, the paired Board fallback `Shift+P`, and `Paste and reflow`
   explicitly clean terminal-copied prose. The action joins single newlines,
   collapses ASCII spaces and tabs, removes copied Markdown hard breaks, trims
   outer whitespace, and reduces whitespace-only blank runs to one paragraph
@@ -625,9 +625,10 @@ thought bindings extend or shrink the range, and clicking a thought extends to
 it. `Escape` clears the range and latch. Opening a modal releases the latch,
 and entering thought edit mode clears every board selection.
 
-`Primary+D` duplicates the focused thought or complete selection. Exact content,
-annotations, and presentation preferences are copied in board order directly
-below the source range. Duplicates receive fresh identities and timestamps,
+`Primary+D` or the terminal-safe Board alias `Shift+D` duplicates the focused thought
+or complete selection. Exact content, annotations, and presentation preferences
+are copied in board order directly below the source range. Duplicates receive
+fresh identities and timestamps,
 become the new selection, and are created as one persistent undo step. Entering
 edit mode or pressing `Escape` clears the complete board selection.
 
@@ -708,7 +709,7 @@ compatible coding agents in other tabs and workspaces on the current Herdr
 server. This global path has no dedicated shortcut, footer control, or
 always-visible action. After choosing a target, the user explicitly chooses
 `Submit`, which removes only after an accepted receipt, or `Submit and keep`.
-The existing adjacent `s`, `S`, Primary aliases, directional chooser, footer
+The existing adjacent `s`, `Shift+S`, Primary aliases, directional chooser, footer
 controls, and mouse behavior remain unchanged.
 
 Herdr is the first supported integration. It provides directional pane lookup,
@@ -809,6 +810,9 @@ and are never interpreted as delivery targets.
 
 Thoughts can be moved up and down with `Primary+Shift+Up` and
 `Primary+Shift+Down`, equivalently `Primary+K` and `Primary+J`, or with mouse drag.
+The macOS factory map additionally provides `Option+Shift+Up` and
+`Option+Shift+Down`, which stock Ghostty can deliver when it consumes the
+Command-based aliases.
 Reordering is immediate, autosaved, and undoable.
 
 Keyboard reordering wraps across the board boundaries. Moving the last thought
@@ -844,20 +848,21 @@ bindings are:
 |---|---|---|
 | Create thought | `n` | Click `+` or the insertion area |
 | Paste as new thought when none is selected | `Primary+V`, `p`, or native paste | Choose `Paste exactly` in Commands |
-| Paste and reflow copied prose | `Primary+Shift+V` or `P` | Choose `Paste and reflow` in Commands |
+| Paste and reflow copied prose | `Primary+Shift+V` or `Shift+P` | Choose `Paste and reflow` in Commands |
 | Edit thought | `Enter` or `e` | Click at the desired text position |
 | Copy thought | `Primary+C` or `y` | Click copy control |
 | Cut thought | `Primary+X` or `x` | Click cut control |
 | Delete thought | `d` or `Del` (`Entf` on German keyboards) | Click delete control |
-| Duplicate thought or selection | `Primary+D` | Command palette |
+| Duplicate thought or selection | `Primary+D` or `Shift+D` | Command palette |
 | Select or deselect thought | `Space` | Click the thought, then use the selection control |
 | Select all thoughts | `a` or `Primary+A` | Command palette |
 | Select contiguous range | `Shift+↑` / `Shift+↓`, `K` / `J`, or `v` then arrows or `j` / `k` | Shift-click a thought, or use `v` then click it |
+| Move or extend by five thoughts | `Page Up` / `Page Down`; add `Shift` to extend | Scroll, then click or Shift-click the target thought |
 | Submit | `Primary+Enter` or `s`, when supported, then direction when needed | Click verified Submit control |
-| Submit and keep | `Primary+Shift+Enter` or `S`, when supported, then direction when needed | Click verified Submit & keep control |
+| Submit and keep | `Primary+Shift+Enter` or `Shift+S`, when supported, then direction when needed | Click verified Submit & keep control |
 | Undo board action | `Primary+Z` or `u` | Click undo control when visible |
 | Redo board action | `Primary+Shift+Z` or `Primary+Y` | Command palette |
-| Move thought | `Primary+Shift+↑` / `Primary+Shift+↓`, or `Primary+K` / `Primary+J` | Drag thought handle |
+| Move thought | macOS `Option+Shift+↑` / `↓`; `Primary+Shift+↑` / `↓`, or `Primary+K` / `Primary+J` | Drag thought handle |
 | Expand or collapse | `c` | Click overflow indicator |
 | Search | `/` | Click search control |
 | Help | `?` | Click help control |
@@ -866,19 +871,21 @@ bindings are:
 Final bindings remain configurable. The product must not depend on terminals
 forwarding `Cmd+C`, `Cmd+V`, or Primary keys consistently.
 
-Unmodified physical `Del` is an invariant second spelling of the configured
-Board delete command. Remapping the character binding does not remap or disable
-that physical alias. Modified `Del` and `Backspace` are not Board delete aliases.
-In Compose, Edit, search, rename, invocation, command, transfer, and other
-text-entry surfaces, every physical `Del` remains owned by that text surface
-according to its existing editing behavior, never deletes a thought, and `h`,
-`j`, `k`, and `l` remain content.
+The versioned keymap in [SHORTCUTS.md](SHORTCUTS.md) owns every semantic
+binding. By default, unmodified `Del` and `d` are aliases of Board deletion;
+version 1 can replace or disable either. Modified `Del` and Backspace remain
+unbound on the Board by default. Editors and query owners retain their local
+named-key editing defaults. Every text owner reserves ordinary and shifted
+printable input, including Option/Alt and Control+Alt layout text. Browser
+management uses F2 and F8 while its query is empty; R and D enter search text.
 
-Board vertical navigation has one spelling-independent modifier ladder: plain
+The default Board map has one spelling-independent modifier ladder: plain
 moves focus, Shift extends a range, and Primary+Shift reorders one thought.
-Other modifiers keep the base focus intention. At the insertion row, range and
-reorder are thought-only no-ops, while base focus retains the ordinary boundary
-behavior. List-only overlays use `j` and `k` as exact Down and Up aliases, and
+On macOS, exact Option+Shift is an additional Board reorder alias for arrows and
+the configured vertical keys. Other modifiers keep the base focus intention. At
+the insertion row, range and reorder are thought-only no-ops, while base focus
+retains the ordinary boundary behavior. List-only overlays use `j` and `k` as
+exact Down and Up aliases, and
 four-way non-text direction choice uses `h`, `j`, `k`, and `l` as Left, Down,
 Up, and Right aliases. These non-text owners ignore irrelevant modifiers for
 both spellings. While Help owns input, its navigation wins over a configured
@@ -926,33 +933,46 @@ target folds without editing and asks for one deliberate repeat. Inline style
 annotations are not folds. The action does not replace logical-line deletion,
 and width-dependent visual-row deletion is not provided or planned.
 
-Many terminals consume Cmd shortcuts before a TUI can receive them. Proqi
+Terminal hosts can consume Cmd shortcuts before a TUI can receive them. Proqi
 therefore supports enhanced keyboard protocols where available, configurable
 bindings, and portable fallbacks. Core functionality never depends on a
 terminal forwarding Primary successfully.
 
-Ghostty consumes configured keybindings before the child process by default.
-Its current macOS defaults include Cmd chords for copy, both paste forms,
-select all, undo, redo, duplicate, submission, quit, and several arrow actions.
-To forward `Cmd+Shift+V` to Proqi on macOS, users may add
-`keybind = super+shift+v=csi:118;10u` to Ghostty's configuration. This explicitly
-sends the Kitty keyboard encoding for Super+Shift+V; merely removing the host
-binding is insufficient on Ghostty 1.3.1. Proqi does not claim guaranteed
-delivery, modify host configuration, or repeat a paste already performed by the
-host. The portable Board pair uses `p` for exact paste and `P` for reflow;
-command-palette actions, bracketed paste, and raw key diagnostics remain
-necessary fallbacks.
+Ghostty's macOS defaults consume application chords such as Cmd+Q, Cmd+A,
+Cmd+D, Cmd+J, Cmd+K, submission chords, vertical navigation, clipboard, and
+history before the PTY. Its Cmd+Left and Cmd+Right defaults emit raw Ctrl+A and
+Ctrl+E. If a remapper also converts Home and End into those Command arrows, the
+physical sources have the same downstream identity. Proqi resolves only the
+logical event received and never assigns an origin to Ctrl+A, Ctrl+E, or an
+absent event. Distinct line-edge and wrapped-row behavior requires distinct
+upstream encodings. Users may also assign exact contextual Control aliases to
+one chosen meaning without redefining Primary.
+
+For Ghostty, `keybind = super+shift+v=csi:118;10u` explicitly emits the
+CSI-u representation of logical Super+Shift+v. The example is validated using
+Ghostty and its bytes are tested through a real macOS PTY and Crossterm 0.29.
+This is not a promise for every layout or host mapping. Proqi never edits host
+configuration. The default Board pair uses p for exact paste and P for reflow.
+
+`proqi diagnostics keypress` captures one exact logical event using a bounded
+timeout and a selected context stack. It reports key, modifiers, phase, keypad
+and lock state, platform interpretation, registry action and UI intention.
+`--defaults` bypasses invalid user configuration. Escape always cancels capture.
+No event before the deadline is reported as no event received; Proqi cannot
+identify whether the OS, Karabiner, Ghostty, Herdr or another layer consumed it.
+No arbitrary terminal response, paste, session content or private topology is
+included. Terminal ownership is restored on every exit path.
 Distinctly reported Shift remains meaningful. A shifted reserved character
 chord never silently becomes the unshifted copy, cut, paste, select-all,
 duplicate, or quit command. `Primary+Y` remains the unshifted alternate redo
 chord. `Primary+Shift+V` is the explicit `Paste and reflow` action. An uppercase
 `V` report without a distinct Shift modifier remains exact paste.
 
-The configurable Board `paste` key must be one lowercase ASCII letter. That
-character pastes exactly and its uppercase counterpart reflows. Explicit
-configured commands keep precedence over either fallback. Help and footer
-labels list only the effective spellings, so a collision never advertises a
-shadowed route.
+The legacy configurable Board `paste` key must be one lowercase ASCII letter.
+That character pastes exactly and its uppercase counterpart reflows. Versioned
+configuration expresses both semantic actions directly. Explicit configured
+commands keep precedence over either fallback. Help and footer labels list only
+the effective spellings, so a collision never advertises a shadowed route.
 
 ### Edit mode
 

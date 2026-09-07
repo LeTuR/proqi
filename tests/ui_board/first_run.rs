@@ -53,12 +53,8 @@ fn standalone_practice_board_is_reviewed_at_standard_and_wide_sizes() {
 
 #[test]
 fn editing_thought_demonstrates_line_and_sentence_deletion_at_its_initial_cursor() {
-    let first_line = "Press Enter to edit the focused thought. Press Esc to return to board mode.";
-    let delete_line = primary_label("U");
-    let delete_sentence = primary_label("Shift+U");
-    let deletion_line = format!(
-        "- Press Enter to continue this unordered list. Press {delete_line} to delete this logical line. Press {delete_sentence} to delete this sentence."
-    );
+    let first_line = "Edit the focused thought using its current shortcut in Help. Press Esc to return to board mode.";
+    let deletion_line = "- Use Newline to continue this unordered list. Use Delete logical line to remove this line. Use Delete sentence to remove this sentence.";
 
     let mut line_fixture = Fixture::first_run(FirstRunEnvironment::Standalone);
     line_fixture.input(crate::key_input(UiKey::Character('j')));
@@ -92,7 +88,7 @@ fn editing_thought_demonstrates_line_and_sentence_deletion_at_its_initial_cursor
             .expect("editing thought")
             .content,
         format!(
-            "{first_line}\n\n- Press Enter to continue this unordered list. Press {delete_line} to delete this logical line."
+            "{first_line}\n\n- Use Newline to continue this unordered list. Use Delete logical line to remove this line."
         )
     );
 }
@@ -103,15 +99,6 @@ fn platform_suffix() -> &'static str {
     } else {
         "portable"
     }
-}
-
-fn primary_label(suffix: &str) -> String {
-    let prefix = if cfg!(target_os = "macos") {
-        "Cmd"
-    } else {
-        "Ctrl"
-    };
-    format!("{prefix}+{suffix}")
 }
 
 #[test]

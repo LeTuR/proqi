@@ -11,21 +11,29 @@ use crate::{
 use crate::ports::screenshot::ScreenshotError;
 
 use super::{ThemeSource, load_settings};
+#[path = "binding_assertion_tests.rs"]
+mod binding_assertions;
+use binding_assertions::assert_binding;
 
 #[test]
 fn missing_config_uses_the_narrow_pane_default() {
+    use crate::ui::ShortcutActionId as Action;
     let directory = tempfile::tempdir().expect("config directory");
     let settings = load_settings(directory.path()).expect("defaults");
-    assert_eq!(settings.ui.keybindings.new, 'n');
-    assert_eq!(settings.ui.keybindings.range_up, 'K');
-    assert_eq!(settings.ui.keybindings.range_down, 'J');
-    assert_eq!(settings.ui.keybindings.range_select, 'v');
-    assert_eq!(settings.ui.keybindings.transform, 't');
-    assert_eq!(settings.ui.keybindings.screenshot_inbox, 'i');
-    assert_eq!(settings.ui.keybindings.paste, 'p');
-    assert_eq!(settings.ui.keybindings.delete_sentence, 'U');
-    assert_eq!(settings.ui.keybindings.select_visual_row_start, 'H');
-    assert_eq!(settings.ui.keybindings.select_visual_row_end, 'L');
+    for (action, key, editor) in [
+        (Action::New, 'n', false),
+        (Action::ExtendPrevious, 'K', false),
+        (Action::ExtendNext, 'J', false),
+        (Action::RangeSelect, 'v', false),
+        (Action::ContextualTransform, 't', false),
+        (Action::ScreenshotInbox, 'i', false),
+        (Action::PasteExact, 'p', false),
+        (Action::DeleteSentence, 'U', true),
+        (Action::ExtendVisualRowStart, 'H', true),
+        (Action::ExtendVisualRowEnd, 'L', true),
+    ] {
+        assert_binding(&settings, action, key, editor);
+    }
     assert!(settings.screenshot.directory.is_none());
     assert!(settings.screenshot.filename_patterns.is_empty());
     assert!(!settings.screenshot.capture_all_new_images);
@@ -44,7 +52,12 @@ fn missing_config_uses_the_narrow_pane_default() {
         10
     );
     assert!(!settings.screenshot.notify_terminal_on_auto_pause());
-    assert_eq!(settings.ui.keybindings.select_all, 'a');
+    assert_binding(
+        &settings,
+        crate::ui::ShortcutActionId::SelectAll,
+        'a',
+        false,
+    );
     assert!(!settings.ui.show_session_id);
     assert!(settings.ui.smart_lists);
     assert_eq!(settings.ui.list_indent_width, 2);
@@ -87,7 +100,12 @@ fn screenshot_inbox_settings_are_typed_bounded_and_remappable() {
     )
     .expect("write config");
     let settings = load_settings(directory.path()).expect("settings");
-    assert_eq!(settings.ui.keybindings.screenshot_inbox, 'z');
+    assert_binding(
+        &settings,
+        crate::ui::ShortcutActionId::ScreenshotInbox,
+        'z',
+        false,
+    );
     assert_eq!(
         settings.screenshot.directory.as_deref(),
         Some(watched.as_path())
@@ -133,115 +151,6 @@ fn screenshot_inbox_rejects_relative_unknown_and_conflicting_configuration() {
 }
 
 #[test]
-fn legacy_reorder_binding_names_migrate_to_shifted_range_keys() {
-    let directory = tempfile::tempdir().expect("config directory");
-    fs::write(
-        directory.path().join("config.toml"),
-        "[keybindings]\nmove_up = 'W'\nmove_down = 'G'\n",
-    )
-    .expect("write config");
-    let settings = load_settings(directory.path()).expect("settings");
-    assert_eq!(settings.ui.keybindings.range_up, 'W');
-    assert_eq!(settings.ui.keybindings.range_down, 'G');
-}
-
-#[test]
-fn range_selection_latch_binding_is_remappable() {
-    let directory = tempfile::tempdir().expect("config directory");
-    fs::write(
-        directory.path().join("config.toml"),
-        "[keybindings]\nrange_select = 'b'\n",
-    )
-    .expect("write config");
-    let settings = load_settings(directory.path()).expect("settings");
-    assert_eq!(settings.ui.keybindings.range_select, 'b');
-}
-
-#[test]
-fn contextual_transform_binding_is_remappable() {
-    let directory = tempfile::tempdir().expect("config directory");
-    fs::write(
-        directory.path().join("config.toml"),
-        "[keybindings]\ntransform = 'g'\n",
-    )
-    .expect("write config");
-    let settings = load_settings(directory.path()).expect("settings");
-    assert_eq!(settings.ui.keybindings.transform, 'g');
-}
-
-#[test]
-fn contextual_transform_rejects_reserved_primary_bindings() {
-    let directory = tempfile::tempdir().expect("config directory");
-    fs::write(
-        directory.path().join("config.toml"),
-        "[keybindings]\ntransform = 'x'\n",
-    )
-    .expect("write config");
-    let error = load_settings(directory.path()).expect_err("reserved transform");
-    assert!(error.to_string().contains("reserved Primary shortcut"));
-}
-
-#[test]
-fn whole_board_selection_binding_is_remappable() {
-    let directory = tempfile::tempdir().expect("config directory");
-    fs::write(
-        directory.path().join("config.toml"),
-        "[keybindings]\nselect_all = 'z'\n",
-    )
-    .expect("write config");
-    let settings = load_settings(directory.path()).expect("settings");
-    assert_eq!(settings.ui.keybindings.select_all, 'z');
-}
-
-#[test]
-fn sentence_deletion_chord_is_remappable() {
-    let directory = tempfile::tempdir().expect("config directory");
-    fs::write(
-        directory.path().join("config.toml"),
-        "[keybindings]\ndelete_sentence = 'G'\n",
-    )
-    .expect("write config");
-    let settings = load_settings(directory.path()).expect("settings");
-    assert_eq!(settings.ui.keybindings.delete_sentence, 'G');
-}
-
-#[test]
-fn sentence_deletion_rejects_unshifted_or_reserved_primary_suffixes() {
-    for suffix in ['g', '1', 'A', 'Z', 'Ü'] {
-        let directory = tempfile::tempdir().expect("config directory");
-        fs::write(
-            directory.path().join("config.toml"),
-            format!("[keybindings]\ndelete_sentence = '{suffix}'\n"),
-        )
-        .expect("write invalid sentence binding");
-        assert!(load_settings(directory.path()).is_err(), "suffix {suffix}");
-    }
-}
-
-#[test]
-fn visual_row_selection_fallbacks_are_remappable_and_validated() {
-    let directory = tempfile::tempdir().expect("config directory");
-    fs::write(
-        directory.path().join("config.toml"),
-        "[keybindings]\nselect_visual_row_start = 'G'\nselect_visual_row_end = 'R'\n",
-    )
-    .expect("write config");
-    let settings = load_settings(directory.path()).expect("settings");
-    assert_eq!(settings.ui.keybindings.select_visual_row_start, 'G');
-    assert_eq!(settings.ui.keybindings.select_visual_row_end, 'R');
-
-    for suffix in ['g', '1', 'A', 'Z', 'Ü'] {
-        let directory = tempfile::tempdir().expect("config directory");
-        fs::write(
-            directory.path().join("config.toml"),
-            format!("[keybindings]\nselect_visual_row_end = '{suffix}'\n"),
-        )
-        .expect("write invalid visual-row binding");
-        assert!(load_settings(directory.path()).is_err(), "suffix {suffix}");
-    }
-}
-
-#[test]
 fn existing_settings_remain_compatible() {
     let directory = tempfile::tempdir().expect("config directory");
     fs::write(
@@ -250,9 +159,19 @@ fn existing_settings_remain_compatible() {
     )
     .expect("write config");
     let settings = load_settings(directory.path()).expect("settings");
-    assert_eq!(settings.ui.keybindings.new, 't');
-    assert_eq!(settings.ui.keybindings.range_select, 'v');
-    assert_eq!(settings.ui.keybindings.select_all, 'a');
+    assert_binding(&settings, crate::ui::ShortcutActionId::New, 't', false);
+    assert_binding(
+        &settings,
+        crate::ui::ShortcutActionId::RangeSelect,
+        'v',
+        false,
+    );
+    assert_binding(
+        &settings,
+        crate::ui::ShortcutActionId::SelectAll,
+        'a',
+        false,
+    );
     assert!(!settings.ui.check_for_updates);
     assert!(!settings.ui.show_session_id);
     assert!(settings.ui.smart_lists);
@@ -469,19 +388,6 @@ fn unknown_config_and_limited_overrides_fail_closed() {
     }
 }
 
-#[test]
-fn quit_cannot_shadow_recovery_controls() {
-    for key in ['r', 'w'] {
-        let directory = tempfile::tempdir().expect("config directory");
-        fs::write(
-            directory.path().join("config.toml"),
-            format!("[keybindings]\nquit = '{key}'\n"),
-        )
-        .expect("config");
-        assert!(load_settings(directory.path()).is_err());
-    }
-}
-
 #[cfg(unix)]
 #[test]
 fn configuration_symlinks_are_refused() {
@@ -493,3 +399,6 @@ fn configuration_symlinks_are_refused() {
     symlink(&target, directory.path().join("config.toml")).expect("symlink");
     assert!(load_settings(directory.path()).is_err());
 }
+
+#[path = "keymap_tests.rs"]
+mod keymap;

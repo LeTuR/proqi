@@ -250,8 +250,14 @@ fn collapsed_substitutions_are_atomic_and_expanded_folds_use_exact_content_rows(
 
 #[test]
 fn configured_fallback_and_mouse_anchor_share_the_same_undo_neutral_selection_path() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.select_visual_row_end = 'R';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            select_visual_row_end: 'R',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut fixture = Fixture::with_settings(settings);
     let sequence = fixture.paste("mouse anchored wrapped content abcdefghijklmnopqrstuvwxyz");
     let _ack = fixture.app.acknowledge_persistence(sequence, true);

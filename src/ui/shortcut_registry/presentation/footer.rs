@@ -1,12 +1,6 @@
-//! Footer labels projected from descriptor-owned metadata.
+//! Footer copy, labels, and measurement from the resolved action descriptors.
 
-use crate::{
-    application::InteractionMode,
-    ui::{KeyBindings, ShortcutActionId as Action, ShortcutContext as Context},
-};
-
-use super::{board_control_label, canonical_label, primary_label};
-use crate::ui::shortcut_registry::fixed_character_binding;
+use crate::ui::{ShortcutActionId as Action, ShortcutContext as Context, ShortcutRegistry};
 
 pub(crate) struct FooterProjection {
     pub(crate) key: String,
@@ -17,15 +11,16 @@ pub(crate) struct FooterProjection {
 pub(crate) fn footer_projection(
     action: Action,
     compact: bool,
-    mode: InteractionMode,
-    keys: &KeyBindings,
+    context: Context,
+    registry: &ShortcutRegistry,
 ) -> Option<FooterProjection> {
-    let metadata = super::canonical_descriptors()
-        .iter()
-        .find(|descriptor| descriptor.action == action)?
-        .footer?;
+    let metadata = registry.descriptor(action)?.footer?;
+    let compact_key = compact
+        || matches!(action, Action::New | Action::Quit)
+        || matches!(context, Context::Board | Context::InsertionBoundary)
+            && matches!(action, Action::SubmitRemove | Action::SubmitKeep);
     Some(FooterProjection {
-        key: footer_key(action, compact, mode, keys)?,
+        key: registry.action_label(context, action, compact_key),
         text: if compact {
             metadata.compact_text
         } else {
@@ -37,78 +32,4 @@ pub(crate) fn footer_projection(
             metadata.minimum_width
         },
     })
-}
-
-fn footer_key(
-    action: Action,
-    compact: bool,
-    mode: InteractionMode,
-    keys: &KeyBindings,
-) -> Option<String> {
-    let editor_mode = matches!(
-        mode,
-        InteractionMode::Compose | InteractionMode::Edit { .. }
-    );
-    match action {
-        Action::New => crate::ui::settings::key_label(keys.new),
-        Action::Copy | Action::Cut | Action::Undo => {
-            if editor_mode {
-                canonical_label(action)
-            } else {
-                board_control_label(action, keys, compact)
-            }
-        }
-        Action::Delete => keys.delete_label(),
-        Action::Select => crate::ui::settings::key_label(keys.select),
-        Action::OpenSearch => crate::ui::settings::key_label(keys.search),
-        Action::OpenCommands => crate::ui::settings::key_label(keys.commands),
-        Action::Help => crate::ui::settings::key_label(keys.help),
-        Action::Quit => crate::ui::settings::key_label(keys.quit),
-        Action::Close => "Esc".to_owned(),
-        Action::RetryStorage | Action::ExportRecovery => {
-            let character = fixed_character_binding(action, Context::Recovery)?;
-            crate::ui::settings::key_label(character)
-        }
-        Action::SubmitRemove if matches!(mode, InteractionMode::Edit { .. }) => {
-            primary_label(action)
-        }
-        Action::SubmitKeep if matches!(mode, InteractionMode::Edit { .. }) => {
-            canonical_label(action)
-        }
-        Action::SubmitRemove => crate::ui::settings::key_label(keys.submit_remove),
-        Action::SubmitKeep => crate::ui::settings::key_label(keys.submit_keep),
-        _ => canonical_label(action),
-    }
-    .into()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn compact_and_full_copy_share_descriptor_copy_and_measurement() {
-        let keys = KeyBindings::default();
-        let full = footer_projection(Action::Copy, false, InteractionMode::Board, &keys)
-            .expect("copy footer");
-        let compact = footer_projection(Action::Copy, true, InteractionMode::Board, &keys)
-            .expect("copy footer");
-        assert_eq!(full.text, " Copy");
-        assert_eq!(compact.text, full.text);
-        assert_eq!(full.minimum_width, 7);
-        assert_eq!(compact.minimum_width, 7);
-        assert_eq!(compact.key, keys.copy.to_string());
-    }
-
-    #[test]
-    fn recovery_footer_keys_come_from_the_registry_binding_owner() {
-        let keys = KeyBindings::default();
-        for action in [Action::RetryStorage, Action::ExportRecovery] {
-            let character = fixed_character_binding(action, Context::Recovery)
-                .expect("recovery action has a fixed registry binding");
-            let projection = footer_projection(action, false, InteractionMode::Board, &keys)
-                .expect("recovery footer");
-            assert_eq!(projection.key, crate::ui::settings::key_label(character));
-        }
-    }
 }

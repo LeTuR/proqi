@@ -269,8 +269,8 @@ impl LayoutSnapshot {
             self,
             targets,
             selection,
-            crate::application::InteractionMode::Board,
-            &crate::ui::KeyBindings::default(),
+            crate::ui::ShortcutContext::Board,
+            &crate::ui::ShortcutRegistry::default(),
         );
     }
 
@@ -278,10 +278,10 @@ impl LayoutSnapshot {
         &mut self,
         targets: &[AgentTarget],
         selection: Option<SubmissionDisposition>,
-        mode: crate::application::InteractionMode,
-        keybindings: &crate::ui::KeyBindings,
+        context: crate::ui::ShortcutContext,
+        keybindings: &crate::ui::ShortcutRegistry,
     ) {
-        controls::configure_agent_controls(self, targets, selection, mode, keybindings);
+        controls::configure_agent_controls(self, targets, selection, context, keybindings);
     }
 }
 
@@ -306,7 +306,7 @@ pub fn compute(
         false,
         crate::ui::settings::BoardDensity::Comfortable,
         0,
-        &crate::ui::KeyBindings::default(),
+        &crate::ui::ShortcutRegistry::default(),
     )
 }
 
@@ -326,7 +326,7 @@ pub(super) fn compute_with_density(
     has_status: bool,
     density: crate::ui::settings::BoardDensity,
     requested_row_offset: usize,
-    keybindings: &crate::ui::KeyBindings,
+    keybindings: &crate::ui::ShortcutRegistry,
 ) -> LayoutSnapshot {
     compute_frame(
         state,
@@ -356,7 +356,7 @@ pub(super) fn compute_for_app(
     has_agents: bool,
     has_status: bool,
     density: crate::ui::settings::BoardDensity,
-    keybindings: &crate::ui::KeyBindings,
+    keybindings: &crate::ui::ShortcutRegistry,
     viewport: scroll::BoardViewport,
 ) -> (LayoutSnapshot, scroll::ScrollGeometry) {
     compute_frame(
@@ -388,7 +388,7 @@ fn compute_frame(
     has_status: bool,
     density: crate::ui::settings::BoardDensity,
     requested_row_offset: usize,
-    keybindings: &crate::ui::KeyBindings,
+    keybindings: &crate::ui::ShortcutRegistry,
     viewport: Option<scroll::BoardViewport>,
 ) -> (LayoutSnapshot, scroll::ScrollGeometry) {
     let chrome = chrome::compute(area, has_agents, has_status);
@@ -427,10 +427,13 @@ fn compute_frame(
         footer_session_id: None,
         controls: chrome::controls(
             chrome.actions,
-            state.mode,
-            matches!(
-                state.durability,
-                crate::application::DurabilityState::Failed { .. }
+            crate::ui::ShortcutContext::surface(
+                state.mode,
+                insertion_focused,
+                matches!(
+                    state.durability,
+                    crate::application::DurabilityState::Failed { .. }
+                ),
             ),
             !matches!(
                 state.durability,

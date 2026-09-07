@@ -20,11 +20,14 @@ use ratatui_core::{
     terminal::Terminal,
 };
 
+#[path = "support/board.rs"]
+mod board_support;
 #[path = "support/keyboard.rs"]
 mod keyboard_support;
 #[path = "support/snapshots.rs"]
 mod snapshot_support;
 
+use board_support::durable_thought;
 use keyboard_support::key_input;
 
 struct Fixture {
@@ -147,7 +150,7 @@ fn empty_board_and_help_have_reviewable_complete_buffers() {
     let terminal = draw(&mut fixture, 40, 8);
     let rendered = text(terminal.backend().buffer());
     assert!(rendered.contains("proqi shortcuts"));
-    assert!(rendered.contains("Copy"));
+    assert!(rendered.contains("Move 5"));
     for _ in 0..8 {
         fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::VisualDown,
@@ -486,3 +489,6 @@ mod top_boundary_snapshots;
 mod transformations;
 #[path = "ui_board/visual_row_selection.rs"]
 mod visual_row_selection;
+
+#[path = "ui_board/versioned_keymap.rs"]
+mod versioned_keymap;

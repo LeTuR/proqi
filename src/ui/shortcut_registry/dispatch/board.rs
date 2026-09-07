@@ -9,7 +9,13 @@ use crate::ui::shortcut_registry::{
 
 impl ShortcutRegistry {
     fn board_character_action(&self, character: char) -> Option<Action> {
-        self.board_bindings.get(&character).copied()
+        self.effective_bindings
+            .get(&(
+                super::ShortcutContext::Board,
+                crate::ui::LogicalKey::Character(character),
+                crate::ui::LogicalModifiers::NONE,
+            ))
+            .copied()
     }
 
     pub(crate) fn board_action_for_intention(&self, key: UiKey) -> Option<Action> {
@@ -25,10 +31,6 @@ impl ShortcutRegistry {
                 extend_selection,
             } => board_navigation_action(movement, extend_selection, false),
             UiKey::PrimaryShiftMove { movement } => board_navigation_action(movement, false, true),
-            UiKey::PrimaryCharacter(character) => self.primary_board_character_action(character),
-            UiKey::PrimaryShiftCharacter(character) => {
-                self.primary_board_character_action(character.to_ascii_uppercase())
-            }
             UiKey::Enter => Some(Action::Edit),
             UiKey::SelectAll => Some(Action::SelectAll),
             UiKey::Undo => Some(Action::Undo),
@@ -39,16 +41,6 @@ impl ShortcutRegistry {
             UiKey::PasteClipboardReflow => Some(Action::PasteReflow),
             UiKey::Duplicate => Some(Action::Duplicate),
             UiKey::Quit => Some(Action::Quit),
-            _ => None,
-        }
-    }
-
-    fn primary_board_character_action(&self, character: char) -> Option<Action> {
-        match self.board_character_action(character)? {
-            Action::FocusPrevious => Some(Action::FocusPrevious),
-            Action::FocusNext => Some(Action::FocusNext),
-            Action::ExtendPrevious => Some(Action::MoveUp),
-            Action::ExtendNext => Some(Action::MoveDown),
             _ => None,
         }
     }

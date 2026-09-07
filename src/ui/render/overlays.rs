@@ -438,34 +438,47 @@ fn help_lines(app: &BoardApp, theme: &Theme, width: u16, height: u16) -> Vec<Lin
 }
 
 fn shortcut_grid(
-    items: &[(String, &'static str)],
+    items: &[crate::ui::shortcuts::Shortcut],
     width: u16,
     theme: &Theme,
 ) -> Vec<Line<'static>> {
     let (columns, key_width) = crate::ui::shortcuts::grid_metrics(items, width);
-    let cell_width = usize::from(width) / columns;
+    let column_width = usize::from(width) / columns;
+    let label_width = items
+        .iter()
+        .map(|item| cell_width(item.label))
+        .max()
+        .unwrap_or(1);
     items
         .chunks(columns)
-        .map(|row| shortcut_row(row, columns, cell_width, key_width, theme))
+        .map(|row| shortcut_row(row, columns, column_width, key_width, label_width, theme))
         .collect()
 }
 
 fn shortcut_row(
-    items: &[(String, &'static str)],
+    items: &[crate::ui::shortcuts::Shortcut],
     columns: usize,
     column_width: usize,
     key_width: usize,
+    label_width: usize,
     theme: &Theme,
 ) -> Line<'static> {
     let mut spans = Vec::new();
-    for (index, (key, label)) in items.iter().enumerate() {
-        spans.push(Span::styled(key.clone(), Style::default().fg(theme.accent)));
+    for (index, item) in items.iter().enumerate() {
+        let key = crate::ui::shortcuts::key(item, column_width, label_width);
+        spans.push(Span::styled(
+            key.to_owned(),
+            Style::default().fg(theme.accent),
+        ));
         spans.push(Span::raw(
             " ".repeat(key_width.saturating_sub(cell_width(key)) + 1),
         ));
-        spans.push(Span::styled(*label, Style::default().fg(theme.foreground)));
+        spans.push(Span::styled(
+            item.label,
+            Style::default().fg(theme.foreground),
+        ));
         if index + 1 < columns {
-            let used = key_width + 1 + cell_width(label);
+            let used = key_width + 1 + cell_width(item.label);
             spans.push(Span::raw(" ".repeat(column_width.saturating_sub(used))));
         }
     }

@@ -1,5 +1,7 @@
 //! Terminal-independent searchable session browser state and geometry.
 
+#[cfg(test)]
+mod confirmation_tests;
 mod geometry;
 mod input;
 mod management;
@@ -111,6 +113,7 @@ pub(super) enum BrowserHit {
     Item(usize),
     Rename,
     Trash,
+    Confirm,
     Cancel,
     None,
 }
@@ -126,30 +129,36 @@ pub(super) struct BrowserFooterControl {
 pub(super) fn browser_footer_controls(
     area: Rect,
     registry: &crate::ui::ShortcutRegistry,
+    context: crate::ui::ShortcutContext,
 ) -> Vec<BrowserFooterControl> {
     if area.width == 0 || area.height == 0 {
         return Vec::new();
     }
     let mut x = area.x.saturating_add(1);
-    crate::ui::shortcut_registry::presentation::browser_footer_projection(registry, area.width)
-        .into_iter()
-        .map(|projection| {
-            let width = crate::ports::text_layout::terminal_cell_width(&projection.key)
-                .saturating_add(1)
-                .saturating_add(crate::ports::text_layout::terminal_cell_width(
-                    projection.label,
-                ));
-            let width = u16::try_from(width).unwrap_or(u16::MAX);
-            let control = BrowserFooterControl {
-                hit: browser_hit(projection.actions),
-                key: projection.key,
-                label: projection.label,
-                area: Rect::new(x, area.y, width.min(area.right().saturating_sub(x)), 1),
-            };
-            x = x.saturating_add(width).saturating_add(2);
-            control
-        })
-        .collect()
+    crate::ui::shortcut_registry::presentation::browser_footer_projection(
+        registry, area.width, context,
+    )
+    .into_iter()
+    .filter_map(|projection| {
+        let width = crate::ports::text_layout::terminal_cell_width(&projection.key)
+            .saturating_add(1)
+            .saturating_add(crate::ports::text_layout::terminal_cell_width(
+                projection.label,
+            ));
+        let width = u16::try_from(width).unwrap_or(u16::MAX);
+        if x.saturating_add(width) > area.right() {
+            return None;
+        }
+        let control = BrowserFooterControl {
+            hit: browser_hit(projection.actions),
+            key: projection.key,
+            label: projection.label,
+            area: Rect::new(x, area.y, width, 1),
+        };
+        x = x.saturating_add(width).saturating_add(2);
+        Some(control)
+    })
+    .collect()
 }
 
 fn browser_hit(actions: &[crate::ui::ShortcutActionId]) -> BrowserHit {
@@ -159,6 +168,8 @@ fn browser_hit(actions: &[crate::ui::ShortcutActionId]) -> BrowserHit {
         BrowserHit::Trash
     } else if actions.contains(&crate::ui::ShortcutActionId::Close) {
         BrowserHit::Cancel
+    } else if actions.contains(&crate::ui::ShortcutActionId::Confirm) {
+        BrowserHit::Confirm
     } else {
         BrowserHit::None
     }
@@ -193,6 +204,7 @@ pub struct SessionBrowser {
     first_visible: usize,
     now: Timestamp,
     layout: Option<BrowserLayout>,
+    pub(super) footer_controls: Vec<BrowserFooterControl>,
     rename: Option<management::RenameState>,
     pub(super) shortcut_registry: crate::ui::ShortcutRegistry,
     /// Visible explanation for blocked or ambiguous actions.
@@ -212,10 +224,9 @@ impl SessionBrowser {
             first_visible: 0,
             now,
             layout: None,
+            footer_controls: Vec::new(),
             rename: None,
-            shortcut_registry: crate::ui::ShortcutRegistry::from_validated(
-                &crate::ui::KeyBindings::default(),
-            ),
+            shortcut_registry: crate::ui::ShortcutRegistry::default(),
             status: None,
         }
     }
@@ -310,6 +321,15 @@ impl SessionBrowser {
             layout = self.compute_layout(area);
         }
         self.layout = Some(layout.clone());
+        self.footer_controls = if self.status.is_none() {
+            browser_footer_controls(
+                layout.footer,
+                &self.shortcut_registry,
+                self.shortcut_context(),
+            )
+        } else {
+            Vec::new()
+        };
         layout
     }
 }

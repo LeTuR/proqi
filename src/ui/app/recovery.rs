@@ -66,6 +66,9 @@ impl BoardApp {
             return None;
         }
         match input {
+            UiInput::Key(UiKey::Shortcut(crate::ui::ShortcutActionId::Help)) => {
+                Some(self.toggle_help())
+            }
             UiInput::Key(UiKey::Shortcut(crate::ui::ShortcutActionId::RetryStorage)) => {
                 Some(self.retry_persistence())
             }

@@ -15,7 +15,7 @@ use super::{BoardApp, BoundaryInsertion, InsertionConfirmation, InsertionFocus, 
 impl BoardApp {
     pub(super) fn reset_insertion_confirmation(&mut self, input: &UiInput) {
         let boundary = match input {
-            UiInput::Key(key) => match self.shortcut_registry.board_action_for_intention(*key) {
+            UiInput::Key(key) => match self.settings.shortcuts.board_action_for_intention(*key) {
                 Some(crate::ui::ShortcutActionId::FocusPrevious) => {
                     Some(BoundaryInsertion::BeforeFirst)
                 }

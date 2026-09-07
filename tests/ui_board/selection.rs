@@ -317,8 +317,14 @@ fn search_focus_transition_clears_an_anchored_range() {
 
 #[test]
 fn range_latch_uses_the_remappable_board_binding() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.range_select = 'b';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            range_select: 'b',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut fixture = Fixture::with_settings(settings);
     for content in ["first", "second"] {
         fixture.paste(content);
@@ -401,6 +407,34 @@ fn duplicate_copies_selection_below_its_range_as_one_undoable_operation() {
 
     fixture.input(crate::key_input(UiKey::Undo));
     assert_eq!(fixture.app.state.board.live_thoughts().len(), 3);
+}
+
+#[test]
+fn uppercase_d_is_a_terminal_safe_default_duplicate_alias() {
+    let mut fixture = Fixture::new();
+    fixture.paste("original");
+    fixture.input(crate::key_input(UiKey::Escape));
+
+    let effects = fixture.effects(UiInput::KeyStroke(KeyStroke::press(LogicalKey::Character(
+        'D',
+    ))));
+
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::CommitBoardOperation(operation)]
+            if operation.kind == proqi::domain::BoardOperationKind::Duplicate
+    ));
+    assert_eq!(
+        fixture
+            .app
+            .state
+            .board
+            .live_thoughts()
+            .iter()
+            .map(|thought| thought.content.as_str())
+            .collect::<Vec<_>>(),
+        ["original", "original"]
+    );
 }
 
 #[test]

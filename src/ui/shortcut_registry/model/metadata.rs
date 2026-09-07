@@ -5,6 +5,7 @@
 pub(crate) enum HelpSurface {
     Board,
     Editor,
+    Recovery,
 }
 
 /// Capability that controls whether a Help item is currently visible.

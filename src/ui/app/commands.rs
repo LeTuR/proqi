@@ -18,10 +18,17 @@ impl BoardApp {
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
     ) -> Vec<Effect> {
+        if let UiKey::FastNavigation {
+            direction,
+            extend_selection,
+        } = key
+        {
+            return self.handle_board_fast_navigation(direction, extend_selection);
+        }
         if self.insertion_focused() {
             return self.handle_insertion_key(key, ids, clock);
         }
-        if let Some(action) = self.shortcut_registry.board_action_for_intention(key) {
+        if let Some(action) = self.settings.shortcuts.board_action_for_intention(key) {
             return self.handle_board_registry_action(action, ids, clock);
         }
         match key {
@@ -29,6 +36,25 @@ impl BoardApp {
                 self.clear_board_selection();
             }
             _ => {}
+        }
+        Vec::new()
+    }
+
+    fn handle_board_fast_navigation(
+        &mut self,
+        direction: crate::ui::FastNavigation,
+        extend_selection: bool,
+    ) -> Vec<Effect> {
+        if self.insertion_focused() {
+            if !extend_selection && matches!(direction, crate::ui::FastNavigation::Previous) {
+                self.move_focus(direction.delta());
+            }
+            return Vec::new();
+        }
+        if extend_selection || self.range_latched() {
+            self.extend_range_by(direction.delta());
+        } else {
+            self.move_focus_within_thoughts(direction.delta());
         }
         Vec::new()
     }
@@ -45,7 +71,7 @@ impl BoardApp {
         if key == UiKey::Enter {
             return self.begin_bottom_insertion(ids, clock);
         }
-        if let Some(action) = self.shortcut_registry.board_action_for_intention(key) {
+        if let Some(action) = self.settings.shortcuts.board_action_for_intention(key) {
             return match action {
                 crate::ui::ShortcutActionId::FocusPrevious => {
                     self.move_focus(-1);
@@ -163,7 +189,7 @@ impl BoardApp {
             Action::ScreenshotInbox => self.toggle_screenshot_inbox(ids, clock),
             Action::PasteExact => self.read_clipboard(ids),
             Action::PasteReflow => self.read_clipboard_reflow(ids),
-            _ => Vec::new(),
+            _ => self.execute_bound_command(action, ids, clock),
         }
     }
 
@@ -175,6 +201,9 @@ impl BoardApp {
     ) -> Vec<Effect> {
         if key == UiKey::Shortcut(crate::ui::ShortcutActionId::ContextualTransform) {
             return self.contextual_edit_transformation(ids, clock);
+        }
+        if let UiKey::Shortcut(action) = key {
+            return self.execute_bound_command(action, ids, clock);
         }
         let Some(key) = editing::normalize_edit_key(key) else {
             return Vec::new();
@@ -399,7 +428,8 @@ impl BoardApp {
         if self.insertion_focus == super::InsertionFocus::Active {
             if delta < 0 {
                 self.insertion_focus = super::InsertionFocus::Inactive;
-                let _effects = self.reduce(Action::FocusThought(Some(live[live.len() - 1].id)));
+                let target = live.len().saturating_add_signed(delta).min(live.len() - 1);
+                let _effects = self.reduce(Action::FocusThought(Some(live[target].id)));
             }
             return;
         }

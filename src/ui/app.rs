@@ -138,7 +138,6 @@ pub struct BoardApp {
     rename: Option<String>,
     transfer: Option<transfer::TransferState>,
     settings: UiSettings,
-    shortcut_registry: crate::ui::ShortcutRegistry,
     selection: selection::BoardSelection,
     expanded_folds: BTreeSet<(ThoughtId, usize)>,
     pending_editor_clipboard: BTreeMap<RequestId, PendingEditorClipboard>,
@@ -196,23 +195,6 @@ impl BoardApp {
         invocation_cwd: PathBuf,
         editor_factory: impl EditorFactory + 'static,
     ) -> Self {
-        let shortcut_registry = crate::ui::ShortcutRegistry::from_validated(&settings.keybindings);
-        Self::with_resolved_shortcuts(
-            state,
-            settings,
-            invocation_cwd,
-            shortcut_registry,
-            editor_factory,
-        )
-    }
-
-    pub(crate) fn with_resolved_shortcuts(
-        state: AppState,
-        settings: UiSettings,
-        invocation_cwd: PathBuf,
-        shortcut_registry: crate::ui::ShortcutRegistry,
-        editor_factory: impl EditorFactory + 'static,
-    ) -> Self {
         let insertion_focus = InsertionFocus::Inactive;
         let editor_factory: Box<dyn EditorFactory> = Box::new(editor_factory);
         let editor = if matches!(state.mode, InteractionMode::Compose) {
@@ -253,7 +235,6 @@ impl BoardApp {
             rename: None,
             transfer: None,
             settings,
-            shortcut_registry,
             selection: selection::BoardSelection::default(),
             expanded_folds: BTreeSet::new(),
             pending_editor_clipboard: BTreeMap::new(),
@@ -337,7 +318,8 @@ impl BoardApp {
         let (contexts, owner) = self.active_input_route();
         let preserves_handoff = match &input {
             UiInput::KeyStroke(stroke) => self
-                .shortcut_registry
+                .settings
+                .shortcuts
                 .preserves_editor_handoff(&contexts, *stroke),
             _ => false,
         };

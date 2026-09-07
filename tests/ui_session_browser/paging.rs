@@ -67,7 +67,9 @@ fn narrow_browser_input_keeps_sanitized_cursor_suffix_visible() {
     assert!(!header.contains(['\t', '\u{7}']));
 
     let mut rename = SessionBrowser::new(Vec::new(), Timestamp::from_millis(20));
-    rename.handle(crate::key_input(UiKey::Character('R')));
+    rename.handle(UiInput::KeyStroke(proqi::ui::KeyStroke::press(
+        proqi::ui::LogicalKey::Function(2),
+    )));
     rename.handle(UiInput::Paste("rename\t界👩‍💻\u{7}tail".to_owned()));
     let rendered = draw(&mut rename, 18, 6);
     let header = text(rendered.backend().buffer())

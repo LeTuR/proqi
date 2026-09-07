@@ -8,8 +8,7 @@ use crate::ui::input::UiKey;
 use crate::ui::{KeyPhase, KeyStroke, LogicalKey, LogicalModifiers, settings::KeyBindings};
 
 use super::{
-    context_policy::effective_board_bindings,
-    intentions::{action_intention, has_command_modifier, literal, resolved},
+    intentions::{action_intention, literal, resolved},
     inventory,
     model::{
         CommandMetadata, HelpMetadata, HelpSurface, ShortcutActionId as Action, ShortcutContext,
@@ -26,6 +25,9 @@ pub(crate) enum ShortcutPlatform {
 }
 
 impl ShortcutPlatform {
+    const MACOS_PRIMARY: [LogicalModifiers; 2] = [LogicalModifiers::SUPER, LogicalModifiers::META];
+    const PORTABLE_PRIMARY: [LogicalModifiers; 1] = [LogicalModifiers::CONTROL];
+
     pub(crate) const fn current() -> Self {
         if cfg!(target_os = "macos") {
             Self::MacOs
@@ -34,8 +36,24 @@ impl ShortcutPlatform {
         }
     }
 
-    const fn is_macos(self) -> bool {
-        matches!(self, Self::MacOs)
+    pub(super) const fn from_macos(macos: bool) -> Self {
+        if macos { Self::MacOs } else { Self::Portable }
+    }
+
+    pub(crate) const fn primary_modifiers(self) -> &'static [LogicalModifiers] {
+        match self {
+            Self::MacOs => &Self::MACOS_PRIMARY,
+            Self::Portable => &Self::PORTABLE_PRIMARY,
+        }
+    }
+
+    pub(super) fn is_primary(self, modifiers: LogicalModifiers) -> bool {
+        self.primary_modifiers().iter().any(|primary| {
+            modifiers.contains(*primary)
+                && modifiers
+                    .difference(primary.union(LogicalModifiers::SHIFT))
+                    .is_empty()
+        })
     }
 }
 
@@ -50,10 +68,10 @@ type EffectiveKey = (ShortcutContext, LogicalKey, LogicalModifiers);
 
 /// Collision-free effective registry resolved before terminal entry.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct ShortcutRegistry {
+pub struct ShortcutRegistry {
     platform: ShortcutPlatform,
-    board_bindings: BTreeMap<char, Action>,
-    descriptors: Vec<ShortcutDescriptor>,
+    pub(super) descriptors: Vec<ShortcutDescriptor>,
+    pub(super) projected_bindings: BTreeMap<(ShortcutContext, Action), Vec<super::ShortcutBinding>>,
     effective_bindings: BTreeMap<EffectiveKey, Action>,
 }
 
@@ -64,6 +82,23 @@ impl Default for ShortcutRegistry {
 }
 
 impl ShortcutRegistry {
+    /// Resolve a standalone versioned keymap TOML document for this platform.
+    ///
+    /// # Errors
+    /// Rejects malformed documents, unknown identities, collisions, or unsafe bindings.
+    pub fn from_toml(content: &str) -> Result<Self, ShortcutRegistryError> {
+        let document: super::config::KeymapDocument =
+            toml::from_str(content).map_err(|_| ShortcutRegistryError::MalformedDocument)?;
+        document.resolve(ShortcutPlatform::current())
+    }
+
+    /// Translate a legacy character map once into validated contextual bindings.
+    ///
+    /// # Errors
+    /// Rejects invalid legacy settings and unsafe or ambiguous effective bindings.
+    pub fn from_legacy(keys: &KeyBindings) -> Result<Self, ShortcutRegistryError> {
+        Self::current(keys)
+    }
     pub(crate) fn from_validated(keys: &KeyBindings) -> Self {
         Self::build(keys, ShortcutPlatform::current())
     }
@@ -77,15 +112,23 @@ impl ShortcutRegistry {
     }
 
     fn build(keys: &KeyBindings, platform: ShortcutPlatform) -> Self {
-        let board_bindings = effective_board_bindings(keys);
         let descriptors = inventory::descriptors(keys);
+        Self::from_descriptors(descriptors, platform)
+    }
+
+    pub(super) fn from_descriptors(
+        descriptors: Vec<ShortcutDescriptor>,
+        platform: ShortcutPlatform,
+    ) -> Self {
         let effective_bindings = effective_bindings(&descriptors, platform);
-        Self {
+        let mut registry = Self {
             platform,
-            board_bindings,
             descriptors,
             effective_bindings,
-        }
+            projected_bindings: BTreeMap::new(),
+        };
+        registry.projected_bindings = registry.project_bindings();
+        registry
     }
 
     #[cfg(test)]
@@ -93,49 +136,35 @@ impl ShortcutRegistry {
         &self.descriptors
     }
 
-    #[cfg(test)]
     pub(crate) fn descriptor(&self, action: Action) -> Option<&ShortcutDescriptor> {
         self.descriptors
             .iter()
             .find(|descriptor| descriptor.action == action)
     }
 
-    pub(crate) fn binding_label(
-        &self,
-        context: ShortcutContext,
-        actions: &[Action],
-    ) -> Option<String> {
-        actions
-            .iter()
-            .map(|action| {
-                self.effective_bindings.iter().find_map(
-                    |(&(candidate_context, key, modifiers), candidate_action)| {
-                        (candidate_context == context
-                            && candidate_action == action
-                            && modifiers.is_empty())
-                        .then_some(logical_key_label(key))
-                    },
-                )
-            })
-            .collect::<Option<Vec<_>>>()
-            .map(|labels| labels.concat())
+    pub(super) const fn platform(&self) -> ShortcutPlatform {
+        self.platform
     }
 
-    pub(crate) fn binding_label_for_keys(
+    pub(super) fn action_claims(
         &self,
         context: ShortcutContext,
-        bindings: &[(Action, LogicalKey)],
-    ) -> Option<String> {
-        bindings
+        action: Action,
+    ) -> Vec<&super::ShortcutBindingClaim> {
+        let Some(descriptor) = self.descriptor(action) else {
+            return Vec::new();
+        };
+        let (defaults, aliases) = match self.platform {
+            ShortcutPlatform::MacOs => (&descriptor.macos_defaults, &descriptor.macos_aliases),
+            ShortcutPlatform::Portable => {
+                (&descriptor.portable_defaults, &descriptor.portable_aliases)
+            }
+        };
+        defaults
             .iter()
-            .map(|(action, expected_key)| {
-                self.effective_bindings
-                    .get(&(context, *expected_key, LogicalModifiers::NONE))
-                    .filter(|candidate| *candidate == action)
-                    .map(|_| logical_key_label(*expected_key))
-            })
-            .collect::<Option<Vec<_>>>()
-            .map(|labels| labels.concat())
+            .chain(aliases)
+            .filter(|claim| claim.contexts.contains(&context))
+            .collect()
     }
 
     pub(crate) fn commands(&self) -> Vec<(Action, CommandMetadata, super::CommandExecution)> {
@@ -189,11 +218,9 @@ impl ShortcutRegistry {
         {
             return Some(resolved(action, action_intention(action, context, stroke)));
         }
-        self.literal_or_compatible_unbound(stroke)
-    }
-
-    pub(crate) fn legacy_keypress_action(&self, stroke: KeyStroke) -> Option<String> {
-        super::diagnostic_projection::legacy_keypress_action(stroke, self.platform)
+        super::inventory::bindings::vocabulary::is_text_context(context)
+            .then(|| Self::literal_unbound(stroke))
+            .flatten()
     }
 
     pub(crate) fn preserves_editor_handoff(
@@ -206,7 +233,13 @@ impl ShortcutRegistry {
             .and_then(|resolved| resolved.action);
         if matches!(
             active_action,
-            Some(Action::OpenCommands | Action::ContextualTransform)
+            Some(
+                Action::OpenCommands
+                    | Action::ContextualTransform
+                    | Action::SplitThought
+                    | Action::ExtractSelection
+                    | Action::MergeThoughts
+            )
         ) {
             return true;
         }
@@ -215,11 +248,11 @@ impl ShortcutRegistry {
             == Some(&Action::ContextualTransform)
     }
 
-    fn literal_or_compatible_unbound(&self, stroke: KeyStroke) -> Option<ResolvedShortcut> {
+    fn literal_unbound(stroke: KeyStroke) -> Option<ResolvedShortcut> {
         let LogicalKey::Character(character) = stroke.key else {
             return None;
         };
-        if !has_command_modifier(stroke.modifiers) {
+        if super::validation::reserves_printable(stroke.modifiers) {
             let intention = if character == ' ' && stroke.modifiers.is_empty() {
                 UiKey::UnmodifiedSpace
             } else {
@@ -227,27 +260,7 @@ impl ShortcutRegistry {
             };
             return Some(literal(intention));
         }
-        if inventory::bindings::is_primary(stroke.modifiers, self.platform.is_macos()) {
-            let intention =
-                if stroke.modifiers.contains(LogicalModifiers::SHIFT) || character.is_uppercase() {
-                    UiKey::PrimaryShiftCharacter(character)
-                } else {
-                    UiKey::PrimaryCharacter(character)
-                };
-            return Some(literal(intention));
-        }
         None
-    }
-}
-
-fn logical_key_label(key: LogicalKey) -> String {
-    match key {
-        LogicalKey::Character(character) => character.to_uppercase().collect(),
-        LogicalKey::Enter => "Enter".to_owned(),
-        LogicalKey::Up => "↑".to_owned(),
-        LogicalKey::Down => "↓".to_owned(),
-        LogicalKey::Escape => "Esc".to_owned(),
-        _ => format!("{key:?}"),
     }
 }
 

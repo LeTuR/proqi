@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use std::path::Path;
 
@@ -40,24 +40,120 @@ pub(super) fn execute(
 ) -> Result<Outcome, CliError> {
     match command {
         DiagnosticsCommand::Collect { output } => collect(paths, cwd, output.clone()),
-        DiagnosticsCommand::Keypress => inspect_keypress(paths),
+        DiagnosticsCommand::Keypress {
+            context,
+            timeout_ms,
+            defaults,
+        } => inspect_keypress(paths, context, *timeout_ms, *defaults),
     }
 }
 
-fn inspect_keypress(paths: &AppPaths) -> Result<Outcome, CliError> {
+fn inspect_keypress(
+    paths: &AppPaths,
+    names: &[String],
+    timeout_ms: u64,
+    defaults: bool,
+) -> Result<Outcome, CliError> {
+    use crate::ui::{ShortcutContext, ShortcutContextStack, ShortcutRegistry};
+    let contexts = names
+        .iter()
+        .map(|name| {
+            ShortcutContext::parse_configuration_id(name).ok_or_else(|| {
+                CliError::new(
+                    "invalid_shortcut_context",
+                    "unknown context; use a documented keymap context identifier".to_owned(),
+                    2,
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if contexts.is_empty() || contexts.len() > 21 {
+        return Err(CliError::new(
+            "invalid_shortcut_context",
+            "provide between 1 and 21 contexts, bottom to top".to_owned(),
+            2,
+        ));
+    }
+    let contexts = ShortcutContextStack::new(contexts);
+    let registry = if defaults {
+        ShortcutRegistry::default()
+    } else {
+        crate::adapters::terminal::inspect_settings(&paths.config_dir)?
+            .ui
+            .shortcuts
+    };
     crate::adapters::terminal::require_interactive()?;
-    let settings = crate::adapters::terminal::inspect_settings(&paths.config_dir)?;
-    let inspection = crate::adapters::terminal::inspect_keypress(&settings.shortcut_registry)?;
+    let inspection = crate::adapters::terminal::inspect_keypress(
+        &registry,
+        &contexts,
+        std::time::Duration::from_millis(timeout_ms),
+    )?;
+    let event = inspection.event;
+    let status = if inspection.cancelled {
+        "cancelled"
+    } else {
+        event.as_ref().map_or("no_event_received", |event| {
+            if event.capture_cancelled() {
+                "cancelled"
+            } else {
+                "event_received"
+            }
+        })
+    };
+    let explanation = if inspection.cancelled {
+        "Capture cancelled by a termination request."
+    } else if event.is_none() {
+        "No key event received. Proqi cannot know whether Ghostty, the OS, Karabiner, Herdr, or another layer consumed it."
+    } else {
+        "Captured one logical event. Resolution uses the selected context stack; no application action was executed."
+    };
+    let data = json!({
+        "capture_schema_version": 1,
+        "status": status,
+        "event": event.as_ref().map(inspection_value),
+        "context_source": "diagnostic_selection",
+        "keymap_source": if defaults { "defaults" } else { "configuration" },
+        "context_stack": contexts
+            .as_slice()
+            .iter()
+            .map(|context| context.configuration_id())
+            .collect::<Vec<_>>(),
+        "timeout_ms": timeout_ms,
+        "explanation": explanation,
+    });
     Ok(Outcome {
-        data: json!({
-            "raw_event": inspection.raw_event,
-            "matched_action": inspection.matched_action,
-        }),
-        human: format!(
-            "Raw event: {}\nMatched action: {}",
-            inspection.raw_event,
-            inspection.matched_action.as_deref().unwrap_or("none")
-        ),
+        human: format!("{explanation}\n{data}"),
+        data,
+    })
+}
+
+fn inspection_value(inspection: &crate::ui::ShortcutInspection) -> Value {
+    let action = inspection
+        .action
+        .map(crate::ui::ShortcutActionId::diagnostics_id);
+    let stroke: crate::ui::ShortcutStrokeInspection = inspection.stroke_inspection();
+    json!({
+        "capture_cancelled": inspection.capture_cancelled(),
+        "keystroke": {
+            "key": stroke.key,
+            "modifiers": stroke.modifiers,
+            "state": stroke.state,
+            "phase": stroke.phase,
+        },
+        "platform": inspection.platform_id(),
+        "primary": inspection.primary_names(),
+        "context_stack": inspection
+            .context_stack
+            .iter()
+            .map(|context| context.configuration_id())
+            .collect::<Vec<_>>(),
+        "active_context": inspection
+            .active_context
+            .map(crate::ui::ShortcutContext::configuration_id),
+        "classification": inspection.classification_id(),
+        "action": action,
+        "ui_intention": inspection.intention_name(),
+        "binding_identity": inspection.binding_identity(),
     })
 }
 

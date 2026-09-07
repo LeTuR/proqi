@@ -85,6 +85,8 @@ fn board_help_discloses_standard_chords_and_portable_aliases() {
         format!("{}V", primary()),
         format!("{}D", primary()),
         format!("{}Shift+Z/{}Y", primary(), primary()),
+        "PageUp/PageDown".to_owned(),
+        "Shift+PageUp/PageDown".to_owned(),
     ] {
         assert!(
             rendered.contains(&expected),
@@ -102,6 +104,8 @@ fn board_help_discloses_standard_chords_and_portable_aliases() {
         "Paste",
         "Redo",
         "Duplicate",
+        "Move 5",
+        "Range 5",
     ] {
         assert!(rendered.contains(action), "missing {action:?}: {rendered}");
     }

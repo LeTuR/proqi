@@ -1,0 +1,38 @@
+{
+  "capture_schema_version": 1,
+  "context_source": "diagnostic_selection",
+  "keymap_source": "defaults",
+  "status": "event_received",
+  "context_stack": [
+    "board",
+    "edit"
+  ],
+  "timeout_ms": 3000,
+  "explanation": "Captured one logical event. Resolution uses the selected context stack; no application action was executed.",
+  "event": {
+    "capture_cancelled": false,
+    "keystroke": {
+      "key": "U+0076",
+      "modifiers": [
+        "Shift",
+        "Super"
+      ],
+      "phase": "press",
+      "state": []
+    },
+    "platform": "macos",
+    "primary": [
+      "Super",
+      "Meta"
+    ],
+    "context_stack": [
+      "board",
+      "edit"
+    ],
+    "active_context": "edit",
+    "classification": "resolved",
+    "action": "clipboard.paste_reflow",
+    "ui_intention": "PasteClipboardReflow",
+    "binding_identity": "edit:clipboard.paste_reflow:U+0076:Shift+Super"
+  }
+}

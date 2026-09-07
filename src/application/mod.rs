@@ -17,7 +17,6 @@ mod reducer;
 mod rehydrate;
 mod release_highlights;
 mod service;
-mod shortcut_labels;
 #[cfg(test)]
 mod test_support;
 mod update;
@@ -43,7 +42,6 @@ pub use recovery::capture_recovery;
 pub use reducer::reduce;
 pub use release_highlights::{ReleaseHighlightPresentation, ReleaseHighlightSelection};
 pub use service::{LeasedSession, SessionService, SessionServiceError, ThoughtMutation};
-pub(crate) use shortcut_labels::PrimaryKeyPlatform;
 pub use update::{
     UpdateAvailability, UpdateCheckMode, UpdateCheckResult, UpdateRefresh, UpdateService,
 };

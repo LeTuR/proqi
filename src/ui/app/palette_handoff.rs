@@ -63,7 +63,7 @@ impl BoardApp {
                 UiInput::Pointer(pointer) if matches!(pointer.kind, PointerKind::Move) => true,
                 UiInput::Key(key) => {
                     matches!(
-                        self.shortcut_registry.board_action_for_intention(*key),
+                        self.settings.shortcuts.board_action_for_intention(*key),
                         Some(
                             crate::ui::ShortcutActionId::OpenCommands
                                 | crate::ui::ShortcutActionId::ContextualTransform

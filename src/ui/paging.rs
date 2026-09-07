@@ -31,14 +31,6 @@ impl FastNavigation {
         }
     }
 
-    /// One-row Board movement retained for Alt and shifted-Alt compatibility.
-    pub(crate) const fn board_movement(self) -> CursorMovement {
-        match self {
-            Self::Previous => CursorMovement::VisualUp,
-            Self::Next => CursorMovement::VisualDown,
-        }
-    }
-
     /// Move and clamp one selected eligible-entry index.
     pub(crate) fn move_index(self, selected: usize, count: usize) -> usize {
         selected
@@ -99,25 +91,20 @@ mod tests {
         assert!(
             readme
                 .replace('`', "")
-                .contains(crate::ui::shortcut_registry::presentation::FAST_NAVIGATION_README_LABEL)
+                .contains("Alt+↑ / ↓ or Page Up / Page Down")
         );
         let registry =
             crate::ui::ShortcutRegistry::from_validated(&crate::ui::KeyBindings::default());
         for action in [
-            crate::ui::ShortcutActionId::JumpUp,
-            crate::ui::ShortcutActionId::JumpDown,
+            crate::ui::ShortcutActionId::FastPrevious,
+            crate::ui::ShortcutActionId::FastNext,
         ] {
-            let label = registry
-                .commands()
-                .into_iter()
-                .find_map(|(candidate, metadata, _)| {
-                    (candidate == action).then_some(metadata.label)
-                });
-            assert!(matches!(
-                label,
-                Some(crate::ui::CommandLabel::Static(value))
-                    if value.contains("Alt+") && value.contains("Page ")
-            ));
+            let label = registry.action_label(crate::ui::ShortcutContext::Edit, action, false);
+            assert!(label.contains("Page"), "{label}");
+            assert!(
+                label.contains("Alt+") || label.contains("Option+"),
+                "{label}"
+            );
         }
     }
 }

@@ -33,8 +33,14 @@ fn configurable_board_select_all_is_ordered_idempotent_and_escape_clears_it() {
     fixture.input(crate::key_input(UiKey::Escape));
     assert!(selected_contents(&fixture).is_empty());
 
-    let mut settings = UiSettings::default();
-    settings.keybindings.select_all = 'z';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            select_all: 'z',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut remapped = Fixture::with_settings(settings);
     populate(&mut remapped);
     remapped.input(crate::key_input(UiKey::Character('a')));

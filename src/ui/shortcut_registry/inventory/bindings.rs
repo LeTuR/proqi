@@ -1,6 +1,7 @@
 //! Canonical platform defaults and configuration-derived effective aliases.
 
 mod named;
+mod platform_defaults;
 pub(in crate::ui::shortcut_registry) mod vocabulary;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -10,6 +11,7 @@ use crate::ui::{LogicalKey, LogicalModifiers, settings::KeyBindings};
 use super::{Action, Context};
 use crate::ui::shortcut_registry::{
     context_policy::effective_board_bindings,
+    dispatch::ShortcutPlatform,
     model::{
         ShortcutBinding, ShortcutBindingClaim, ShortcutBindingPresentation, ShortcutModifiers,
     },
@@ -28,6 +30,9 @@ pub(super) fn default_claims(macos: bool) -> BTreeMap<Action, Vec<ShortcutBindin
         .chain(fixed_character_keys())
         .collect::<BTreeSet<_>>();
     collect_claims(keys, |context, key, modifiers| {
+        if let Some(binding) = platform_defaults::binding(context, key, modifiers, macos) {
+            return Some(binding);
+        }
         let action = fixed_action(context, key, modifiers, macos)?;
         Some((
             action,
@@ -61,7 +66,9 @@ pub(super) fn alias_claims(
         }
     }
     collect_claims(candidates, |context, key, modifiers| {
-        if fixed_action(context, key, modifiers, macos).is_some() {
+        if platform_defaults::binding(context, key, modifiers, macos).is_some()
+            || fixed_action(context, key, modifiers, macos).is_some()
+        {
             None
         } else {
             configured_action(context, key, modifiers, macos, keys, &board)
@@ -79,8 +86,15 @@ fn collect_claims(
     ) -> Option<(Action, ShortcutBindingPresentation)>,
 ) -> BTreeMap<Action, Vec<ShortcutBindingClaim>> {
     let keys = keys.into_iter().collect::<Vec<_>>();
-    let mut grouped: BTreeMap<(Action, LogicalKey, LogicalModifiers, bool, bool), Vec<Context>> =
-        BTreeMap::new();
+    let mut grouped: BTreeMap<
+        (
+            Action,
+            LogicalKey,
+            LogicalModifiers,
+            ShortcutBindingPresentation,
+        ),
+        Vec<Context>,
+    > = BTreeMap::new();
     let candidates = KEYBOARD_CONTEXTS.iter().copied().flat_map(|context| {
         keys.iter().copied().flat_map(move |key| {
             modifier_combinations().map(move |modifiers| (context, key, modifiers))
@@ -90,17 +104,22 @@ fn collect_claims(
         let Some((action, presentation)) = resolve(context, key, modifiers) else {
             continue;
         };
-        let (is_primary_presentation, canonical) = match presentation {
-            ShortcutBindingPresentation::DispatchOnly => (false, false),
-            ShortcutBindingPresentation::Primary { canonical } => (true, canonical),
+        let action = match action {
+            Action::FastPrevious if modifiers.contains(LogicalModifiers::SHIFT) => {
+                Action::FastExtendPrevious
+            }
+            Action::FastNext if modifiers.contains(LogicalModifiers::SHIFT) => {
+                Action::FastExtendNext
+            }
+            other => other,
         };
         grouped
-            .entry((action, key, modifiers, is_primary_presentation, canonical))
+            .entry((action, key, modifiers, presentation))
             .or_default()
             .push(context);
     }
     let mut claims: BTreeMap<Action, Vec<ShortcutBindingClaim>> = BTreeMap::new();
-    for ((action, key, modifiers, is_primary_presentation, canonical), contexts) in grouped {
+    for ((action, key, modifiers, presentation), contexts) in grouped {
         claims
             .entry(action)
             .or_default()
@@ -110,11 +129,7 @@ fn collect_claims(
                     modifiers: ShortcutModifiers::Exact(modifiers),
                 },
                 contexts,
-                presentation: if is_primary_presentation {
-                    ShortcutBindingPresentation::Primary { canonical }
-                } else {
-                    ShortcutBindingPresentation::DispatchOnly
-                },
+                presentation,
             });
     }
     claims
@@ -128,7 +143,7 @@ fn default_presentation(
     macos: bool,
 ) -> ShortcutBindingPresentation {
     let shifted = modifiers.contains(LogicalModifiers::SHIFT);
-    let primary_action = is_primary(modifiers, macos)
+    let primary_action = ShortcutPlatform::from_macos(macos).is_primary(modifiers)
         && (primary_action(context, key, shifted) == Some(action)
             || action == Action::Quit
                 && !shifted
@@ -136,9 +151,7 @@ fn default_presentation(
     if !primary_action {
         return ShortcutBindingPresentation::DispatchOnly;
     }
-    let canonical =
-        action != Action::Redo || shifted && matches!(key, LogicalKey::Character('z' | 'Z'));
-    ShortcutBindingPresentation::Primary { canonical }
+    ShortcutBindingPresentation::Primary
 }
 
 fn fixed_action(
@@ -147,7 +160,7 @@ fn fixed_action(
     modifiers: LogicalModifiers,
     macos: bool,
 ) -> Option<Action> {
-    let primary = is_primary(modifiers, macos);
+    let primary = ShortcutPlatform::from_macos(macos).is_primary(modifiers);
     let shifted = modifiers.contains(LogicalModifiers::SHIFT);
     if primary && !shifted && matches!(key, LogicalKey::Character('q' | 'Q')) {
         return Some(Action::Quit);
@@ -192,7 +205,11 @@ fn primary_action(context: Context, key: LogicalKey, shifted: bool) -> Option<Ac
             LogicalKey::Character('c' | 'C') if !shifted => Action::Copy,
             LogicalKey::Character('x' | 'X') if !shifted => Action::Cut,
             LogicalKey::Character('v' | 'V') if !shifted => Action::PasteExact,
-            LogicalKey::Character('d' | 'D') if !shifted => Action::Duplicate,
+            LogicalKey::Character('d' | 'D')
+                if !shifted && matches!(context, Context::Board | Context::InsertionBoundary) =>
+            {
+                Action::Duplicate
+            }
             LogicalKey::Character('u' | 'U') if !shifted => Action::DeleteLogicalLine,
             LogicalKey::Character('z' | 'Z') if shifted => Action::Redo,
             LogicalKey::Character('y' | 'Y') if !shifted => Action::Redo,
@@ -248,7 +265,7 @@ fn vertical_action(
     modifiers: LogicalModifiers,
     macos: bool,
 ) -> Option<Action> {
-    let primary = is_primary(modifiers, macos);
+    let primary = ShortcutPlatform::from_macos(macos).is_primary(modifiers);
     let shifted = modifiers.contains(LogicalModifiers::SHIFT);
     if matches!(context, Context::Board | Context::InsertionBoundary) {
         return Some(match (previous, primary && shifted, shifted) {
@@ -262,10 +279,11 @@ fn vertical_action(
     }
     if is_list_context(context) {
         if modifiers.contains(LogicalModifiers::ALT) && !primary {
-            return Some(if previous {
-                Action::FastPrevious
-            } else {
-                Action::FastNext
+            return Some(match (previous, shifted) {
+                (true, true) => Action::FastExtendPrevious,
+                (false, true) => Action::FastExtendNext,
+                (true, false) => Action::FastPrevious,
+                (false, false) => Action::FastNext,
             });
         }
         return Some(if previous {
@@ -276,10 +294,11 @@ fn vertical_action(
     }
     if is_editor_context(context) {
         if modifiers.contains(LogicalModifiers::ALT) && !primary {
-            return Some(if previous {
-                Action::FastPrevious
-            } else {
-                Action::FastNext
+            return Some(match (previous, shifted) {
+                (true, true) => Action::FastExtendPrevious,
+                (false, true) => Action::FastExtendNext,
+                (true, false) => Action::FastPrevious,
+                (false, false) => Action::FastNext,
             });
         }
         return Some(match (previous, primary, shifted) {
@@ -312,7 +331,7 @@ fn horizontal_action(
     if !is_editor_context(context) && !is_query_cursor_context(context) {
         return None;
     }
-    let primary = is_primary(modifiers, macos);
+    let primary = ShortcutPlatform::from_macos(macos).is_primary(modifiers);
     let shifted = modifiers.contains(LogicalModifiers::SHIFT);
     if macos && primary {
         return Some(match (back, shifted) {
@@ -350,8 +369,16 @@ fn configured_action(
     let LogicalKey::Character(character) = key else {
         return None;
     };
+    let board_character = if modifiers.contains(LogicalModifiers::SHIFT)
+        && character.is_ascii_lowercase()
+        && board.contains_key(&character.to_ascii_uppercase())
+    {
+        character.to_ascii_uppercase()
+    } else {
+        character
+    };
     if matches!(context, Context::Board | Context::InsertionBoundary)
-        && let Some(base) = board.get(&character).copied()
+        && let Some(base) = board.get(&board_character).copied()
     {
         if matches!(
             base,
@@ -361,7 +388,12 @@ fn configured_action(
             let shifted = modifiers.contains(LogicalModifiers::SHIFT)
                 || matches!(base, Action::ExtendPrevious | Action::ExtendNext);
             return Some(
-                match (previous, is_primary(modifiers, macos) && shifted, shifted) {
+                match (
+                    previous,
+                    (ShortcutPlatform::from_macos(macos).is_primary(modifiers) && shifted)
+                        || platform_defaults::macos_reorder_modifiers(macos, modifiers),
+                    shifted,
+                ) {
                     (true, true, _) => Action::MoveUp,
                     (false, true, _) => Action::MoveDown,
                     (true, false, true) => Action::ExtendPrevious,
@@ -375,7 +407,7 @@ fn configured_action(
             return Some(base);
         }
     }
-    if is_editor_context(context) && is_primary(modifiers, macos) {
+    if is_editor_context(context) && ShortcutPlatform::from_macos(macos).is_primary(modifiers) {
         let shifted = modifiers.contains(LogicalModifiers::SHIFT) || character.is_ascii_uppercase();
         if !shifted && character.eq_ignore_ascii_case(&keys.transform) {
             return Some(Action::ContextualTransform);
@@ -400,28 +432,4 @@ fn configured_action(
         };
     }
     None
-}
-
-pub(in crate::ui::shortcut_registry) fn is_primary(
-    modifiers: LogicalModifiers,
-    macos: bool,
-) -> bool {
-    let eligible = if macos {
-        let super_key = modifiers.contains(LogicalModifiers::SUPER);
-        let meta_key = modifiers.contains(LogicalModifiers::META);
-        if super_key == meta_key {
-            return false;
-        }
-        if super_key {
-            LogicalModifiers::SUPER
-        } else {
-            LogicalModifiers::META
-        }
-    } else {
-        LogicalModifiers::CONTROL
-    };
-    modifiers.contains(eligible)
-        && modifiers
-            .difference(eligible.union(LogicalModifiers::SHIFT))
-            .is_empty()
 }

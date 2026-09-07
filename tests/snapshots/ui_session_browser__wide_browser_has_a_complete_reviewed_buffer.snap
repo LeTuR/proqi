@@ -1,6 +1,6 @@
 ---
 source: tests/ui_session_browser.rs
-assertion_line: 384
+assertion_line: 477
 expression: snapshot_buffer(terminal.backend().buffer())
 ---
 SIZE 100x20
@@ -25,7 +25,7 @@ TEXT
 16│                                                            ││
 17│                                                            ││
 18│                                                            ││
-19│ R Rename  D Trash  ↑↓ Select  Enter Open  Esc Cancel│
+19│ F2 Rename  F8 Trash  ↑/↓ Select  Enter Open  Esc Cancel│
 
 STYLE RUNS
 0: 0-99 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=BOLD
@@ -47,4 +47,4 @@ STYLE RUNS
 16: 0-59 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 60-99 fg=Rgb(176, 169, 160) bg=Rgb(15, 13, 10) mod=NONE
 17: 0-59 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 60-99 fg=Rgb(176, 169, 160) bg=Rgb(15, 13, 10) mod=NONE
 18: 0-59 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 60-99 fg=Rgb(176, 169, 160) bg=Rgb(15, 13, 10) mod=NONE
-19: 0-0 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 1-1 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=NONE | 2-10 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 11-11 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=NONE | 12-19 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 20-21 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=NONE | 22-30 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 31-35 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=NONE | 36-42 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 43-45 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=NONE | 46-99 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE
+19: 0-0 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 1-2 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=NONE | 3-11 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 12-13 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=NONE | 14-21 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 22-24 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=NONE | 25-33 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 34-38 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=NONE | 39-45 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE | 46-48 fg=Rgb(112, 214, 155) bg=Rgb(15, 13, 10) mod=NONE | 49-99 fg=Rgb(232, 228, 223) bg=Rgb(15, 13, 10) mod=NONE

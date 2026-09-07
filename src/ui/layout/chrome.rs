@@ -2,7 +2,7 @@
 
 use ratatui_core::layout::Rect;
 
-use crate::{application::InteractionMode, ui::KeyBindings};
+use crate::ui::{ShortcutContext, ShortcutRegistry};
 
 use super::HitTarget;
 
@@ -60,23 +60,15 @@ pub(super) fn compute(area: Rect, has_agents: bool, has_status: bool) -> ChromeL
 
 pub(super) fn controls(
     area: Rect,
-    mode: InteractionMode,
-    persistence_failed: bool,
+    context: ShortcutContext,
     retry_available: bool,
     has_focus: bool,
-    keys: &KeyBindings,
+    keys: &ShortcutRegistry,
 ) -> Vec<(HitTarget, Rect)> {
     if area.height == 0 || area.width == 0 {
         return Vec::new();
     }
-    let candidates = control_candidates(
-        area.width,
-        mode,
-        persistence_failed,
-        retry_available,
-        has_focus,
-        keys,
-    );
+    let candidates = control_candidates(area.width, context, retry_available, has_focus, keys);
     let inset_width = area.width.saturating_sub(4);
     place(
         Rect::new(area.x.saturating_add(2), area.y, inset_width, area.height),
@@ -86,26 +78,27 @@ pub(super) fn controls(
 
 fn control_candidates(
     width: u16,
-    mode: InteractionMode,
-    persistence_failed: bool,
+    context: ShortcutContext,
     retry_available: bool,
     has_focus: bool,
-    keys: &KeyBindings,
+    keys: &ShortcutRegistry,
 ) -> Vec<(HitTarget, u16)> {
-    let compose_mode = matches!(mode, InteractionMode::Compose);
-    let edit_mode = matches!(mode, InteractionMode::Edit { .. });
-    if let Some(failure) = failure_candidates(persistence_failed, retry_available, mode, keys) {
+    let compose_mode = context == ShortcutContext::Compose;
+    let edit_mode = context == ShortcutContext::Edit;
+    if let Some(failure) =
+        failure_candidates(context == ShortcutContext::Recovery, retry_available, keys)
+    {
         return failure;
     }
-    if let Some(unfocused) = unfocused_candidates(width, mode, has_focus, keys) {
+    if let Some(unfocused) = unfocused_candidates(width, context, has_focus, keys) {
         return unfocused;
     }
     if compose_mode || (width < 60 && edit_mode) {
-        candidates(&[(HitTarget::ExitEdit, width < 16)], mode, keys)
+        candidates(&[(HitTarget::ExitEdit, width < 16)], context, keys)
     } else if width < 24 {
         candidates(
             &[(HitTarget::Commands, true), (HitTarget::Help, true)],
-            mode,
+            context,
             keys,
         )
     } else if width < 60 {
@@ -115,7 +108,7 @@ fn control_candidates(
                 (HitTarget::Commands, false),
                 (HitTarget::Help, false),
             ],
-            mode,
+            context,
             keys,
         )
     } else if edit_mode {
@@ -126,18 +119,18 @@ fn control_candidates(
                 (HitTarget::Cut, false),
                 (HitTarget::Undo, false),
             ],
-            mode,
+            context,
             keys,
         )
     } else {
-        board_action_candidates(width.saturating_sub(4), mode, keys)
+        board_action_candidates(width.saturating_sub(4), context, keys)
     }
 }
 
 fn board_action_candidates(
     available_width: u16,
-    mode: InteractionMode,
-    keys: &KeyBindings,
+    context: ShortcutContext,
+    keys: &ShortcutRegistry,
 ) -> Vec<(HitTarget, u16)> {
     let items = |compact| {
         candidates(
@@ -152,7 +145,7 @@ fn board_action_candidates(
                 (HitTarget::Commands, false),
                 (HitTarget::Help, false),
             ],
-            mode,
+            context,
             keys,
         )
     };
@@ -168,15 +161,14 @@ fn placed_width(candidates: &[(HitTarget, u16)]) -> u16 {
     candidates
         .iter()
         .map(|(_, width)| *width)
-        .sum::<u16>()
+        .fold(0_u16, u16::saturating_add)
         .saturating_add(u16::try_from(candidates.len().saturating_sub(1)).unwrap_or(u16::MAX))
 }
 
 fn failure_candidates(
     failed: bool,
     retry: bool,
-    mode: InteractionMode,
-    keys: &KeyBindings,
+    keys: &ShortcutRegistry,
 ) -> Option<Vec<(HitTarget, u16)>> {
     let items = if failed && retry {
         &[
@@ -189,16 +181,25 @@ fn failure_candidates(
     } else {
         return None;
     };
-    Some(candidates(items, mode, keys))
+    Some(candidates(
+        items,
+        crate::ui::ShortcutContext::Recovery,
+        keys,
+    ))
 }
 
 fn unfocused_candidates(
     width: u16,
-    mode: InteractionMode,
+    context: ShortcutContext,
     has_focus: bool,
-    keys: &KeyBindings,
+    keys: &ShortcutRegistry,
 ) -> Option<Vec<(HitTarget, u16)>> {
-    if has_focus || !matches!(mode, InteractionMode::Board) {
+    if has_focus
+        || !matches!(
+            context,
+            ShortcutContext::Board | ShortcutContext::InsertionBoundary
+        )
+    {
         return None;
     }
     let items = if width < 24 {
@@ -210,18 +211,18 @@ fn unfocused_candidates(
             (HitTarget::Help, false),
         ][..]
     };
-    Some(candidates(items, mode, keys))
+    Some(candidates(items, context, keys))
 }
 
 fn candidates(
     items: &[(HitTarget, bool)],
-    mode: InteractionMode,
-    keys: &KeyBindings,
+    context: crate::ui::ShortcutContext,
+    keys: &ShortcutRegistry,
 ) -> Vec<(HitTarget, u16)> {
     items
         .iter()
         .filter_map(|&(target, compact)| {
-            crate::ui::control_labels::action_width(target, compact, mode, keys)
+            crate::ui::control_labels::action_width(target, compact, context, keys)
                 .map(|width| (target, width))
         })
         .collect()

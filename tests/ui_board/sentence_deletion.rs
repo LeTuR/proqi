@@ -44,8 +44,14 @@ fn primary_u_still_deletes_only_the_current_logical_line() {
 #[test]
 fn configured_primary_shift_suffix_discovers_the_same_action() {
     for shifted_report in ['g', 'G'] {
-        let mut settings = UiSettings::default();
-        settings.keybindings.delete_sentence = 'G';
+        let settings = UiSettings {
+            shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+                delete_sentence: 'G',
+                ..proqi::ui::KeyBindings::default()
+            })
+            .expect("valid translated keymap"),
+            ..UiSettings::default()
+        };
         let mut fixture = Fixture::with_settings(settings);
         fixture.paste("One. Two.");
         fixture.input(crate::key_input(UiKey::Move {
@@ -71,8 +77,14 @@ fn configured_primary_shift_suffix_discovers_the_same_action() {
 
 #[test]
 fn remapped_sentence_suffix_is_discoverable_in_contextual_help() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.delete_sentence = 'G';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            delete_sentence: 'G',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut fixture = Fixture::with_settings(settings);
     fixture.paste("One. Two.");
     fixture.app.help = true;

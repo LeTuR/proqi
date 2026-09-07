@@ -10,8 +10,6 @@ use super::vocabulary::{
 };
 
 const MODAL_CHARACTER_BINDINGS: &[(Context, char, Action)] = &[
-    (Context::Browser, 'R', Action::RenameSession),
-    (Context::Browser, 'D', Action::BrowserTrash),
     (Context::Recovery, 'r', Action::RetryStorage),
     (Context::Recovery, 'w', Action::ExportRecovery),
 ];
@@ -35,6 +33,13 @@ pub(super) fn named_action(
     key: LogicalKey,
     modifiers: LogicalModifiers,
 ) -> Option<Action> {
+    if context == Context::Browser && modifiers.is_empty() {
+        match key {
+            LogicalKey::Function(2) => return Some(Action::RenameSession),
+            LogicalKey::Function(8) => return Some(Action::BrowserTrash),
+            _ => {}
+        }
+    }
     if let Some(action) = modal_character_action(context, key, modifiers) {
         return Some(action);
     }
@@ -132,8 +137,16 @@ fn navigation_named_action(
 ) -> Option<Action> {
     let shifted = modifiers.contains(LogicalModifiers::SHIFT);
     match key {
-        LogicalKey::PageUp => Some(Action::FastPrevious),
-        LogicalKey::PageDown => Some(Action::FastNext),
+        LogicalKey::PageUp => Some(if shifted {
+            Action::FastExtendPrevious
+        } else {
+            Action::FastPrevious
+        }),
+        LogicalKey::PageDown => Some(if shifted {
+            Action::FastExtendNext
+        } else {
+            Action::FastNext
+        }),
         LogicalKey::Home if is_editor_context(context) || is_query_cursor_context(context) => {
             Some(if shifted {
                 Action::ExtendLineStart

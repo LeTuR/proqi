@@ -9,10 +9,7 @@ pub(super) fn visual(movement: CursorMovement, shifted: bool) -> UiInput {
     })
 }
 
-pub(super) fn durable_thought(fixture: &mut Fixture, content: &str) {
-    fixture.paste(content);
-    fixture.input(crate::key_input(UiKey::Escape));
-}
+pub(super) use super::durable_thought;
 
 #[test]
 fn keyboard_reordering_wraps_at_both_board_edges() {
@@ -105,10 +102,15 @@ fn help_list_uses_identical_arrow_and_jk_navigation() {
 
 #[test]
 fn modal_navigation_wins_when_help_is_remapped_to_j() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.focus_down = 'g';
-    settings.keybindings.help = 'j';
-    settings.keybindings.validate().expect("valid remap");
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            focus_down: 'g',
+            help: 'j',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut arrow = Fixture::with_settings(settings.clone());
     let mut vim = Fixture::with_settings(settings);
     for fixture in [&mut arrow, &mut vim] {
@@ -147,7 +149,7 @@ fn wide_help_uses_at_most_two_strictly_aligned_columns() {
         .app
         .complete_agent_discovery(Ok(vec![super::agent::target(Direction::Left, "w1:p2")]));
     fixture.input(crate::key_input(UiKey::Character('?')));
-    let terminal = draw(&mut fixture, 80, 14);
+    let terminal = draw(&mut fixture, 80, 16);
     let rendered = text(terminal.backend().buffer());
     assert!(rendered.contains("Submit & keep"));
     let quit = rendered

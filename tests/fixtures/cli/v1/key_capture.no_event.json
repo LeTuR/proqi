@@ -1,0 +1,12 @@
+{
+  "capture_schema_version": 1,
+  "context_source": "diagnostic_selection",
+  "keymap_source": "defaults",
+  "status": "no_event_received",
+  "context_stack": [
+    "board"
+  ],
+  "timeout_ms": 100,
+  "event": null,
+  "explanation": "No key event received. Proqi cannot know whether Ghostty, the OS, Karabiner, Herdr, or another layer consumed it."
+}

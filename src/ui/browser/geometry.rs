@@ -4,19 +4,17 @@ use ratatui_core::layout::Rect;
 
 use crate::ui::geometry::contains;
 
-use super::{
-    BrowserEntryLayout, BrowserHit, BrowserLayout, SessionBrowser, browser_footer_controls,
-};
+use super::{BrowserEntryLayout, BrowserFooterControl, BrowserHit, BrowserLayout, SessionBrowser};
 
 impl BrowserLayout {
     pub(super) fn hit_test(
         &self,
         column: u16,
         row: u16,
-        registry: &crate::ui::ShortcutRegistry,
+        controls: &[BrowserFooterControl],
     ) -> BrowserHit {
         if contains(self.footer, column, row) {
-            return browser_footer_controls(self.footer, registry)
+            return controls
                 .iter()
                 .find(|control| contains(control.area, column, row))
                 .map_or(BrowserHit::None, |control| control.hit);

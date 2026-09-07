@@ -265,12 +265,8 @@ fn tutorial_shortcut_annotations_survive_cli_cross_session_transfer() {
         serde_json::from_str(&annotations_json).expect("transferred annotations");
     assert_eq!(content, expected.content);
     assert_eq!(annotations, expected.annotations);
-    let shifted_delete = if cfg!(target_os = "macos") {
-        "Cmd+Shift+U"
-    } else {
-        "Ctrl+Shift+U"
-    };
-    assert!(content.contains(shifted_delete));
+    assert!(content.contains("Delete sentence"));
+    assert!(content.contains("Esc"));
 }
 
 #[test]

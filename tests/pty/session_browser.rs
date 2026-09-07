@@ -70,3 +70,66 @@ fn session_browser_searches_and_resumes_in_a_real_pty() {
             .is_some_and(|opened_after| opened_after > opened_before)
     );
 }
+
+#[test]
+fn session_browser_mouse_save_persists_unicode_name_in_a_real_pty() {
+    let state = tempfile::tempdir().expect("temporary state");
+    let binary = env!("CARGO_BIN_EXE_proqi");
+    let created = json_command(binary, state.path(), &[]);
+    let id = created["data"]["session_id"].as_str().expect("session ID");
+    let browse = r#"
+        log_user 0
+        set timeout 10
+        set binary $env(PROQI_TEST_BINARY)
+        set state $env(PROQI_TEST_STATE)
+        spawn -noecho sh -c {stty rows 24 columns 80; exec "$PROQI_TEST_BINARY" --state-dir "$PROQI_TEST_STATE" -r}
+        expect {
+            -exact "Rename" {}
+            timeout { exit 91 }
+        }
+        send -- "\x1bOQ"
+        expect {
+            -exact "Save" {}
+            timeout { exit 92 }
+        }
+        send -- "\x1b\[200~  Grüße 界 e\u0301  \x1b\[201~"
+        expect {
+            -exact "Grüße" {}
+            timeout { exit 93 }
+        }
+        send -- "\x1b\[<0;9;24M\x1b\[<0;9;24m"
+        expect {
+            -exact "\x1b\[?1049l" {}
+            timeout { exit 94 }
+        }
+        expect {
+            -exact "\x1b\[?1049h" {}
+            timeout { exit 95 }
+        }
+        send -- "\x1b"
+        expect {
+            eof {}
+            timeout { exit 96 }
+        }
+        catch wait result
+        exit [lindex $result 3]
+    "#;
+    let status = expect_command()
+        .args(["-c", browse])
+        .env("PROQI_TEST_BINARY", binary)
+        .env("PROQI_TEST_STATE", state.path())
+        .status()
+        .expect("run PTY browser mouse save");
+    assert!(
+        status.success(),
+        "browser mouse save PTY exited with {status}"
+    );
+    let sessions = json_command(binary, state.path(), &["sessions", "list"]);
+    let renamed = sessions["data"]["sessions"]
+        .as_array()
+        .expect("sessions")
+        .iter()
+        .find(|session| session["id"] == id)
+        .expect("renamed session");
+    assert_eq!(renamed["name"], "Grüße 界 e\u{301}");
+}

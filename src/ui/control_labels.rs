@@ -7,7 +7,7 @@ use crate::{
 };
 
 use super::shortcut_registry::presentation;
-use super::{HitTarget, KeyBindings, ShortcutActionId as ShortcutAction};
+use super::{HitTarget, ShortcutActionId as ShortcutAction, ShortcutRegistry};
 
 pub(crate) struct ControlLabel {
     pub(crate) key: String,
@@ -36,11 +36,11 @@ impl ControlLabel {
 pub(crate) fn action(
     target: HitTarget,
     compact: bool,
-    mode: InteractionMode,
-    keys: &KeyBindings,
+    context: super::ShortcutContext,
+    keys: &ShortcutRegistry,
 ) -> Option<ControlLabel> {
     let action = target_action(target)?;
-    let projection = presentation::footer_projection(action, compact, mode, keys)?;
+    let projection = presentation::footer_projection(action, compact, context, keys)?;
     Some(ControlLabel {
         key: projection.key,
         text: projection.text.to_owned(),
@@ -50,12 +50,12 @@ pub(crate) fn action(
 pub(crate) fn action_width(
     target: HitTarget,
     compact: bool,
-    mode: InteractionMode,
-    keys: &KeyBindings,
+    context: super::ShortcutContext,
+    keys: &ShortcutRegistry,
 ) -> Option<u16> {
     let action_id = target_action(target)?;
-    let projection = presentation::footer_projection(action_id, compact, mode, keys)?;
-    action(target, compact, mode, keys).map(|label| label.width().max(projection.minimum_width))
+    let projection = presentation::footer_projection(action_id, compact, context, keys)?;
+    action(target, compact, context, keys).map(|label| label.width().max(projection.minimum_width))
 }
 
 const fn target_action(target: HitTarget) -> Option<ShortcutAction> {
@@ -93,11 +93,11 @@ pub(crate) fn agent(target: &AgentTarget) -> ControlLabel {
 
 pub(crate) fn submission(
     disposition: SubmissionDisposition,
-    mode: InteractionMode,
-    keys: &KeyBindings,
+    context: super::ShortcutContext,
+    keys: &ShortcutRegistry,
 ) -> Option<ControlLabel> {
     let action = submission_action(disposition);
-    let projection = presentation::footer_projection(action, false, mode, keys)?;
+    let projection = presentation::footer_projection(action, false, context, keys)?;
     Some(ControlLabel {
         key: projection.key,
         text: projection.text.to_owned(),
@@ -106,12 +106,12 @@ pub(crate) fn submission(
 
 pub(crate) fn submission_width(
     disposition: SubmissionDisposition,
-    mode: InteractionMode,
-    keys: &KeyBindings,
+    context: super::ShortcutContext,
+    keys: &ShortcutRegistry,
 ) -> Option<u16> {
     let action = submission_action(disposition);
-    let projection = presentation::footer_projection(action, false, mode, keys)?;
-    submission(disposition, mode, keys).map(|label| label.width().max(projection.minimum_width))
+    let projection = presentation::footer_projection(action, false, context, keys)?;
+    submission(disposition, context, keys).map(|label| label.width().max(projection.minimum_width))
 }
 
 const fn submission_action(disposition: SubmissionDisposition) -> ShortcutAction {
@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn board_copy_cut_and_undo_labels_share_full_and_compact_measurement() {
-        let keys = KeyBindings::default();
+        let keys = ShortcutRegistry::default();
         let primary = if cfg!(target_os = "macos") {
             "Cmd+"
         } else {
@@ -154,16 +154,17 @@ mod tests {
             (HitTarget::Cut, "X", "x", " Cut"),
             (HitTarget::Undo, "Z", "u", " Undo"),
         ] {
-            let full = action(target, false, InteractionMode::Board, &keys).expect("full label");
+            let full = action(target, false, super::super::ShortcutContext::Board, &keys)
+                .expect("full label");
             assert_eq!(full.key, format!("{primary}{suffix}/{fallback}"));
             assert_eq!(full.text, text);
             assert_eq!(
-                action_width(target, false, InteractionMode::Board, &keys),
+                action_width(target, false, super::super::ShortcutContext::Board, &keys),
                 Some(full.width())
             );
 
-            let compact =
-                action(target, true, InteractionMode::Board, &keys).expect("compact label");
+            let compact = action(target, true, super::super::ShortcutContext::Board, &keys)
+                .expect("compact label");
             assert_eq!(compact.key, fallback);
             assert_eq!(compact.text, text);
             assert!(compact.width() <= full.width());

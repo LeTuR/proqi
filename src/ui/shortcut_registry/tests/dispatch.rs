@@ -50,6 +50,7 @@ fn every_default_board_override_resolves_to_its_typed_action() {
         (keys.transform, Action::ContextualTransform),
         (keys.paste, Action::PasteExact),
         (keys.paste.to_ascii_uppercase(), Action::PasteReflow),
+        ('D', Action::Duplicate),
     ] {
         assert_eq!(
             dispatched(
@@ -285,22 +286,32 @@ fn browser_management_aliases_exist_only_for_an_empty_query() {
         dispatched(
             &registry,
             Context::Browser,
-            LogicalKey::Character('R'),
-            LogicalModifiers::SHIFT
+            LogicalKey::Function(2),
+            LogicalModifiers::NONE
         )
         .action,
         Some(Action::RenameSession)
     );
-    assert_eq!(
-        dispatched(
-            &registry,
-            Context::BrowserQuery,
-            LogicalKey::Character('R'),
-            LogicalModifiers::SHIFT
-        )
-        .action,
-        None
+    assert!(
+        registry
+            .dispatch(
+                &ShortcutContextStack::new([Context::BrowserQuery]),
+                stroke(LogicalKey::Function(2), LogicalModifiers::NONE)
+            )
+            .is_none()
     );
+    for context in [Context::Browser, Context::BrowserQuery] {
+        for character in ['R', 'D'] {
+            let resolved = dispatched(
+                &registry,
+                context,
+                LogicalKey::Character(character),
+                LogicalModifiers::SHIFT,
+            );
+            assert_eq!(resolved.action, None);
+            assert_eq!(resolved.intention, UiKey::Character(character));
+        }
+    }
 }
 
 #[test]
@@ -456,13 +467,15 @@ fn every_discovered_top_owner_precedes_the_underlying_board() {
         (Context::Direction, Some(Action::ChooseDown)),
         (Context::ReleaseHighlights, Some(Action::FocusNext)),
     ] {
-        let result = registry
-            .dispatch(
-                &ShortcutContextStack::new([Context::Board, context]),
-                stroke(LogicalKey::Character('j'), LogicalModifiers::NONE),
-            )
-            .expect("printable input remains classified");
-        assert_eq!(result.action, expected, "top owner {context:?}");
+        let result = registry.dispatch(
+            &ShortcutContextStack::new([Context::Board, context]),
+            stroke(LogicalKey::Character('j'), LogicalModifiers::NONE),
+        );
+        assert_eq!(
+            result.and_then(|resolved| resolved.action),
+            expected,
+            "top owner {context:?}"
+        );
     }
     assert_eq!(
         dispatched(

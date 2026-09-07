@@ -11,6 +11,66 @@ use super::stroke;
 const SHORTCUTS_DOCUMENT: &str = include_str!("../../../../context/SHORTCUTS.md");
 
 #[test]
+fn duplicate_presentation_includes_the_terminal_safe_board_alias() {
+    for (platform, primary) in [
+        (ShortcutPlatform::MacOs, "Cmd+D"),
+        (ShortcutPlatform::Portable, "Ctrl+D"),
+    ] {
+        let registry =
+            ShortcutRegistry::resolve(&KeyBindings::default(), platform).expect("valid registry");
+        let labels = registry.labels(Context::Board, Action::Duplicate);
+        assert!(
+            labels.contains(&primary.to_owned()),
+            "{platform:?}: {labels:?}"
+        );
+        assert!(
+            labels.contains(&"Shift+D".to_owned()),
+            "{platform:?}: {labels:?}"
+        );
+        assert_eq!(
+            registry.action_label(Context::Board, Action::Duplicate, true),
+            primary
+        );
+    }
+}
+
+#[test]
+fn macos_reorder_presentation_includes_the_terminal_safe_option_aliases() {
+    let registry = ShortcutRegistry::resolve(&KeyBindings::default(), ShortcutPlatform::MacOs)
+        .expect("valid registry");
+    for (action, expected, hidden) in [
+        (Action::MoveUp, "Option+Shift+↑", "Option+Shift+K"),
+        (Action::MoveDown, "Option+Shift+↓", "Option+Shift+J"),
+    ] {
+        let labels = registry.labels(Context::Board, action);
+        assert!(
+            labels.contains(&expected.to_owned()),
+            "{action:?}: {labels:?}"
+        );
+        assert!(
+            !labels.contains(&hidden.to_owned()),
+            "{action:?}: {labels:?}"
+        );
+    }
+    assert_eq!(
+        registry.compact_help_label(Context::Board, &[Action::MoveDown, Action::MoveUp]),
+        "Option+Shift+↓/↑"
+    );
+}
+
+#[test]
+fn compact_help_chooses_one_shortest_alias_per_action() {
+    let registry = ShortcutRegistry::from_toml(
+        "schema_version=1\n[bindings.board]\n\"thought.delete\"=[{key='F5'},{key='F6'},{key='F7'}]",
+    )
+    .expect("valid multi-alias registry");
+    assert_eq!(
+        registry.compact_help_label(Context::Board, &[Action::Delete]),
+        "F5"
+    );
+}
+
+#[test]
 fn every_commands_entry_has_one_matching_registry_descriptor() {
     let registry = ShortcutRegistry::resolve(&KeyBindings::default(), ShortcutPlatform::Portable)
         .expect("valid registry");

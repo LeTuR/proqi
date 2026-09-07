@@ -469,17 +469,19 @@ fn fast_navigation_fallbacks_are_visible_in_the_command_palette() {
 #[test]
 #[cfg(target_os = "macos")]
 fn fast_navigation_shortcuts_are_visible_in_edit_help() {
-    let mut fixture = Fixture::new();
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_toml(
+            "schema_version=1\n[bindings.edit]\n\"help.open\"=[{key='F5'}]",
+        )
+        .unwrap(),
+        ..UiSettings::default()
+    };
+    let mut fixture = Fixture::with_settings(settings);
     let sequence = fixture.paste("one\ntwo\nthree\nfour\nfive\nsix");
-    let _effects = fixture.app.acknowledge_persistence(sequence, false);
-    let help = fixture
-        .app
-        .prepare_frame(Rect::new(0, 0, 120, 14))
-        .controls
-        .into_iter()
-        .find_map(|(target, area)| (target == HitTarget::Help).then_some(area))
-        .expect("help control");
-    fixture.pointer(help.x, help.y, PointerKind::Down(PointerButton::Left));
+    fixture.app.acknowledge_persistence(sequence, true);
+    fixture.input(UiInput::KeyStroke(KeyStroke::press(LogicalKey::Function(
+        5,
+    ))));
     insta::assert_snapshot!(snapshot(&mut fixture, 120, 14, ThemePreference::Dark));
 }
 

@@ -120,8 +120,9 @@ These rules become mandatory with the first real TUI implementation:
 - Non-text list and direction owners ignore irrelevant modifiers equally for
   arrow and Vim-style spellings. Text-entry owners retain printable letters as
   content and own their local cursor and deletion behavior.
-- Only unmodified physical Delete is the invariant Board delete alias. Modified
-  Delete is never a Board thought command. Backspace remains distinct.
+- Unmodified physical Delete is the default Board delete alias and versioned
+  configuration may replace it. Modified Delete is never a Board thought
+  command. Backspace remains distinct.
 - A modal owner resolves its navigation before a configured Board shortcut.
   Therefore modal `j` and `k` navigation wins over a colliding Help binding,
   and Escape remains the unconditional Help close action.

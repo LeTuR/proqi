@@ -22,6 +22,33 @@ const fn help(
 
 const HELP: &[(Action, HelpMetadata)] = &[
     (
+        Action::RetryStorage,
+        help(
+            HelpSurface::Recovery,
+            0,
+            "Retry failed save",
+            HelpAvailability::Always,
+        ),
+    ),
+    (
+        Action::ExportRecovery,
+        help(
+            HelpSurface::Recovery,
+            1,
+            "Export recovery",
+            HelpAvailability::Always,
+        ),
+    ),
+    (
+        Action::Quit,
+        help(
+            HelpSurface::Recovery,
+            2,
+            "Quit after recovery",
+            HelpAvailability::Always,
+        ),
+    ),
+    (
         Action::New,
         help(HelpSurface::Board, 0, "New", HelpAvailability::Always),
     ),
@@ -39,38 +66,51 @@ const HELP: &[(Action, HelpMetadata)] = &[
         ),
     ),
     (
+        Action::FastNext,
+        help(HelpSurface::Board, 3, "Move 5", HelpAvailability::Always),
+    ),
+    (
         Action::ExtendNext,
-        help(HelpSurface::Board, 3, "Range", HelpAvailability::Always),
+        help(HelpSurface::Board, 4, "Range", HelpAvailability::Always),
+    ),
+    (
+        Action::FastExtendNext,
+        help(HelpSurface::Board, 5, "Range 5", HelpAvailability::Always),
     ),
     (
         Action::MoveDown,
-        help(HelpSurface::Board, 4, "Reorder", HelpAvailability::Always),
+        help(HelpSurface::Board, 6, "Reorder", HelpAvailability::Always),
     ),
     (
         Action::Copy,
-        help(HelpSurface::Board, 5, "Copy", HelpAvailability::Always),
+        help(HelpSurface::Board, 7, "Copy", HelpAvailability::Always),
     ),
     (
         Action::Cut,
-        help(HelpSurface::Board, 6, "Cut", HelpAvailability::Always),
+        help(HelpSurface::Board, 8, "Cut", HelpAvailability::Always),
     ),
     (
         Action::Delete,
-        help(HelpSurface::Board, 7, "Delete", HelpAvailability::Always),
+        help(HelpSurface::Board, 9, "Delete", HelpAvailability::Always),
     ),
     (
         Action::Duplicate,
-        help(HelpSurface::Board, 8, "Duplicate", HelpAvailability::Always),
+        help(
+            HelpSurface::Board,
+            10,
+            "Duplicate",
+            HelpAvailability::Always,
+        ),
     ),
     (
         Action::Select,
-        help(HelpSurface::Board, 9, "Select", HelpAvailability::Always),
+        help(HelpSurface::Board, 11, "Select", HelpAvailability::Always),
     ),
     (
         Action::ContextualTransform,
         help(
             HelpSurface::Board,
-            10,
+            12,
             "Transform",
             HelpAvailability::EffectiveTransform,
         ),
@@ -79,24 +119,24 @@ const HELP: &[(Action, HelpMetadata)] = &[
         Action::SelectAll,
         help(
             HelpSurface::Board,
-            11,
+            13,
             "Select all",
             HelpAvailability::Always,
         ),
     ),
     (
         Action::RangeSelect,
-        help(HelpSurface::Board, 12, "Latch", HelpAvailability::Always),
+        help(HelpSurface::Board, 14, "Latch", HelpAvailability::Always),
     ),
     (
         Action::Undo,
-        help(HelpSurface::Board, 13, "Undo", HelpAvailability::Always),
+        help(HelpSurface::Board, 15, "Undo", HelpAvailability::Always),
     ),
     (
         Action::PasteExact,
         help(
             HelpSurface::Board,
-            14,
+            16,
             "Paste exactly",
             HelpAvailability::Always,
         ),
@@ -105,36 +145,36 @@ const HELP: &[(Action, HelpMetadata)] = &[
         Action::PasteReflow,
         help(
             HelpSurface::Board,
-            15,
+            17,
             "Paste reflow",
             HelpAvailability::Always,
         ),
     ),
     (
         Action::Redo,
-        help(HelpSurface::Board, 16, "Redo", HelpAvailability::Always),
+        help(HelpSurface::Board, 18, "Redo", HelpAvailability::Always),
     ),
     (
         Action::Collapse,
-        help(HelpSurface::Board, 17, "Collapse", HelpAvailability::Always),
+        help(HelpSurface::Board, 19, "Collapse", HelpAvailability::Always),
     ),
     (
         Action::OpenSearch,
-        help(HelpSurface::Board, 18, "Search", HelpAvailability::Always),
+        help(HelpSurface::Board, 20, "Search", HelpAvailability::Always),
     ),
     (
         Action::OpenCommands,
-        help(HelpSurface::Board, 19, "Commands", HelpAvailability::Always),
+        help(HelpSurface::Board, 21, "Commands", HelpAvailability::Always),
     ),
     (
         Action::ScreenshotInbox,
-        help(HelpSurface::Board, 20, "Inbox", HelpAvailability::Always),
+        help(HelpSurface::Board, 22, "Inbox", HelpAvailability::Always),
     ),
     (
         Action::SubmitRemove,
         help(
             HelpSurface::Board,
-            21,
+            23,
             "Submit",
             HelpAvailability::Submission,
         ),
@@ -143,18 +183,18 @@ const HELP: &[(Action, HelpMetadata)] = &[
         Action::SubmitKeep,
         help(
             HelpSurface::Board,
-            22,
+            24,
             "Submit & keep",
             HelpAvailability::Submission,
         ),
     ),
     (
         Action::Quit,
-        help(HelpSurface::Board, 23, "Quit", HelpAvailability::Always),
+        help(HelpSurface::Board, 25, "Quit", HelpAvailability::Always),
     ),
     (
         Action::Close,
-        help(HelpSurface::Board, 24, "Close", HelpAvailability::Always),
+        help(HelpSurface::Board, 26, "Close", HelpAvailability::Always),
     ),
     (
         Action::Close,
@@ -253,7 +293,7 @@ const HELP: &[(Action, HelpMetadata)] = &[
         help(
             HelpSurface::Editor,
             13,
-            "5-row · PgUp/PgDn",
+            "Move 5 rows",
             HelpAvailability::Always,
         ),
     ),
@@ -296,6 +336,7 @@ pub(super) fn help_contexts(metadata: &[HelpMetadata]) -> impl Iterator<Item = C
     metadata
         .iter()
         .flat_map(|item| match item.surface {
+            HelpSurface::Recovery => [Some(Context::Recovery), None],
             HelpSurface::Board => [Some(Context::Board), None],
             HelpSurface::Editor => [Some(Context::Compose), Some(Context::Edit)],
         })

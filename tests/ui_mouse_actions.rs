@@ -144,8 +144,15 @@ fn narrow_footer_keeps_the_mouse_operable_command_palette() {
 
 #[test]
 fn remapped_wide_key_label_and_mouse_target_share_the_same_width() {
-    let mut settings = UiSettings::default();
-    settings.keybindings.new = ' ';
+    let settings = UiSettings {
+        shortcuts: proqi::ui::ShortcutRegistry::from_legacy(&proqi::ui::KeyBindings {
+            new: ' ',
+            select: 'b',
+            ..proqi::ui::KeyBindings::default()
+        })
+        .expect("valid translated keymap"),
+        ..UiSettings::default()
+    };
     let mut fixture = Fixture::with_settings(settings);
     let layout = fixture.app.prepare_frame(Rect::new(0, 0, 80, 8));
     let area = layout

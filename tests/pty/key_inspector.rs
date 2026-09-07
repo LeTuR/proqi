@@ -129,6 +129,18 @@ fn named_keys_and_navigation_keep_exact_kitty_or_legacy_identity() {
         ("\x1b[1;3A", "Up", vec!["Alt"], "navigation.fast_previous"),
         ("\x1b[5~", "PageUp", vec![], "navigation.fast_previous"),
         ("\x1b[6~", "PageDown", vec![], "navigation.fast_next"),
+        (
+            "\x1b[5;2~",
+            "PageUp",
+            vec!["Shift"],
+            "navigation.fast_extend_previous",
+        ),
+        (
+            "\x1b[6;2~",
+            "PageDown",
+            vec!["Shift"],
+            "navigation.fast_extend_next",
+        ),
         ("\x1b[1;9B", "Down", vec!["Super"], "editor.document_end"),
         (
             "\x1b[1;9D",

@@ -150,7 +150,7 @@ fn empty_board_and_help_have_reviewable_complete_buffers() {
     let terminal = draw(&mut fixture, 40, 8);
     let rendered = text(terminal.backend().buffer());
     assert!(rendered.contains("proqi shortcuts"));
-    assert!(rendered.contains("Copy"));
+    assert!(rendered.contains("Move 5"));
     for _ in 0..8 {
         fixture.input(crate::key_input(UiKey::Move {
             movement: CursorMovement::VisualDown,

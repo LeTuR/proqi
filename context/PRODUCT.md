@@ -324,7 +324,7 @@ Bracketed paste is treated as one semantic input event.
 - `Primary+V`, the remappable Board fallback `p`, bracketed paste, and
   `Paste exactly` preserve the complete payload byte for byte. Exact paste
   remains the default.
-- `Primary+Shift+V`, the paired Board fallback `P`, and `Paste and reflow`
+- `Primary+Shift+V`, the paired Board fallback `Shift+P`, and `Paste and reflow`
   explicitly clean terminal-copied prose. The action joins single newlines,
   collapses ASCII spaces and tabs, removes copied Markdown hard breaks, trims
   outer whitespace, and reduces whitespace-only blank runs to one paragraph
@@ -625,9 +625,10 @@ thought bindings extend or shrink the range, and clicking a thought extends to
 it. `Escape` clears the range and latch. Opening a modal releases the latch,
 and entering thought edit mode clears every board selection.
 
-`Primary+D` duplicates the focused thought or complete selection. Exact content,
-annotations, and presentation preferences are copied in board order directly
-below the source range. Duplicates receive fresh identities and timestamps,
+`Primary+D` or the terminal-safe Board alias `Shift+D` duplicates the focused thought
+or complete selection. Exact content, annotations, and presentation preferences
+are copied in board order directly below the source range. Duplicates receive
+fresh identities and timestamps,
 become the new selection, and are created as one persistent undo step. Entering
 edit mode or pressing `Escape` clears the complete board selection.
 
@@ -708,7 +709,7 @@ compatible coding agents in other tabs and workspaces on the current Herdr
 server. This global path has no dedicated shortcut, footer control, or
 always-visible action. After choosing a target, the user explicitly chooses
 `Submit`, which removes only after an accepted receipt, or `Submit and keep`.
-The existing adjacent `s`, `S`, Primary aliases, directional chooser, footer
+The existing adjacent `s`, `Shift+S`, Primary aliases, directional chooser, footer
 controls, and mouse behavior remain unchanged.
 
 Herdr is the first supported integration. It provides directional pane lookup,
@@ -844,17 +845,18 @@ bindings are:
 |---|---|---|
 | Create thought | `n` | Click `+` or the insertion area |
 | Paste as new thought when none is selected | `Primary+V`, `p`, or native paste | Choose `Paste exactly` in Commands |
-| Paste and reflow copied prose | `Primary+Shift+V` or `P` | Choose `Paste and reflow` in Commands |
+| Paste and reflow copied prose | `Primary+Shift+V` or `Shift+P` | Choose `Paste and reflow` in Commands |
 | Edit thought | `Enter` or `e` | Click at the desired text position |
 | Copy thought | `Primary+C` or `y` | Click copy control |
 | Cut thought | `Primary+X` or `x` | Click cut control |
 | Delete thought | `d` or `Del` (`Entf` on German keyboards) | Click delete control |
-| Duplicate thought or selection | `Primary+D` | Command palette |
+| Duplicate thought or selection | `Primary+D` or `Shift+D` | Command palette |
 | Select or deselect thought | `Space` | Click the thought, then use the selection control |
 | Select all thoughts | `a` or `Primary+A` | Command palette |
 | Select contiguous range | `Shift+↑` / `Shift+↓`, `K` / `J`, or `v` then arrows or `j` / `k` | Shift-click a thought, or use `v` then click it |
+| Move or extend by five thoughts | `Page Up` / `Page Down`; add `Shift` to extend | Scroll, then click or Shift-click the target thought |
 | Submit | `Primary+Enter` or `s`, when supported, then direction when needed | Click verified Submit control |
-| Submit and keep | `Primary+Shift+Enter` or `S`, when supported, then direction when needed | Click verified Submit & keep control |
+| Submit and keep | `Primary+Shift+Enter` or `Shift+S`, when supported, then direction when needed | Click verified Submit & keep control |
 | Undo board action | `Primary+Z` or `u` | Click undo control when visible |
 | Redo board action | `Primary+Shift+Z` or `Primary+Y` | Command palette |
 | Move thought | `Primary+Shift+↑` / `Primary+Shift+↓`, or `Primary+K` / `Primary+J` | Drag thought handle |
@@ -930,6 +932,16 @@ Terminal hosts can consume Cmd shortcuts before a TUI can receive them. Proqi
 therefore supports enhanced keyboard protocols where available, configurable
 bindings, and portable fallbacks. Core functionality never depends on a
 terminal forwarding Primary successfully.
+
+Ghostty's macOS defaults consume application chords such as Cmd+Q, Cmd+A,
+Cmd+D, Cmd+J, Cmd+K, submission chords, vertical navigation, clipboard, and
+history before the PTY. Its Cmd+Left and Cmd+Right defaults emit raw Ctrl+A and
+Ctrl+E. If a remapper also converts Home and End into those Command arrows, the
+physical sources have the same downstream identity. Proqi resolves only the
+logical event received and never assigns an origin to Ctrl+A, Ctrl+E, or an
+absent event. Distinct line-edge and wrapped-row behavior requires distinct
+upstream encodings. Users may also assign exact contextual Control aliases to
+one chosen meaning without redefining Primary.
 
 For Ghostty, `keybind = super+shift+v=csi:118;10u` explicitly emits the
 CSI-u representation of logical Super+Shift+v. The example is validated using

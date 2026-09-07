@@ -18,14 +18,13 @@ impl BoardApp {
             if owner.owns_modal_surface() {
                 return input;
             }
-            let movement = if matches!(
+            if !matches!(
                 self.interaction_mode(),
                 InteractionMode::Edit { .. } | InteractionMode::Compose
             ) {
-                direction.editor_movement()
-            } else {
-                direction.board_movement()
-            };
+                return input;
+            }
+            let movement = direction.editor_movement();
             return UiInput::Key(UiKey::Move {
                 movement,
                 extend_selection,

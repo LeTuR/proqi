@@ -35,10 +35,6 @@ fn unsupported_board_modifiers_keep_the_base_focus_intention() {
         crate::key_input(UiKey::PrimaryCharacter('k')),
         UiInput::KeyStroke(KeyStroke::press(LogicalKey::Up).with_modifiers(LogicalModifiers::ALT)),
         crate::key_input(UiKey::Move {
-            movement: CursorMovement::VisualJumpUp,
-            extend_selection: false,
-        }),
-        crate::key_input(UiKey::Move {
             movement: CursorMovement::DocumentStart,
             extend_selection: false,
         }),
@@ -52,10 +48,6 @@ fn shifted_and_primary_shifted_spellings_keep_range_and_reorder() {
     for key in [
         UiKey::Move {
             movement: CursorMovement::VisualUp,
-            extend_selection: true,
-        },
-        UiKey::Move {
-            movement: CursorMovement::VisualJumpUp,
             extend_selection: true,
         },
         UiKey::Character('K'),

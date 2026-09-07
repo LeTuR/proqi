@@ -50,6 +50,7 @@ fn every_default_board_override_resolves_to_its_typed_action() {
         (keys.transform, Action::ContextualTransform),
         (keys.paste, Action::PasteExact),
         (keys.paste.to_ascii_uppercase(), Action::PasteReflow),
+        ('D', Action::Duplicate),
     ] {
         assert_eq!(
             dispatched(

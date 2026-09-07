@@ -273,10 +273,11 @@ fn vertical_action(
     }
     if is_list_context(context) {
         if modifiers.contains(LogicalModifiers::ALT) && !primary {
-            return Some(if previous {
-                Action::FastPrevious
-            } else {
-                Action::FastNext
+            return Some(match (previous, shifted) {
+                (true, true) => Action::FastExtendPrevious,
+                (false, true) => Action::FastExtendNext,
+                (true, false) => Action::FastPrevious,
+                (false, false) => Action::FastNext,
             });
         }
         return Some(if previous {
@@ -287,10 +288,11 @@ fn vertical_action(
     }
     if is_editor_context(context) {
         if modifiers.contains(LogicalModifiers::ALT) && !primary {
-            return Some(if previous {
-                Action::FastPrevious
-            } else {
-                Action::FastNext
+            return Some(match (previous, shifted) {
+                (true, true) => Action::FastExtendPrevious,
+                (false, true) => Action::FastExtendNext,
+                (true, false) => Action::FastPrevious,
+                (false, false) => Action::FastNext,
             });
         }
         return Some(match (previous, primary, shifted) {
@@ -361,8 +363,16 @@ fn configured_action(
     let LogicalKey::Character(character) = key else {
         return None;
     };
+    let board_character = if modifiers.contains(LogicalModifiers::SHIFT)
+        && character.is_ascii_lowercase()
+        && board.contains_key(&character.to_ascii_uppercase())
+    {
+        character.to_ascii_uppercase()
+    } else {
+        character
+    };
     if matches!(context, Context::Board | Context::InsertionBoundary)
-        && let Some(base) = board.get(&character).copied()
+        && let Some(base) = board.get(&board_character).copied()
     {
         if matches!(
             base,

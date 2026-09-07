@@ -218,6 +218,35 @@ and protocol support can produce different results. Check the event delivered
 in the intended pane with the diagnostic. No Proqi operation edits Karabiner,
 Ghostty, Herdr, shell, OS or keyboard configuration.
 
+Ghostty's macOS defaults consume many logical Super bindings before the PTY.
+They may also rewrite Cmd+Left and Cmd+Right as raw Ctrl+A and Ctrl+E. When an
+upstream remapper rewrites Home and End to those same Command arrows, the two
+physical routes are indistinguishable to Herdr and Proqi. The registry never
+special-cases Ctrl+A or Ctrl+E based on assumed hardware or remapper origin.
+Preserving both meanings requires distinct upstream output. A user can instead
+configure an exact contextual Control alias when intentionally choosing one
+meaning.
+
+For example, this deliberately treats received Ctrl+A and Ctrl+E events as
+logical line boundaries in Edit while retaining the named Home and End aliases:
+
+```toml
+[keymap.macos.edit]
+"editor.line_start" = [
+  { key = "Home" },
+  { key = "a", modifiers = ["Control"] },
+]
+"editor.line_end" = [
+  { key = "End" },
+  { key = "e", modifiers = ["Control"] },
+]
+```
+
+That choice cannot distinguish two physical routes which an earlier layer has
+already collapsed to the same Ctrl event. Use the capture diagnostic before
+choosing the alias, and repeat the complete alias list for each additional text
+context that should share it.
+
 ## Design references and licenses
 
 The implementation was written independently. No source code or prose was
@@ -243,7 +272,13 @@ The empty insertion row independently retains Commands and Quit aliases, because
 Escape cannot expose another owner when no thought exists. Factory Primary+D
 in text-entry contexts was previously dropped by the editor. It is now unbound
 there, preserving its no-op behavior; an explicitly configured Duplicate alias
-executes the Commands action after the pending edit is committed.
+executes the Commands action after the pending edit is committed. Board mode
+also provides `Shift+D` as a terminal-safe factory alias for Duplicate. Both
+uppercase-without-Shift and lowercase-with-Shift terminal reports resolve to it.
+
+PageUp and PageDown keep distinct ordinary and Shift-extended action identities.
+On the Board they move or extend exactly five thoughts and clamp before the
+insertion boundary. Compose and Edit retain their five-visual-row behavior.
 
 A modified uppercase-only logical codepoint is displayed explicitly, for example
 `Ctrl+U+0044`, to distinguish it from the conventional `Ctrl+D` label for lowercase

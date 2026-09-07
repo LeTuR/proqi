@@ -31,14 +31,6 @@ impl FastNavigation {
         }
     }
 
-    /// One-row Board movement retained for Alt and shifted-Alt compatibility.
-    pub(crate) const fn board_movement(self) -> CursorMovement {
-        match self {
-            Self::Previous => CursorMovement::VisualUp,
-            Self::Next => CursorMovement::VisualDown,
-        }
-    }
-
     /// Move and clamp one selected eligible-entry index.
     pub(crate) fn move_index(self, selected: usize, count: usize) -> usize {
         selected

@@ -260,35 +260,117 @@ fn normalized_fast_intention_moves_and_selects_exactly_five_wrapped_rows() {
 }
 
 #[test]
-fn fast_navigation_retains_the_one_thought_board_modifier_ladder() {
+fn board_fast_navigation_moves_and_selects_exactly_five_thoughts() {
+    let mut fixture = Fixture::new();
+    for content in [
+        "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth",
+        "tenth", "eleventh", "twelfth",
+    ] {
+        navigation::durable_thought(&mut fixture, content);
+    }
+    fast(&mut fixture, FastNavigation::Previous, false);
+    assert_eq!(
+        fixture.app.state.focused_thought,
+        Some(fixture.app.state.board.live_thoughts()[6].id)
+    );
+
+    fast(&mut fixture, FastNavigation::Previous, true);
+    let selected = fixture
+        .app
+        .state
+        .board
+        .live_thoughts()
+        .iter()
+        .filter(|thought| fixture.app.thought_selected(thought.id))
+        .map(|thought| thought.content.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        selected,
+        ["second", "third", "fourth", "fifth", "sixth", "seventh"]
+    );
+    assert_eq!(
+        fixture.app.state.focused_thought,
+        Some(fixture.app.state.board.live_thoughts()[1].id)
+    );
+}
+
+#[test]
+fn board_fast_navigation_clamps_and_respects_the_insertion_boundary() {
     let mut fixture = Fixture::new();
     for content in [
         "first", "second", "third", "fourth", "fifth", "sixth", "seventh",
     ] {
         navigation::durable_thought(&mut fixture, content);
     }
-    let start = fixture.app.state.focused_thought;
-    fast(&mut fixture, FastNavigation::Previous, false);
-    assert_ne!(fixture.app.state.focused_thought, start);
-    assert_eq!(
-        fixture.app.state.focused_thought,
-        Some(fixture.app.state.board.live_thoughts()[5].id)
-    );
 
-    fast(&mut fixture, FastNavigation::Previous, true);
-    assert!(
-        fixture
-            .app
-            .thought_selected(fixture.app.state.board.live_thoughts()[4].id)
+    fast(&mut fixture, FastNavigation::Next, false);
+    assert!(!fixture.app.insertion_focused());
+    assert_eq!(
+        fixture.app.state.focused_thought,
+        Some(fixture.app.state.board.live_thoughts()[6].id)
     );
-    assert!(
-        fixture
-            .app
-            .thought_selected(fixture.app.state.board.live_thoughts()[5].id)
+    fixture.input(crate::key_input(UiKey::Move {
+        movement: CursorMovement::VisualDown,
+        extend_selection: false,
+    }));
+    assert!(fixture.app.insertion_focused());
+    fast(&mut fixture, FastNavigation::Previous, true);
+    assert!(fixture.app.insertion_focused());
+    assert!(super::movement_symmetry::selected(&fixture).is_empty());
+
+    fast(&mut fixture, FastNavigation::Previous, false);
+    assert_eq!(
+        fixture.app.state.focused_thought,
+        Some(fixture.app.state.board.live_thoughts()[2].id)
+    );
+    fast(&mut fixture, FastNavigation::Previous, false);
+    assert_eq!(
+        fixture.app.state.focused_thought,
+        Some(fixture.app.state.board.live_thoughts()[0].id)
+    );
+}
+
+#[test]
+fn shifted_page_up_reaches_board_as_a_five_thought_range() {
+    let mut fixture = Fixture::new();
+    for content in [
+        "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
+    ] {
+        navigation::durable_thought(&mut fixture, content);
+    }
+
+    fixture.input(UiInput::KeyStroke(
+        KeyStroke::press(LogicalKey::PageUp).with_modifiers(LogicalModifiers::SHIFT),
+    ));
+
+    assert_eq!(
+        super::movement_symmetry::selected(&fixture),
+        ["third", "fourth", "fifth", "sixth", "seventh", "eighth"]
     );
     assert_eq!(
         fixture.app.state.focused_thought,
-        Some(fixture.app.state.board.live_thoughts()[4].id)
+        Some(fixture.app.state.board.live_thoughts()[2].id)
+    );
+}
+
+#[test]
+fn shifted_page_down_reaches_editor_as_a_five_row_selection() {
+    let mut fixture = Fixture::new();
+    fixture.paste("one\ntwo\nthree\nfour\nfive\nsix\nseven");
+    move_cursor(&mut fixture, CursorMovement::DocumentStart);
+
+    fixture.input(UiInput::KeyStroke(
+        KeyStroke::press(LogicalKey::PageDown).with_modifiers(LogicalModifiers::SHIFT),
+    ));
+
+    let snapshot = fixture.app.editor_snapshot().expect("editor");
+    assert_eq!(snapshot.cursor, TextPosition::new(5, 0));
+    assert_eq!(
+        snapshot.selection,
+        Some(proqi::ports::editor::TextSelection {
+            start: TextPosition::new(0, 0),
+            end: TextPosition::new(5, 0),
+        })
     );
 }
 

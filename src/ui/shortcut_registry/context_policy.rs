@@ -13,11 +13,11 @@ pub(super) fn board_navigation_action(
 ) -> Option<Action> {
     let previous = matches!(
         movement,
-        CursorMovement::VisualUp | CursorMovement::VisualJumpUp | CursorMovement::DocumentStart
+        CursorMovement::VisualUp | CursorMovement::DocumentStart
     );
     let next = matches!(
         movement,
-        CursorMovement::VisualDown | CursorMovement::VisualJumpDown | CursorMovement::DocumentEnd
+        CursorMovement::VisualDown | CursorMovement::DocumentEnd
     );
     if !previous && !next {
         return None;
@@ -66,5 +66,6 @@ pub(super) fn effective_board_bindings(keys: &KeyBindings) -> BTreeMap<char, Act
     if let Some(reflow) = opposite_ascii_case(keys.paste) {
         bindings.entry(reflow).or_insert(Action::PasteReflow);
     }
+    bindings.entry('D').or_insert(Action::Duplicate);
     bindings
 }

@@ -100,6 +100,22 @@ reaches its input decoder. No-event timeout cannot identify the consuming layer.
   `keybind = super+shift+v=csi:118;10u`. It spells logical Super+Shift+v, not a
   universal keyboard-layout or host guarantee. Exact-byte PTY validation and
   live topic-binary validation remain required before calling guidance tested.
+* Ghostty 1.3.1 macOS defaults consume Cmd+Q, Cmd+A, Cmd+D, Cmd+J, Cmd+K,
+  submission chords, vertical navigation, clipboard, and history before the
+  PTY. The `performable:` prefix passes through only when Ghostty considers its
+  own action unavailable, so it cannot provide general TUI fallthrough for
+  actions such as quit, split, select all, or fullscreen.
+* Ghostty's Cmd+Left and Cmd+Right defaults emit raw Ctrl+A and Ctrl+E. If an
+  earlier remapper maps Home and End to those Command arrows, both physical
+  routes have one downstream identity. Proqi cannot recover the origin. It can
+  support an exact user-configured Control alias for one chosen interpretation,
+  while preserving distinct named-key or CSI-u events when upstream emits them.
+* [herdr-annotate at the reviewed MIT revision](https://github.com/plannotator/herdr-annotate/tree/53b6e3211a4103c3de9d361eb3f3bacc7426d23b)
+  has no Ghostty integration and cannot observe physical keys. Its plugin entry
+  uses configurable Herdr prefix actions. Its Bun editor inspects raw readline
+  sequences for terminal compatibility aliases, while its Rust editor does not
+  yet have that parity. The useful transferable rule is to resolve an explicit
+  received sequence contextually, never infer an absent or pre-remapping key.
 
 ## Chosen contract
 

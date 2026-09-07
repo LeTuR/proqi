@@ -10,6 +10,11 @@ presentation reference and diagnostic identity for both platform policies.
 The foundation parity fixture pins every default event and intention with
 explicit version 1 migration changes.
 
+The user-facing factory shortcut tables are in the
+[README](../README.md#board-controls). Runtime Help and footer labels are
+projected from the resolved registry, so configured aliases replace those
+factory labels without requiring another presentation table.
+
 | Action | Eligible contexts | Safety | Commands |
 | --- | --- | --- | --- |
 | `thought.new` | `board`, `compose`, `edit`, `commands`, `invocation`, `insertion_boundary` | Ordinary | yes |

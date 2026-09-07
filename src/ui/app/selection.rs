@@ -209,6 +209,13 @@ impl BoardApp {
         self.move_focus(delta);
     }
 
+    pub(super) fn move_focus_within_thoughts(&mut self, delta: isize) {
+        self.move_focus_outside_range(delta);
+        if self.insertion_focused() && !self.state.board.live_thoughts().is_empty() {
+            self.move_focus(-1);
+        }
+    }
+
     fn live_thought_ids(&self) -> Vec<ThoughtId> {
         self.state
             .board

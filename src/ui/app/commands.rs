@@ -18,6 +18,13 @@ impl BoardApp {
         ids: &mut impl IdGenerator,
         clock: &impl Clock,
     ) -> Vec<Effect> {
+        if let UiKey::FastNavigation {
+            direction,
+            extend_selection,
+        } = key
+        {
+            return self.handle_board_fast_navigation(direction, extend_selection);
+        }
         if self.insertion_focused() {
             return self.handle_insertion_key(key, ids, clock);
         }
@@ -29,6 +36,25 @@ impl BoardApp {
                 self.clear_board_selection();
             }
             _ => {}
+        }
+        Vec::new()
+    }
+
+    fn handle_board_fast_navigation(
+        &mut self,
+        direction: crate::ui::FastNavigation,
+        extend_selection: bool,
+    ) -> Vec<Effect> {
+        if self.insertion_focused() {
+            if !extend_selection && matches!(direction, crate::ui::FastNavigation::Previous) {
+                self.move_focus(direction.delta());
+            }
+            return Vec::new();
+        }
+        if extend_selection || self.range_latched() {
+            self.extend_range_by(direction.delta());
+        } else {
+            self.move_focus_within_thoughts(direction.delta());
         }
         Vec::new()
     }
@@ -402,7 +428,8 @@ impl BoardApp {
         if self.insertion_focus == super::InsertionFocus::Active {
             if delta < 0 {
                 self.insertion_focus = super::InsertionFocus::Inactive;
-                let _effects = self.reduce(Action::FocusThought(Some(live[live.len() - 1].id)));
+                let target = live.len().saturating_add_signed(delta).min(live.len() - 1);
+                let _effects = self.reduce(Action::FocusThought(Some(live[target].id)));
             }
             return;
         }

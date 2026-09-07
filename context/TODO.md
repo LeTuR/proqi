@@ -220,10 +220,10 @@ engineering context.
 
 ### Share five-step paging across editors and overlays: P1, S (2 to 4 days)
 
-Current contract: `Alt+Up` and `Alt+Down` already move the editor cursor by
-exactly five wrapped visual rows while preserving its preferred terminal-cell
-column. `Page Up` and `Page Down` are currently unused. The shared interaction
-should offer both spellings without changing ordinary Up/Down behavior.
+Current contract: `Alt+Up`, `Alt+Down`, `Page Up`, and `Page Down` move the
+editor cursor by exactly five wrapped visual rows while preserving its preferred
+terminal-cell column. The shared interaction offers both spellings without
+changing ordinary Up/Down behavior.
 
 User story: while editing a long thought or navigating a large picker, I can use
 the same fast-navigation shortcut to advance through content in predictable
@@ -257,8 +257,8 @@ five-step increments instead of repeatedly pressing Up or Down.
   resize event.
 - [x] Preserve board-mode contracts. Plain and shifted vertical input continue
   to focus and select thoughts, while Primary plus Shift continues to reorder.
-  Do not make the new Page keys or Alt paging an accidental second board reorder
-  or five-thought selection command without a separate product decision.
+  Page keys now implement the separate product decision to move five thoughts,
+  with Shift extending by five. They never become a second Board reorder route.
 - [x] Derive README controls, contextual help, shortcut overlays, remapping
   labels, and command discovery from the same semantic definition. Document the
   existing Alt spelling and the new Page-key alias together.

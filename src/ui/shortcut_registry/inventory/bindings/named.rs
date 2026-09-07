@@ -137,8 +137,16 @@ fn navigation_named_action(
 ) -> Option<Action> {
     let shifted = modifiers.contains(LogicalModifiers::SHIFT);
     match key {
-        LogicalKey::PageUp => Some(Action::FastPrevious),
-        LogicalKey::PageDown => Some(Action::FastNext),
+        LogicalKey::PageUp => Some(if shifted {
+            Action::FastExtendPrevious
+        } else {
+            Action::FastPrevious
+        }),
+        LogicalKey::PageDown => Some(if shifted {
+            Action::FastExtendNext
+        } else {
+            Action::FastNext
+        }),
         LogicalKey::Home if is_editor_context(context) || is_query_cursor_context(context) => {
             Some(if shifted {
                 Action::ExtendLineStart

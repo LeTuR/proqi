@@ -44,6 +44,70 @@ fn page_keys_keep_their_global_fast_navigation_identity() {
                 "context {context:?}, key {key:?}",
             );
         }
+        for (key, expected) in [
+            (LogicalKey::PageUp, Action::FastExtendPrevious),
+            (LogicalKey::PageDown, Action::FastExtendNext),
+        ] {
+            assert_eq!(
+                dispatched(&registry, *context, key, LogicalModifiers::SHIFT).action,
+                Some(expected),
+                "shifted context {context:?}, key {key:?}",
+            );
+        }
+    }
+}
+
+#[test]
+fn shifted_lowercase_board_reports_use_the_configured_uppercase_alias() {
+    for platform in [ShortcutPlatform::MacOs, ShortcutPlatform::Portable] {
+        let registry =
+            ShortcutRegistry::resolve(&KeyBindings::default(), platform).expect("valid registry");
+        for context in [Context::Board, Context::InsertionBoundary] {
+            for (character, expected) in [
+                ('d', Action::Duplicate),
+                ('p', Action::PasteReflow),
+                ('s', Action::SubmitKeep),
+            ] {
+                assert_eq!(
+                    dispatched(
+                        &registry,
+                        context,
+                        LogicalKey::Character(character),
+                        LogicalModifiers::SHIFT,
+                    )
+                    .action,
+                    Some(expected),
+                    "{platform:?}, {context:?}, {character:?}",
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn terminal_safe_duplicate_does_not_override_a_legacy_paste_pair() {
+    let keys = KeyBindings {
+        delete: 'g',
+        paste: 'd',
+        ..KeyBindings::default()
+    };
+    let registry =
+        ShortcutRegistry::resolve(&keys, ShortcutPlatform::Portable).expect("valid registry");
+    for (character, modifiers, expected) in [
+        ('d', LogicalModifiers::NONE, Action::PasteExact),
+        ('D', LogicalModifiers::NONE, Action::PasteReflow),
+        ('d', LogicalModifiers::SHIFT, Action::PasteReflow),
+    ] {
+        assert_eq!(
+            dispatched(
+                &registry,
+                Context::Board,
+                LogicalKey::Character(character),
+                modifiers,
+            )
+            .action,
+            Some(expected),
+        );
     }
 }
 

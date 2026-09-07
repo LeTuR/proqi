@@ -410,6 +410,34 @@ fn duplicate_copies_selection_below_its_range_as_one_undoable_operation() {
 }
 
 #[test]
+fn uppercase_d_is_a_terminal_safe_default_duplicate_alias() {
+    let mut fixture = Fixture::new();
+    fixture.paste("original");
+    fixture.input(crate::key_input(UiKey::Escape));
+
+    let effects = fixture.effects(UiInput::KeyStroke(KeyStroke::press(LogicalKey::Character(
+        'D',
+    ))));
+
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::CommitBoardOperation(operation)]
+            if operation.kind == proqi::domain::BoardOperationKind::Duplicate
+    ));
+    assert_eq!(
+        fixture
+            .app
+            .state
+            .board
+            .live_thoughts()
+            .iter()
+            .map(|thought| thought.content.as_str())
+            .collect::<Vec<_>>(),
+        ["original", "original"]
+    );
+}
+
+#[test]
 fn duplicate_preserves_existing_shortcut_metadata_without_reauthoring_it() {
     let annotation: ContentAnnotation = serde_json::from_value(serde_json::json!({
         "start": 6,

@@ -11,6 +11,30 @@ use super::stroke;
 const SHORTCUTS_DOCUMENT: &str = include_str!("../../../../context/SHORTCUTS.md");
 
 #[test]
+fn duplicate_presentation_includes_the_terminal_safe_board_alias() {
+    for (platform, primary) in [
+        (ShortcutPlatform::MacOs, "Cmd+D"),
+        (ShortcutPlatform::Portable, "Ctrl+D"),
+    ] {
+        let registry =
+            ShortcutRegistry::resolve(&KeyBindings::default(), platform).expect("valid registry");
+        let labels = registry.labels(Context::Board, Action::Duplicate);
+        assert!(
+            labels.contains(&primary.to_owned()),
+            "{platform:?}: {labels:?}"
+        );
+        assert!(
+            labels.contains(&"Shift+D".to_owned()),
+            "{platform:?}: {labels:?}"
+        );
+        assert_eq!(
+            registry.action_label(Context::Board, Action::Duplicate, true),
+            primary
+        );
+    }
+}
+
+#[test]
 fn every_commands_entry_has_one_matching_registry_descriptor() {
     let registry = ShortcutRegistry::resolve(&KeyBindings::default(), ShortcutPlatform::Portable)
         .expect("valid registry");

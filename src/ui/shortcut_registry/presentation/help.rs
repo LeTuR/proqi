@@ -32,6 +32,9 @@ fn related_actions(action: Action) -> Vec<Action> {
         Action::ExtendNext => vec![Action::ExtendNext, Action::ExtendPrevious],
         Action::MoveDown => vec![Action::MoveDown, Action::MoveUp],
         Action::FastNext => vec![Action::FastPrevious, Action::FastNext],
+        Action::FastExtendNext => {
+            vec![Action::FastExtendPrevious, Action::FastExtendNext]
+        }
         Action::MoveDocumentStart => vec![Action::MoveDocumentStart, Action::MoveDocumentEnd],
         Action::ExtendVisualRowStart => {
             vec![Action::ExtendVisualRowStart, Action::ExtendVisualRowEnd]

@@ -117,9 +117,8 @@ pub(super) fn adjacent_target(
             height: 20,
         },
     };
-    let address = proqi::ports::agent::HerdrAgentAddress::new(
-        source.workspace_id.clone(),
-        source.tab_id.clone(),
+    let address = proqi::ports::agent::AgentAddress::new(
+        vec![source.workspace_id.clone(), source.tab_id.clone()],
         pane_id.to_owned(),
         HarnessKind::new(CODEX_AGENT_KIND).expect("fixture harness"),
         AgentSessionBinding::established(format!("session-{pane_id}")).expect("fixture session"),

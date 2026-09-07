@@ -61,7 +61,7 @@ pub(super) fn capabilities<R: ProcessRunner>(
         version: live.result.snapshot.version,
         protocol: protocol.value(),
         delivery: AgentDeliveryCapabilities::SUBMIT_ONLY,
-        context,
+        context: Some(context),
     })
 }
 
@@ -70,7 +70,7 @@ pub(super) fn adjacent_targets<R: ProcessRunner>(
     expected: &PaneContext,
 ) -> Result<Vec<AgentTarget>, AgentError> {
     let current = capabilities(gateway)?;
-    if &current.context != expected {
+    if current.context.as_ref() != Some(expected) {
         return Err(AgentError::Unsupported(
             "current Herdr pane changed since discovery".to_owned(),
         ));
@@ -208,11 +208,7 @@ fn live_reference(
     let workspace_label =
         correlated_workspace_label(workspaces, &pane.workspace_id, workspaces_truncated)?;
     let tab_label = correlated_tab_label(tabs, &pane.workspace_id, &pane.tab_id, tabs_truncated)?;
-    let agent_name = pane
-        .name
-        .as_deref()
-        .map(sanitize_agent_name)
-        .filter(|name| !name.is_empty());
+    let agent_name = pane.name.as_deref().and_then(sanitize_agent_name);
     Ok(LiveAgentReference::new(
         InvocationReferenceProvider::Herdr,
         agent_name,
@@ -331,9 +327,8 @@ fn eligible_target(
         .name
         .clone()
         .unwrap_or_else(|| format!("{kind} {}", agent.pane_id));
-    let address = crate::ports::agent::HerdrAgentAddress::new(
-        agent.workspace_id.clone(),
-        agent.tab_id.clone(),
+    let address = crate::ports::agent::AgentAddress::new(
+        vec![agent.workspace_id.clone(), agent.tab_id.clone()],
         agent.pane_id.clone(),
         kind,
         agent_session,

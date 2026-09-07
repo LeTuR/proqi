@@ -150,6 +150,8 @@ mod editor;
 mod migration_12;
 #[path = "sqlite_store/migration_13.rs"]
 mod migration_13;
+#[path = "sqlite_store/migration_14.rs"]
+mod migration_14;
 #[path = "sqlite_store/onboarding.rs"]
 mod onboarding;
 #[path = "sqlite_store/onboarding_migration.rs"]

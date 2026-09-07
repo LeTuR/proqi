@@ -61,7 +61,7 @@ impl GlobalDeliveryState {
         let (title, choices) = match &self.stage {
             GlobalDeliveryStage::Targets { loading: true, .. } => (
                 " submit to agent ",
-                vec![placeholder("Discovering current-server agents...")],
+                vec![placeholder("Discovering agents...")],
             ),
             GlobalDeliveryStage::Targets {
                 failure: Some(code),
@@ -127,52 +127,59 @@ impl GlobalDeliveryState {
 }
 
 fn searchable_target(target: &AgentTarget) -> String {
-    format!(
-        "{} {} {} {} {} {} {} {}",
-        target.agent_name,
-        target.workspace_label.as_deref().unwrap_or_default(),
-        target.tab_label.as_deref().unwrap_or_default(),
-        target.workspace_id(),
-        target.tab_id(),
-        target.pane_id(),
-        target.agent_kind().as_str(),
-        target.readiness.as_str(),
-    )
-    .to_lowercase()
+    let mut searchable = target.agent_name.clone();
+    for term in target
+        .location
+        .iter()
+        .map(String::as_str)
+        .chain(target.scope().iter().map(String::as_str))
+        .chain([
+            target.delivery_id(),
+            target.agent_kind().as_str(),
+            target.readiness.as_str(),
+        ])
+    {
+        searchable.push(' ');
+        searchable.push_str(term);
+    }
+    searchable.to_lowercase()
 }
 
 fn target_view(target: &AgentTarget) -> GlobalDeliveryChoiceView {
-    let workspace = target
-        .workspace_label
-        .as_deref()
-        .unwrap_or_else(|| target.workspace_id());
-    let tab = target
-        .tab_label
-        .as_deref()
-        .unwrap_or_else(|| target.tab_id());
-    let pane = compact_child(target.workspace_id(), target.pane_id());
     let state = target_live_state(target);
-    let location_and_pane = format!("{workspace} / {tab} · {pane}");
-    let location_without_harness = format!("{location_and_pane} · {state}");
-    let workspace_and_pane = format!("{workspace} · {pane} · {state}");
-    let pane_and_state = format!("{pane} · {state}");
+    let (identity, containers) = match target.location.split_last() {
+        Some((identity, containers)) => (identity.as_str(), containers),
+        None => ("", &[][..]),
+    };
+    let outermost = containers.first().map_or("", String::as_str);
+    let located_identity = join_present(&containers.join(" / "), identity);
+    let identity_and_state = join_present(identity, state);
+    let mut secondary_fallbacks = vec![
+        join_present(&located_identity, state),
+        join_present(outermost, &identity_and_state),
+    ];
+    secondary_fallbacks.dedup();
     GlobalDeliveryChoiceView {
         primary: target.agent_name.clone(),
-        secondary: format!(
-            "{location_and_pane} · {} · {state}",
-            target.agent_kind().as_str(),
+        secondary: join_present(
+            &located_identity,
+            &join_present(target.agent_kind().as_str(), state),
         ),
-        secondary_fallbacks: vec![location_without_harness, workspace_and_pane],
-        protected_secondaries: vec![pane_and_state, state.to_owned()],
+        secondary_fallbacks,
+        protected_secondaries: vec![identity_and_state, state.to_owned()],
         enabled: target.can_submit(),
     }
 }
 
-fn compact_child<'a>(workspace: &str, identity: &'a str) -> &'a str {
-    identity
-        .strip_prefix(workspace)
-        .and_then(|suffix| suffix.strip_prefix(':'))
-        .unwrap_or(identity)
+/// Join two row fragments with the row separator, skipping an absent fragment.
+fn join_present(prefix: &str, suffix: &str) -> String {
+    if prefix.is_empty() {
+        return suffix.to_owned();
+    }
+    if suffix.is_empty() {
+        return prefix.to_owned();
+    }
+    format!("{prefix} · {suffix}")
 }
 
 const fn target_live_state(target: &AgentTarget) -> &'static str {

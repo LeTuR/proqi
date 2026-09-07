@@ -17,6 +17,8 @@ mod doctor;
 mod herdr_fixture;
 #[path = "cli_workflow/session_contract.rs"]
 mod session_contract;
+#[path = "support/thurbox.rs"]
+mod thurbox_fixture;
 
 fn run(root: &Path, arguments: &[&str], input: Option<&str>) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_proqi"));
@@ -26,6 +28,7 @@ fn run(root: &Path, arguments: &[&str], input: Option<&str>) -> Output {
         .arg("--json")
         .args(arguments)
         .env_remove("HERDR_ENV")
+        .env("PROQI_DISABLE_THURBOX", "1")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     if input.is_some() {

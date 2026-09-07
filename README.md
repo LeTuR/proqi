@@ -32,6 +32,7 @@
 [Controls](#board-controls) ·
 [Screenshots](#screenshot-inbox-on-macos) ·
 [Herdr](#native-submission-with-herdr) ·
+[thurbox](#submission-to-thurbox-sessions) ·
 [CLI](#json-cli-and-agent-skill) ·
 [Privacy](#privacy-durability-and-recovery) ·
 [Configuration](#configuration)
@@ -328,6 +329,27 @@ optional.
 Protocol 19 supports Claude Code, Codex, Pi, and Hermes.
 [OpenCode](context/harnesses/opencode.md) and [Kilo](context/harnesses/kilo.md)
 are conditional; Cline is deferred.
+
+## Submission to thurbox sessions
+
+[thurbox](https://github.com/Thurbeen/thurbox) is a second optional integration
+beside Herdr, not a replacement for it. Both can be installed, and the palette's
+`Submit to agent...` lists every agent either one verifies in one searchable
+chooser.
+
+thurbox has sessions rather than panes, so it offers the global path only: no
+adjacent controls, no direction chooser, and no `Live in thurbox` group in the
+invocation picker. A row is identified by its session name and working
+directory, and Proqi delivers with thurbox's own `session send`, which types the
+exact text into that session. A session that thurbox did not launch is still
+offered when it can see a registered agent holding the pane, with a truthful
+`unknown` state rather than a guessed one. A plain shell is never listed.
+
+thurbox `2.19.0` or newer is required, because it is the first release that
+reports `running`, `uncovered`, and `unreported` as distinct from `idle` and
+names the agent it detects. `proqi doctor` reports what it found.
+`PROQI_DISABLE_THURBOX=1` turns the integration off, the way
+`PROQI_DISABLE_HERDR=1` turns Herdr's off.
 
 ## JSON CLI and agent skill
 

@@ -49,6 +49,13 @@ impl ShortcutRegistry {
             })
             .map(|claim| claim.binding)
             .collect::<std::collections::BTreeSet<_>>();
+        let dispatch_only = claims
+            .iter()
+            .filter(|claim| {
+                claim.presentation == super::model::ShortcutBindingPresentation::DispatchOnly
+            })
+            .map(|claim| claim.binding)
+            .collect::<std::collections::BTreeSet<_>>();
         let mut bindings = claims
             .into_iter()
             .map(|claim| claim.binding)
@@ -77,6 +84,7 @@ impl ShortcutRegistry {
         let mut presented = Vec::new();
         for binding in &bindings {
             if !preferred.contains(binding) && redundant(binding, &bindings)
+                || dispatch_only.contains(binding) && vertical_character_alias(binding, &bindings)
                 || self.meta_alias(binding, &bindings)
                 || uppercase_compatibility(binding, &bindings)
             {
@@ -119,13 +127,59 @@ impl ShortcutRegistry {
             })
     }
 
+    #[cfg(test)]
     pub(crate) fn help_label(&self, context: Context, actions: &[Action]) -> String {
-        let mut groups: Vec<(LogicalModifiers, Vec<String>)> = Vec::new();
-        for binding in actions
+        self.help_labels(context, actions).join("/")
+    }
+
+    pub(crate) fn help_labels(&self, context: Context, actions: &[Action]) -> Vec<String> {
+        let bindings = actions
             .iter()
             .filter_map(|action| self.projected_bindings.get(&(context, *action)))
             .flatten()
-        {
+            .copied();
+        self.group_binding_labels(bindings)
+    }
+
+    pub(crate) fn compact_help_label(&self, context: Context, actions: &[Action]) -> String {
+        let bindings = actions
+            .iter()
+            .filter_map(|action| self.compact_binding(context, *action));
+        self.group_binding_labels(bindings).join("/")
+    }
+
+    fn compact_binding(&self, context: Context, action: Action) -> Option<ShortcutBinding> {
+        let claims = self.action_claims(context, action);
+        let explicit = claims
+            .iter()
+            .filter(|claim| {
+                claim.presentation == super::model::ShortcutBindingPresentation::Explicit
+            })
+            .map(|claim| claim.binding)
+            .collect::<Vec<_>>();
+        let candidates = if explicit.is_empty() {
+            self.projected_bindings
+                .get(&(context, action))
+                .cloned()
+                .unwrap_or_default()
+        } else {
+            explicit
+        };
+        candidates.into_iter().min_by_key(|binding| {
+            let label = self.label_binding(*binding);
+            (
+                crate::ports::text_layout::terminal_cell_width(&label),
+                label,
+            )
+        })
+    }
+
+    fn group_binding_labels(
+        &self,
+        bindings: impl IntoIterator<Item = ShortcutBinding>,
+    ) -> Vec<String> {
+        let mut groups: Vec<(LogicalModifiers, Vec<String>)> = Vec::new();
+        for binding in bindings {
             let ShortcutModifiers::Exact(modifiers) = binding.modifiers else {
                 continue;
             };
@@ -150,8 +204,7 @@ impl ShortcutRegistry {
                     format!("{prefix}+{keys}")
                 }
             })
-            .collect::<Vec<_>>()
-            .join("/")
+            .collect()
     }
 
     fn label_binding(&self, binding: ShortcutBinding) -> String {
@@ -224,6 +277,17 @@ fn key_label(key: LogicalKey, modifiers: LogicalModifiers) -> String {
         }
         key => super::contract::key_name(key),
     }
+}
+
+fn vertical_character_alias(binding: &ShortcutBinding, bindings: &[ShortcutBinding]) -> bool {
+    let arrow = match binding.key {
+        LogicalKey::Character('k' | 'K') => LogicalKey::Up,
+        LogicalKey::Character('j' | 'J') => LogicalKey::Down,
+        _ => return false,
+    };
+    bindings
+        .iter()
+        .any(|candidate| candidate.key == arrow && candidate.modifiers == binding.modifiers)
 }
 
 fn redundant(binding: &ShortcutBinding, bindings: &[ShortcutBinding]) -> bool {

@@ -18,7 +18,7 @@ key from a physical label, test harness name, or injected text.
 keypad and lock state, and logical Shift, Control, Alt or Option, Super, Meta,
 and Hyper independently. `Primary` is not stored as a modifier. The registry
 expands it to Super or Meta on macOS and Control on Linux and Windows. Raw
-Control is not a second Primary on macOS.
+Control and Option are not additional Primary modifiers on macOS.
 
 Literal character insertion, IME-committed text, bracketed paste payloads,
 mouse actions, resize, host focus, timers, and effect completions are not
@@ -279,6 +279,16 @@ uppercase-without-Shift and lowercase-with-Shift terminal reports resolve to it.
 PageUp and PageDown keep distinct ordinary and Shift-extended action identities.
 On the Board they move or extend exactly five thoughts and clamp before the
 insertion boundary. Compose and Edit retain their five-visual-row behavior.
+
+The macOS factory map adds exact `Option+Shift+Up` and
+`Option+Shift+Down` aliases for `thought.move_up` and `thought.move_down` in
+Board and InsertionBoundary. The configured `k` and `j` vertical spellings use
+the same logical modifier ladder when the terminal reports the configured
+character with exact Option and Shift modifiers. A keyboard layout may instead
+produce composed text, which does not impersonate that binding. These aliases
+do not redefine Primary and do not apply to text owners. Compose and Edit retain
+Option-based word and fast navigation. Portable Alt+Shift retains Board range
+extension.
 
 A modified uppercase-only logical codepoint is displayed explicitly, for example
 `Ctrl+U+0044`, to distinguish it from the conventional `Ctrl+D` label for lowercase

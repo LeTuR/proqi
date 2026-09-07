@@ -3,7 +3,12 @@
 use crate::ui::shortcut_registry::{HelpAvailability, HelpSurface};
 use crate::ui::{BoardApp, ShortcutActionId as Action, ShortcutContext as Context};
 
-pub(crate) type HelpItem = (String, &'static str);
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct HelpItem {
+    pub(crate) full_key: String,
+    pub(crate) compact_key: String,
+    pub(crate) label: &'static str,
+}
 
 pub(crate) fn help_items(app: &BoardApp) -> Vec<HelpItem> {
     let context = app.footer_shortcut_context();
@@ -20,8 +25,15 @@ pub(crate) fn help_items(app: &BoardApp) -> Vec<HelpItem> {
             metadata.availability != HelpAvailability::Submission || app.supports_submission()
         })
         .filter_map(|(action, metadata)| {
-            let label = registry.help_label(context, &related_actions(action));
-            (!label.is_empty()).then_some((label, metadata.label))
+            let actions = related_actions(action);
+            let labels = registry.help_labels(context, &actions);
+            let full_key = labels.join("/");
+            let compact_key = registry.compact_help_label(context, &actions);
+            (!full_key.is_empty()).then_some(HelpItem {
+                full_key,
+                compact_key,
+                label: metadata.label,
+            })
         })
         .collect()
 }

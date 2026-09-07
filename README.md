@@ -151,7 +151,7 @@ configuration.
 | `j` / `k` or arrows | Focus next / previous; twice at a blocked bottom / top edge creates there |
 | `Page Up` / `Page Down` | Move five thoughts previous / next |
 | `Enter` or `e` | Edit |
-| `Primary+J` / `Primary+K`, `Primary+Shift+↓` / `↑`, or drag | Reorder |
+| macOS `Option+Shift+↓` / `↑`; `Primary+J` / `Primary+K`, `Primary+Shift+↓` / `↑`, or drag | Reorder |
 | `Primary+C` / `y`; `Primary+X` / `x` | Copy; safe cut |
 | `d` or `Del` (`Entf` on German keyboards) | Delete |
 | `Space`; `Primary+A` / `a` | Toggle selection; select all |
@@ -180,7 +180,7 @@ configuration.
 | macOS: `Cmd+Shift+←` / `→` | Extend to the current wrapped visual-row start / end |
 | `Home` / `End` | Move to the logical line boundary |
 | `Alt+↑` / `↓` or `Page Up` / `Page Down`; `Primary+↑` / `↓` | Jump five rows; thought start / end |
-| `Enter`; `Tab`; `Shift+Tab` | Continue lists; nest; remove one existing indentation level |
+| `Enter`; `Tab`; `Shift+Tab` | Continue lists; nest a recognized list or insert spaces; outdent a recognized list while leaving ordinary text unchanged |
 | `↑` / `↓` twice at a boundary | Focus the adjacent thought, or create at the top / bottom board edge |
 | `Primary+Enter`; `Primary+Shift+Enter` | Submit and remove after acceptance; submit and keep |
 | Type `$name`, `/name`, or supported `@name` | Fuzzy-find and complete a local invocation |

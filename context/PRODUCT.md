@@ -810,6 +810,9 @@ and are never interpreted as delivery targets.
 
 Thoughts can be moved up and down with `Primary+Shift+Up` and
 `Primary+Shift+Down`, equivalently `Primary+K` and `Primary+J`, or with mouse drag.
+The macOS factory map additionally provides `Option+Shift+Up` and
+`Option+Shift+Down`, which stock Ghostty can deliver when it consumes the
+Command-based aliases.
 Reordering is immediate, autosaved, and undoable.
 
 Keyboard reordering wraps across the board boundaries. Moving the last thought
@@ -859,7 +862,7 @@ bindings are:
 | Submit and keep | `Primary+Shift+Enter` or `Shift+S`, when supported, then direction when needed | Click verified Submit & keep control |
 | Undo board action | `Primary+Z` or `u` | Click undo control when visible |
 | Redo board action | `Primary+Shift+Z` or `Primary+Y` | Command palette |
-| Move thought | `Primary+Shift+↑` / `Primary+Shift+↓`, or `Primary+K` / `Primary+J` | Drag thought handle |
+| Move thought | macOS `Option+Shift+↑` / `↓`; `Primary+Shift+↑` / `↓`, or `Primary+K` / `Primary+J` | Drag thought handle |
 | Expand or collapse | `c` | Click overflow indicator |
 | Search | `/` | Click search control |
 | Help | `?` | Click help control |
@@ -878,9 +881,11 @@ management uses F2 and F8 while its query is empty; R and D enter search text.
 
 The default Board map has one spelling-independent modifier ladder: plain
 moves focus, Shift extends a range, and Primary+Shift reorders one thought.
-Other modifiers keep the base focus intention. At the insertion row, range and
-reorder are thought-only no-ops, while base focus retains the ordinary boundary
-behavior. List-only overlays use `j` and `k` as exact Down and Up aliases, and
+On macOS, exact Option+Shift is an additional Board reorder alias for arrows and
+the configured vertical keys. Other modifiers keep the base focus intention. At
+the insertion row, range and reorder are thought-only no-ops, while base focus
+retains the ordinary boundary behavior. List-only overlays use `j` and `k` as
+exact Down and Up aliases, and
 four-way non-text direction choice uses `h`, `j`, `k`, and `l` as Left, Down,
 Up, and Right aliases. These non-text owners ignore irrelevant modifiers for
 both spellings. While Help owns input, its navigation wins over a configured

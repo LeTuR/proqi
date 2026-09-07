@@ -1088,9 +1088,11 @@ remains the modifier-independent fallback.
 
 Vertical board input uses one semantic modifier ladder for both arrow and
 configured character spellings: plain input moves focus, Shift extends an
-anchored range, and Primary+Shift reorders one thought. Other modifiers resolve
-to the base focus intention. At the insertion row, range and reorder are
-thought-only no-ops while focus retains the boundary policy. Page Up and Page
+anchored range, and Primary+Shift reorders one thought. The macOS default graph
+also assigns exact Option+Shift to the same reorder actions so a
+terminal-consumed Command binding does not remove keyboard reordering. Other
+modifiers resolve to the base focus intention. At the insertion row, range and
+reorder are thought-only no-ops while focus retains the boundary policy. Page Up and Page
 Down are separate fast-navigation actions: they move five thoughts, and their
 Shift variants extend an anchored range by five. They clamp to real thoughts
 and never turn into Board reorder commands. The registry resolves exact platform

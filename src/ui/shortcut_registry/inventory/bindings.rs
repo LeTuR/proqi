@@ -1,6 +1,7 @@
 //! Canonical platform defaults and configuration-derived effective aliases.
 
 mod named;
+mod platform_defaults;
 pub(in crate::ui::shortcut_registry) mod vocabulary;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -29,6 +30,9 @@ pub(super) fn default_claims(macos: bool) -> BTreeMap<Action, Vec<ShortcutBindin
         .chain(fixed_character_keys())
         .collect::<BTreeSet<_>>();
     collect_claims(keys, |context, key, modifiers| {
+        if let Some(binding) = platform_defaults::binding(context, key, modifiers, macos) {
+            return Some(binding);
+        }
         let action = fixed_action(context, key, modifiers, macos)?;
         Some((
             action,
@@ -62,7 +66,9 @@ pub(super) fn alias_claims(
         }
     }
     collect_claims(candidates, |context, key, modifiers| {
-        if fixed_action(context, key, modifiers, macos).is_some() {
+        if platform_defaults::binding(context, key, modifiers, macos).is_some()
+            || fixed_action(context, key, modifiers, macos).is_some()
+        {
             None
         } else {
             configured_action(context, key, modifiers, macos, keys, &board)
@@ -384,7 +390,8 @@ fn configured_action(
             return Some(
                 match (
                     previous,
-                    ShortcutPlatform::from_macos(macos).is_primary(modifiers) && shifted,
+                    (ShortcutPlatform::from_macos(macos).is_primary(modifiers) && shifted)
+                        || platform_defaults::macos_reorder_modifiers(macos, modifiers),
                     shifted,
                 ) {
                     (true, true, _) => Action::MoveUp,

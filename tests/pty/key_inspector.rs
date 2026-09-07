@@ -181,6 +181,16 @@ fn named_keys_and_navigation_keep_exact_kitty_or_legacy_identity() {
 }
 
 #[test]
+fn macos_option_shift_reorder_diagnostic_reports_exact_received_event_and_action() {
+    let data = capture("\x1b[1;4A", "board", None, true);
+    let event = &data["event"];
+    assert_eq!(event["keystroke"]["key"], "Up");
+    assert_eq!(event["keystroke"]["modifiers"], json!(["Alt", "Shift"]));
+    assert_eq!(event["action"], "thought.move_up");
+    assert_eq!(event["classification"], "resolved");
+}
+
+#[test]
 fn repeat_is_resolved_release_is_reported_without_dispatch() {
     for (sequence, phase, classification) in [
         ("\x1b[106;1:2u", "repeat", "resolved"),

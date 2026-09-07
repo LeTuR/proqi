@@ -8,13 +8,98 @@ fn action(
     modifiers: LogicalModifiers,
     key: LogicalKey,
 ) -> Option<Action> {
+    context_action(platform, ShortcutContext::Edit, modifiers, key)
+}
+
+fn context_action(
+    platform: ShortcutPlatform,
+    context: ShortcutContext,
+    modifiers: LogicalModifiers,
+    key: LogicalKey,
+) -> Option<Action> {
     ShortcutRegistry::resolve(&KeyBindings::default(), platform)
         .expect("valid registry")
         .dispatch(
-            &ShortcutContextStack::new([ShortcutContext::Edit]),
+            &ShortcutContextStack::new([context]),
             stroke(key, modifiers),
         )
         .and_then(|resolved| resolved.action)
+}
+
+#[test]
+fn macos_option_shift_is_an_exact_board_reorder_alias_only() {
+    let option_shift = LogicalModifiers::ALT.union(LogicalModifiers::SHIFT);
+    for context in [ShortcutContext::Board, ShortcutContext::InsertionBoundary] {
+        for (key, expected) in [
+            (LogicalKey::Up, Action::MoveUp),
+            (LogicalKey::Character('k'), Action::MoveUp),
+            (LogicalKey::Character('K'), Action::MoveUp),
+            (LogicalKey::Down, Action::MoveDown),
+            (LogicalKey::Character('j'), Action::MoveDown),
+            (LogicalKey::Character('J'), Action::MoveDown),
+        ] {
+            assert_eq!(
+                context_action(ShortcutPlatform::MacOs, context, option_shift, key),
+                Some(expected),
+                "{context:?}, {key:?}",
+            );
+        }
+    }
+
+    for context in [ShortcutContext::Compose, ShortcutContext::Edit] {
+        assert_eq!(
+            context_action(
+                ShortcutPlatform::MacOs,
+                context,
+                option_shift,
+                LogicalKey::Up,
+            ),
+            Some(Action::FastExtendPrevious),
+        );
+    }
+    assert_eq!(
+        context_action(
+            ShortcutPlatform::Portable,
+            ShortcutContext::Board,
+            option_shift,
+            LogicalKey::Up,
+        ),
+        Some(Action::ExtendPrevious),
+    );
+}
+
+#[test]
+fn macos_option_shift_reorders_through_remapped_vertical_board_keys() {
+    let keys = KeyBindings {
+        focus_up: 'b',
+        focus_down: 'g',
+        range_up: 'B',
+        range_down: 'G',
+        ..KeyBindings::default()
+    };
+    let registry =
+        ShortcutRegistry::resolve(&keys, ShortcutPlatform::MacOs).expect("valid remapped registry");
+    let contexts = [ShortcutContext::Board, ShortcutContext::InsertionBoundary];
+    let option_shift = LogicalModifiers::ALT.union(LogicalModifiers::SHIFT);
+    for context in contexts {
+        for (key, expected) in [
+            (LogicalKey::Character('b'), Action::MoveUp),
+            (LogicalKey::Character('B'), Action::MoveUp),
+            (LogicalKey::Character('g'), Action::MoveDown),
+            (LogicalKey::Character('G'), Action::MoveDown),
+        ] {
+            assert_eq!(
+                registry
+                    .dispatch(
+                        &ShortcutContextStack::new([context]),
+                        stroke(key, option_shift)
+                    )
+                    .and_then(|resolved| resolved.action),
+                Some(expected),
+                "{context:?}, {key:?}",
+            );
+        }
+    }
 }
 
 fn configured_action(

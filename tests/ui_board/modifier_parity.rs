@@ -84,6 +84,34 @@ fn shifted_and_primary_shifted_spellings_keep_range_and_reorder() {
     }
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn option_shift_arrows_reorder_on_board_but_not_at_the_insertion_boundary() {
+    let option_shift = LogicalModifiers::ALT.union(LogicalModifiers::SHIFT);
+    let mut fixture = populated();
+    fixture.input(UiInput::KeyStroke(
+        KeyStroke::press(LogicalKey::Up).with_modifiers(option_shift),
+    ));
+    assert_eq!(
+        super::movement_symmetry::order(&fixture),
+        ["first", "third", "second"]
+    );
+
+    let mut insertion = populated();
+    insertion.input(crate::key_input(UiKey::Move {
+        movement: CursorMovement::VisualDown,
+        extend_selection: false,
+    }));
+    insertion.input(UiInput::KeyStroke(
+        KeyStroke::press(LogicalKey::Down).with_modifiers(option_shift),
+    ));
+    assert!(insertion.app.insertion_focused());
+    assert_eq!(
+        super::movement_symmetry::order(&insertion),
+        ["first", "second", "third"]
+    );
+}
+
 #[test]
 fn insertion_row_rejects_thought_only_range_and_reorder_intentions() {
     let blocked = [

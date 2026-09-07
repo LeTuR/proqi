@@ -781,6 +781,14 @@ rows store `adjacent_pane` with a direction or `herdr_agent` without one. Neithe
 form stores workspace, tab, pane, session, labels, prompt content, or raw Herdr
 responses.
 
+Schema version 14 and storage protocol version 13 widen that closed route
+vocabulary with `thurbox_session`, which records no direction. The migration
+rebuilds the journal table to admit the new spelling and copies every existing
+row unchanged, including its route version, direction, and exact fingerprint
+bytes. The redaction rule is unchanged: no route form stores a scope segment,
+delivery identity, session, label, prompt content, or raw integration
+response.
+
 ## Multiple running versions during an update
 
 ### Installation-wide update boundary
@@ -1338,12 +1346,16 @@ The adapter:
   invocation-picker references, without exposing raw topology or terminal
   metadata above the adapter.
 
-`SubmissionRoute` is a closed discriminated address. `AdjacentPane` retains the
-verified direction, source context, target geometry, and target address.
-`HerdrAgent` retains only the verified current-server workspace, tab, pane,
-harness, and established or explicitly qualified provisional session address.
-It never fabricates geometry or a sentinel direction. Global discovery labels
-are presentation metadata and do not participate in receipt identity.
+`SubmissionRoute` is a closed discriminated address over one integration-neutral
+`AgentAddress`. That address carries an ordered opaque scope, an opaque delivery
+identity, the harness, and the established or explicitly qualified provisional
+session. Proqi never interprets a scope segment, so Herdr's workspace and tab
+topology and thurbox's flat session identity share one contract without either
+shape becoming the port's. `AdjacentPane` additionally retains the verified
+direction, source context, and target geometry. `HerdrAgent` and
+`ThurboxSession` retain the verified address alone and never fabricate geometry
+or a sentinel direction. Global discovery location labels are presentation
+metadata and do not participate in receipt identity.
 
 The Commands-only global chooser is generation tagged. Its loading, filtering,
 selection, rendering, paging, and hit geometry derive from one semantic row
@@ -1412,9 +1424,17 @@ identifiers.
 Schema version 13 and storage protocol version 12 replace the direction-only
 journal address with route encoding version 1, a closed route kind, and an
 optional adjacent direction. Current adjacent rows require a direction and
-global Herdr rows require none. Migration decodes every prior row as legacy
+global rows require none. Migration decodes every prior row as legacy
 route version 0 `adjacent_pane`, preserves its direction and exact existing
 fingerprint bytes, and retains conservative prepared and sending recovery.
+Schema version 14 and storage protocol version 13 add `thurbox_session` to the
+same closed vocabulary without altering any existing row.
+
+The target fingerprint hashes the provider, route kind, ordered scope segments,
+delivery identity, harness, adjacent source pane, direction, and session
+binding. A Herdr target hashes its workspace and tab as the first two scope
+segments, so every fingerprint written before the integration-neutral address
+still matches the value that target produces today.
 
 Attachment preflight precedes creation of this journal attempt. Successful
 preflight preserves the same direct Herdr request and journal transitions.
@@ -1475,6 +1495,74 @@ seconds. Clean shutdown clears both fields; crash recovery relies on expiry.
 Focus-gained events refresh target discovery immediately, while resize bursts
 trigger one debounced refresh after geometry settles. Metadata failure never
 weakens the standalone board or changes submission verification.
+
+## thurbox integration
+
+thurbox is a second optional adapter beside Herdr, not a replacement for it and
+not a runtime dependency of the core scratchpad. It addresses flat sessions on
+the current machine, so it verifies no pane adjacency and publishes no Proqi
+pane. `capabilities` therefore reports no `PaneContext`, and `adjacent_targets`
+reports `Unsupported` rather than answering an adjacency question with an empty
+list.
+
+The adapter:
+
+- Negotiates the installed release from `version --json`. One typed policy
+  qualifies thurbox `2.19.0` and every later `2.x`, because `2.19.0` is the
+  first release whose state vocabulary distinguishes `running`, `uncovered`,
+  and `unreported` from `idle`, and the first that publishes `detected_agent`.
+  A different major version and an unreadable version string both fail closed.
+  The published `schema_version` is recorded in the negotiated protocol field,
+  which is thurbox's own contract number rather than an invented one.
+- Discovers sessions from one bounded `session list --json --verify` pass.
+  `--verify` is required, not an optimization: without the pane probe
+  `detected_agent` and `running` are `null` and unanswerable, and a
+  foreign-launched agent would be invisible instead of deliverable.
+- Resolves which registered agent holds a session as `detected_agent`, then
+  `reports_as`, then `agent`. A session whose agent reports no state and whose
+  pane holds no observed agent is a plain shell and is never a target.
+- Projects the honest state vocabulary without widening it. `idle`, `working`,
+  and `done` are eligible; `blocked` is visible and ineligible; `running` is an
+  observed agent whose own state is not reportable, so delivery is supported
+  while readiness stays `unknown`; `unreported`, `uncovered`, and a parked
+  session confirm nothing and stay ineligible.
+- Delivers through `session send --json`, which types the exact text into the
+  session as one bracketed paste followed by Enter. It never simulates
+  arbitrary keystrokes and never interpolates prompt text into shell syntax.
+- Captures the child exit status before parsing anything. thurbox writes its
+  failure object to standard output with an empty standard error, so a parser
+  reading output first would read a failure as a successful response.
+
+thurbox's send receipt confirms the session, not the harness conversation, so
+Proqi verifies the recorded `agent_session_id` when it revalidates the target
+immediately before delivery rather than in the receipt. The receipt reports no
+state after delivery, and Proqi records no advisory post-state rather than one
+it would have to invent.
+
+A thurbox row is identified by its session name, working directory, and the
+shortest session-identity prefix that separates the listed sessions, never
+fewer than eight characters, with a short identity shown whole. A driver names
+sessions from one long generated pattern, so two rows can otherwise agree
+through the bounded part of their names and their working directory. Delivery
+always uses the complete identity carried by the address.
+
+thurbox has no equivalent of Herdr's directional pane lookup, pane geometry,
+display-only pane metadata, or live invocation references, and the adapter
+claims none of them.
+
+### Composing the installed integrations
+
+`CompositeAgentGateway` is the single owner of provider fan-out. Pane adjacency
+and Proqi's own display metadata stay with Herdr, because both are properties of
+the multiplexer hosting this pane. Global discovery spans every integration, and
+submission returns to the integration that verified the route.
+
+One discovery pass merges truthfully. An integration reporting `Unavailable` or
+`Unsupported` has said it has nothing to offer here, so the remaining
+integrations answer alone. Every other failure means an answer that could not be
+trusted, and the pass fails closed rather than presenting a partial list as
+complete. `PROQI_DISABLE_THURBOX` removes the thurbox integration from the
+composition, mirroring `PROQI_DISABLE_HERDR`.
 
 ## CLI and agent-facing contract
 
@@ -1600,6 +1688,11 @@ known initial state.
   migration refusal.
 - Herdr adapter tests use a fake executable with recorded JSON fixtures,
   protocol mismatches, delays, malformed output, and ambiguous neighbors.
+- thurbox adapter tests use a fake executable and injected process responses
+  covering version negotiation, the complete state vocabulary, a
+  foreign-launched session, a plain shell, a parked session, the row budget,
+  duplicate and blank identities, a replaced conversation, a mismatched
+  receipt, and a failure printed on standard output with a non-zero exit.
 - Clipboard tests use fake adapters in CI and gated platform smoke tests on
   supported desktops.
 

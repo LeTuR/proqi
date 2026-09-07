@@ -37,12 +37,23 @@ impl SubmissionJournalRoute {
         }
     }
 
+    /// Construct the current global thurbox-route journal encoding.
+    #[must_use]
+    pub const fn thurbox_session() -> Self {
+        Self {
+            version: SUBMISSION_ROUTE_VERSION,
+            kind: SubmissionRouteKind::ThurboxSession,
+            adjacent_direction: None,
+        }
+    }
+
     /// Project a verified route without persisting topology identity.
     #[must_use]
     pub const fn from_route(route: &SubmissionRoute) -> Self {
         match route {
             SubmissionRoute::AdjacentPane { direction, .. } => Self::adjacent(*direction),
             SubmissionRoute::HerdrAgent(_) => Self::herdr_agent(),
+            SubmissionRoute::ThurboxSession(_) => Self::thurbox_session(),
         }
     }
 

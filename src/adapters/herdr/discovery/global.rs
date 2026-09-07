@@ -4,8 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ports::{
     agent::{
-        AgentAvailability, AgentDeliveryCapabilities, AgentError, AgentState, AgentTarget,
-        HerdrAgentAddress,
+        AgentAddress, AgentAvailability, AgentDeliveryCapabilities, AgentError, AgentState,
+        AgentTarget,
     },
     environment::ProcessRunner,
 };
@@ -18,8 +18,8 @@ use super::{
     },
     MAX_AGENT_ROWS, observed_state,
     topology::{
-        correlated_tab_label, correlated_workspace_label, sanitize_agent_name, tab_labels,
-        workspace_labels,
+        correlated_tab_label, correlated_workspace_label, display_location, sanitize_agent_name,
+        tab_labels, workspace_labels,
     },
 };
 
@@ -79,13 +79,12 @@ fn unique_targets(
             continue;
         };
         let identity = (
-            target.workspace_id().to_owned(),
-            target.tab_id().to_owned(),
-            target.pane_id().to_owned(),
+            target.scope().to_vec(),
+            target.delivery_id().to_owned(),
             target.agent_kind().as_str().to_owned(),
             target.agent_session().as_id().map(str::to_owned),
         );
-        if !pane_ids.insert(target.pane_id().to_owned()) || !identities.insert(identity) {
+        if !pane_ids.insert(target.delivery_id().to_owned()) || !identities.insert(identity) {
             return Err(AgentError::Ambiguous(
                 "multiple compatible agents claim one delivery identity".to_owned(),
             ));
@@ -124,27 +123,31 @@ fn target(
     }
     let workspace_label = correlated_workspace_label(workspaces, &pane.workspace_id, false)?;
     let tab_label = correlated_tab_label(tabs, &pane.workspace_id, &pane.tab_id, false)?;
+    let location = display_location(
+        &pane.workspace_id,
+        workspace_label,
+        &pane.tab_id,
+        tab_label,
+        &pane.pane_id,
+    );
     let readiness = observed_state(pane.agent_status);
     let availability = availability(pane, readiness);
     let agent_name = pane
         .name
         .as_deref()
-        .map(sanitize_agent_name)
-        .filter(|name| !name.is_empty())
+        .and_then(sanitize_agent_name)
         .unwrap_or_else(|| format!("{kind} agent"));
     Ok(Some(AgentTarget::herdr_agent(
         protocol,
-        HerdrAgentAddress::new(
-            pane.workspace_id.clone(),
-            pane.tab_id.clone(),
+        AgentAddress::new(
+            vec![pane.workspace_id.clone(), pane.tab_id.clone()],
             pane.pane_id.clone(),
             kind,
             agent_session,
         )
         .ok_or_else(|| AgentError::Malformed("invalid current-server agent address".to_owned()))?,
         agent_name,
-        workspace_label,
-        tab_label,
+        location,
         readiness,
         availability,
         AgentDeliveryCapabilities::SUBMIT_ONLY,

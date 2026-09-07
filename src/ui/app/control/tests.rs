@@ -407,9 +407,8 @@ fn thought_mutations_are_locked_from_submission_intent_until_completion() {
             height: 10,
         },
     };
-    let address = crate::ports::agent::HerdrAgentAddress::new(
-        source.workspace_id.clone(),
-        source.tab_id.clone(),
+    let address = crate::ports::agent::AgentAddress::new(
+        vec![source.workspace_id.clone(), source.tab_id.clone()],
         "target".to_owned(),
         HarnessKind::new(CODEX_AGENT_KIND).expect("fixture harness"),
         AgentSessionBinding::established("agent-session").expect("fixture session"),

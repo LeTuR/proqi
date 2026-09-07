@@ -3,7 +3,7 @@
 use crate::domain::Direction;
 
 use super::{
-    AgentDeliveryCapabilities, AgentSessionBinding, AgentState, HarnessKind, HerdrAgentAddress,
+    AgentAddress, AgentDeliveryCapabilities, AgentSessionBinding, AgentState, HarnessKind,
     PaneContext, PaneRect, SubmissionRoute, SubmissionRouteKind,
 };
 
@@ -36,21 +36,22 @@ impl AgentAvailability {
     }
 }
 
-/// One independently verified adjacent or current-server global agent.
+/// One independently verified adjacent or global agent.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentTarget {
     /// Integration provider that verified this target.
     pub provider: String,
     /// Negotiated provider protocol.
     pub protocol: u32,
-    /// Closed verified adjacent or current-server global route.
+    /// Closed verified adjacent or global route.
     pub route: SubmissionRoute,
     /// User-facing identity.
     pub agent_name: String,
-    /// Optional bounded workspace label from the verified discovery snapshot.
-    pub workspace_label: Option<String>,
-    /// Optional bounded tab label from the verified discovery snapshot.
-    pub tab_label: Option<String>,
+    /// Ordered bounded human-facing location of the target, outermost first.
+    ///
+    /// The integration resolves each segment from the verified discovery
+    /// snapshot, preferring a published label over its opaque identity.
+    pub location: Vec<String>,
     /// Verified readiness.
     pub readiness: AgentState,
     /// Current live eligibility, including launch and interactive readiness.
@@ -69,14 +70,12 @@ pub struct AgentTargetIdentity {
     pub provider: String,
     /// Closed delivery route classification.
     pub route_kind: SubmissionRouteKind,
-    /// Integration workspace containing the target.
-    pub workspace_id: String,
-    /// Integration tab containing the target.
-    pub tab_id: String,
+    /// Ordered opaque integration identities enclosing the target.
+    pub scope: Vec<String>,
+    /// Opaque identity of the addressed agent surface.
+    pub target_id: String,
     /// Source Proqi pane for adjacent delivery only.
     pub source_pane_id: Option<String>,
-    /// Target agent pane.
-    pub target_pane_id: String,
     /// Verified direction from source to target for adjacent delivery only.
     pub direction: Option<Direction>,
     /// Recognized agent harness.
@@ -96,7 +95,7 @@ impl AgentTarget {
         provider: String,
         protocol: u32,
         direction: Direction,
-        address: HerdrAgentAddress,
+        address: AgentAddress,
         agent_name: String,
         readiness: AgentState,
         delivery: AgentDeliveryCapabilities,
@@ -113,26 +112,20 @@ impl AgentTarget {
                 target_rect,
             },
             agent_name,
-            workspace_label: None,
-            tab_label: None,
+            location: Vec::new(),
             readiness,
             availability: AgentAvailability::Available,
             delivery,
         }
     }
 
-    /// Construct one current-server global target.
+    /// Construct one global Herdr target on the current Herdr server.
     #[must_use]
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "closed global route has eight independent facts"
-    )]
     pub fn herdr_agent(
         protocol: u32,
-        address: HerdrAgentAddress,
+        address: AgentAddress,
         agent_name: String,
-        workspace_label: Option<String>,
-        tab_label: Option<String>,
+        location: Vec<String>,
         readiness: AgentState,
         availability: AgentAvailability,
         delivery: AgentDeliveryCapabilities,
@@ -142,36 +135,52 @@ impl AgentTarget {
             protocol,
             route: SubmissionRoute::HerdrAgent(address),
             agent_name,
-            workspace_label,
-            tab_label,
+            location,
             readiness,
             availability,
             delivery,
         }
     }
 
-    /// Return the exact verified current-server target address.
+    /// Construct one global thurbox session target on the current machine.
     #[must_use]
-    pub const fn address(&self) -> &HerdrAgentAddress {
+    pub fn thurbox_session(
+        protocol: u32,
+        address: AgentAddress,
+        agent_name: String,
+        location: Vec<String>,
+        readiness: AgentState,
+        availability: AgentAvailability,
+        delivery: AgentDeliveryCapabilities,
+    ) -> Self {
+        Self {
+            provider: "thurbox".to_owned(),
+            protocol,
+            route: SubmissionRoute::ThurboxSession(address),
+            agent_name,
+            location,
+            readiness,
+            availability,
+            delivery,
+        }
+    }
+
+    /// Return the exact verified target address.
+    #[must_use]
+    pub const fn address(&self) -> &AgentAddress {
         self.route.target()
     }
 
-    /// Return the target pane identity.
+    /// Return the opaque identity of the addressed agent surface.
     #[must_use]
-    pub fn pane_id(&self) -> &str {
-        self.address().pane_id()
+    pub fn delivery_id(&self) -> &str {
+        self.address().delivery_id()
     }
 
-    /// Return the target workspace identity.
+    /// Return the ordered opaque identities enclosing the target.
     #[must_use]
-    pub fn workspace_id(&self) -> &str {
-        self.address().workspace_id()
-    }
-
-    /// Return the target tab identity.
-    #[must_use]
-    pub fn tab_id(&self) -> &str {
-        self.address().tab_id()
+    pub fn scope(&self) -> &[String] {
+        self.address().scope()
     }
 
     /// Return the recognized harness kind.
@@ -248,13 +257,12 @@ impl AgentTarget {
         AgentTargetIdentity {
             provider: self.provider.clone(),
             route_kind: self.route.kind(),
-            workspace_id: self.workspace_id().to_owned(),
-            tab_id: self.tab_id().to_owned(),
+            scope: self.scope().to_vec(),
+            target_id: self.delivery_id().to_owned(),
             source_pane_id: self
                 .route
                 .adjacent_source()
                 .map(|source| source.pane_id.clone()),
-            target_pane_id: self.pane_id().to_owned(),
             direction: self.adjacent_direction(),
             agent_kind: self.agent_kind().clone(),
             agent_session: self.agent_session().clone(),
@@ -268,10 +276,9 @@ impl AgentTarget {
         let actual = receipt.identity();
         expected.provider == actual.provider
             && expected.route_kind == actual.route_kind
-            && expected.workspace_id == actual.workspace_id
-            && expected.tab_id == actual.tab_id
+            && expected.scope == actual.scope
             && expected.source_pane_id == actual.source_pane_id
-            && expected.target_pane_id == actual.target_pane_id
+            && expected.target_id == actual.target_id
             && expected.direction == actual.direction
             && expected.agent_kind == actual.agent_kind
             && expected
@@ -279,11 +286,11 @@ impl AgentTarget {
                 .accepts_receipt(&actual.agent_session)
     }
 
-    fn address_mut(&mut self) -> &mut HerdrAgentAddress {
+    fn address_mut(&mut self) -> &mut AgentAddress {
         match &mut self.route {
-            SubmissionRoute::AdjacentPane { target, .. } | SubmissionRoute::HerdrAgent(target) => {
-                target
-            }
+            SubmissionRoute::AdjacentPane { target, .. }
+            | SubmissionRoute::HerdrAgent(target)
+            | SubmissionRoute::ThurboxSession(target) => target,
         }
     }
 }

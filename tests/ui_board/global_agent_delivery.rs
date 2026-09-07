@@ -1,8 +1,8 @@
 use super::*;
 
 use proqi::ports::agent::{
-    AgentAvailability, AgentDeliveryCapabilities, AgentSessionBinding, AgentState, AgentTarget,
-    HarnessKind, HerdrAgentAddress, SubmissionReceipt, SubmissionRouteKind,
+    AgentAddress, AgentAvailability, AgentDeliveryCapabilities, AgentSessionBinding, AgentState,
+    AgentTarget, HarnessKind, SubmissionReceipt, SubmissionRouteKind,
 };
 
 pub(super) fn target(
@@ -15,17 +15,19 @@ pub(super) fn target(
 ) -> AgentTarget {
     AgentTarget::herdr_agent(
         20,
-        HerdrAgentAddress::new(
-            workspace.to_owned(),
-            tab.to_owned(),
+        AgentAddress::new(
+            vec![workspace.to_owned(), tab.to_owned()],
             pane.to_owned(),
             HarnessKind::new("codex").expect("harness"),
             AgentSessionBinding::established(format!("session-{pane}")).expect("session"),
         )
         .expect("address"),
         name.to_owned(),
-        Some(format!("Workspace {workspace}")),
-        Some(format!("Tab {tab}")),
+        vec![
+            format!("Workspace {workspace}"),
+            format!("Tab {tab}"),
+            pane.rsplit(':').next().unwrap_or(pane).to_owned(),
+        ],
         readiness,
         availability,
         AgentDeliveryCapabilities::SUBMIT_ONLY,
@@ -104,7 +106,7 @@ fn commands_only_target_search_requires_an_explicit_disposition() {
     assert_eq!(attempt.route.version(), 1);
     let request = super::agent::start_submission(&mut fixture, &effects);
     assert_eq!(request.content, "focused Grüße\n\u{1b}[31m");
-    assert_eq!(request.target.pane_id(), "w2:p8");
+    assert_eq!(request.target.delivery_id(), "w2:p8");
 }
 
 #[test]
@@ -434,7 +436,7 @@ fn invocation_reference_annotations_remain_inert_exact_prompt_content() {
     let prepared = fixture.effects(crate::key_input(UiKey::Enter));
     let request = super::agent::start_submission(&mut fixture, &prepared);
     assert_eq!(request.content, content);
-    assert_eq!(request.target.pane_id(), "w2:p8");
+    assert_eq!(request.target.delivery_id(), "w2:p8");
 }
 
 #[test]

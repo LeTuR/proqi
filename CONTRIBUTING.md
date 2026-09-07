@@ -59,8 +59,9 @@ domain <- ports <- application <- adapters and UI composition
 
 Domain code owns entities and invariants. Ports describe terminal-independent
 capabilities. Application code coordinates domain values through ports.
-Adapters translate SQLite, terminal, clipboard, filesystem, process, and Herdr
-behavior. The UI translates input into application actions and renders state.
+Adapters translate SQLite, terminal, clipboard, filesystem, process, Herdr, and
+thurbox behavior. The UI translates input into application actions and renders
+state.
 Use `cargo xtask architecture` to verify these boundaries.
 
 Keep behavior deterministic. Inject clocks, identifiers, paths, environment,

@@ -39,9 +39,10 @@ A submission progresses through `prepared`, `sending`, then `accepted`,
 `failed`, `cancelled`, or `outcome_unknown`. The journal stores a source digest
 and revision, not prompt content. One active attempt is permitted per thought.
 
-An accepted semantic Herdr receipt establishes delivery. Agent readiness after
-submission is advisory. If Proqi crashes after delivery but before recording
-the receipt, `outcome_unknown` prevents an unsafe automatic retry.
+An accepted semantic receipt from the delivering integration (Herdr or
+thurbox) establishes delivery. Agent readiness after submission is advisory.
+If Proqi crashes after delivery but before recording the receipt,
+`outcome_unknown` prevents an unsafe automatic retry.
 
 ## Diagnostics
 

@@ -6,59 +6,56 @@ use crate::domain::Direction;
 
 use super::{AgentSessionBinding, HarnessKind, PaneContext, PaneRect};
 
-/// Current-server identity of one Herdr coding agent.
+/// Verified identity of one coding agent reachable through an integration.
+///
+/// The enclosing `scope` and the `delivery_id` are opaque to Proqi and owned by
+/// the integration that verified them. Herdr addresses a pane inside a
+/// workspace and tab, and thurbox addresses one flat session, so neither
+/// topology is part of this contract.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct HerdrAgentAddress {
-    /// Opaque workspace identity from the current server snapshot.
-    workspace_id: String,
-    /// Opaque tab identity from the same snapshot.
-    tab_id: String,
-    /// Opaque pane identity currently hosting the agent.
-    pane_id: String,
+pub struct AgentAddress {
+    /// Ordered opaque identities enclosing the target, outermost first.
+    scope: Vec<String>,
+    /// Opaque identity of the addressed agent surface itself.
+    delivery_id: String,
     /// Recognized coding-agent harness.
     agent_kind: HarnessKind,
     /// Stable harness session, or one explicitly qualified provisional binding.
     agent_session: AgentSessionBinding,
 }
 
-impl HerdrAgentAddress {
-    /// Construct one complete current-server delivery address.
+impl AgentAddress {
+    /// Construct one complete verified delivery address.
+    ///
+    /// Returns `None` when the delivery identity or any scope segment is blank.
     #[must_use]
     pub fn new(
-        workspace_id: String,
-        tab_id: String,
-        pane_id: String,
+        scope: Vec<String>,
+        delivery_id: String,
         agent_kind: HarnessKind,
         agent_session: AgentSessionBinding,
     ) -> Option<Self> {
-        if workspace_id.trim().is_empty() || tab_id.trim().is_empty() || pane_id.trim().is_empty() {
+        if delivery_id.trim().is_empty() || scope.iter().any(|value| value.trim().is_empty()) {
             return None;
         }
         Some(Self {
-            workspace_id,
-            tab_id,
-            pane_id,
+            scope,
+            delivery_id,
             agent_kind,
             agent_session,
         })
     }
 
-    /// Return the current-server workspace identity.
+    /// Return the ordered opaque identities enclosing the target.
     #[must_use]
-    pub fn workspace_id(&self) -> &str {
-        &self.workspace_id
+    pub fn scope(&self) -> &[String] {
+        &self.scope
     }
 
-    /// Return the current-server tab identity.
+    /// Return the opaque identity of the addressed agent surface.
     #[must_use]
-    pub fn tab_id(&self) -> &str {
-        &self.tab_id
-    }
-
-    /// Return the target pane identity.
-    #[must_use]
-    pub fn pane_id(&self) -> &str {
-        &self.pane_id
+    pub fn delivery_id(&self) -> &str {
+        &self.delivery_id
     }
 
     /// Return the recognized harness kind.
@@ -90,6 +87,8 @@ pub enum SubmissionRouteKind {
     AdjacentPane,
     /// Current-server global Herdr agent delivery.
     HerdrAgent,
+    /// Current-machine global thurbox session delivery.
+    ThurboxSession,
 }
 
 impl SubmissionRouteKind {
@@ -99,6 +98,7 @@ impl SubmissionRouteKind {
         match self {
             Self::AdjacentPane => "adjacent_pane",
             Self::HerdrAgent => "herdr_agent",
+            Self::ThurboxSession => "thurbox_session",
         }
     }
 }
@@ -111,22 +111,26 @@ pub enum SubmissionRoute {
         /// Direction from the Proqi pane.
         direction: Direction,
         /// Current-server identity of the adjacent agent.
-        target: HerdrAgentAddress,
+        target: AgentAddress,
         /// Source context against which adjacency was verified.
         source: PaneContext,
         /// Verified adjacent target geometry.
         target_rect: PaneRect,
     },
     /// Globally addressed coding agent on the current Herdr server.
-    HerdrAgent(HerdrAgentAddress),
+    HerdrAgent(AgentAddress),
+    /// Globally addressed coding agent in one thurbox session.
+    ThurboxSession(AgentAddress),
 }
 
 impl SubmissionRoute {
-    /// Return the exact current-server target address.
+    /// Return the exact verified target address.
     #[must_use]
-    pub const fn target(&self) -> &HerdrAgentAddress {
+    pub const fn target(&self) -> &AgentAddress {
         match self {
-            Self::AdjacentPane { target, .. } | Self::HerdrAgent(target) => target,
+            Self::AdjacentPane { target, .. }
+            | Self::HerdrAgent(target)
+            | Self::ThurboxSession(target) => target,
         }
     }
 
@@ -135,7 +139,7 @@ impl SubmissionRoute {
     pub const fn adjacent_direction(&self) -> Option<Direction> {
         match self {
             Self::AdjacentPane { direction, .. } => Some(*direction),
-            Self::HerdrAgent(_) => None,
+            Self::HerdrAgent(_) | Self::ThurboxSession(_) => None,
         }
     }
 
@@ -144,7 +148,7 @@ impl SubmissionRoute {
     pub const fn adjacent_source(&self) -> Option<&PaneContext> {
         match self {
             Self::AdjacentPane { source, .. } => Some(source),
-            Self::HerdrAgent(_) => None,
+            Self::HerdrAgent(_) | Self::ThurboxSession(_) => None,
         }
     }
 
@@ -153,7 +157,7 @@ impl SubmissionRoute {
     pub const fn adjacent_target_rect(&self) -> Option<PaneRect> {
         match self {
             Self::AdjacentPane { target_rect, .. } => Some(*target_rect),
-            Self::HerdrAgent(_) => None,
+            Self::HerdrAgent(_) | Self::ThurboxSession(_) => None,
         }
     }
 
@@ -169,6 +173,7 @@ impl SubmissionRoute {
         match self {
             Self::AdjacentPane { .. } => SubmissionRouteKind::AdjacentPane,
             Self::HerdrAgent(_) => SubmissionRouteKind::HerdrAgent,
+            Self::ThurboxSession(_) => SubmissionRouteKind::ThurboxSession,
         }
     }
 }

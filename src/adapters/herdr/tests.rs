@@ -236,7 +236,7 @@ fn capability_negotiation_verifies_live_protocol_and_current_geometry() {
         crate::ports::agent::AgentDeliveryCapabilities::SUBMIT_ONLY
     );
     assert_eq!(capability.version, "0.8.0");
-    assert_eq!(capability.context, context);
+    assert_eq!(capability.context, Some(context));
     let requests = runner.requests.borrow();
     assert_eq!(requests[0].args, ["api", "schema", "--json"]);
     assert_eq!(requests[1].args, ["api", "snapshot"]);
@@ -370,9 +370,8 @@ fn target(context: &PaneContext) -> AgentTarget {
         "herdr".to_owned(),
         19,
         Direction::Right,
-        crate::ports::agent::HerdrAgentAddress::new(
-            "w1".to_owned(),
-            "w1:t1".to_owned(),
+        crate::ports::agent::AgentAddress::new(
+            vec!["w1".to_owned(), "w1:t1".to_owned()],
             "w1:p2".to_owned(),
             HarnessKind::new(CODEX_AGENT_KIND).expect("fixture harness"),
             AgentSessionBinding::established("agent-session-1").expect("fixture session"),

@@ -46,6 +46,7 @@ fn doctor_reports_supported_protocols_and_the_precise_compatibility_boundary() {
             .arg("doctor")
             .env("HERDR_ENV", "1")
             .env_remove("PROQI_DISABLE_HERDR")
+            .env("PROQI_DISABLE_THURBOX", "1")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -93,6 +94,77 @@ fn doctor_reports_supported_protocols_and_the_precise_compatibility_boundary() {
             assert!(remediation.contains("unsupported protocol version"));
         }
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn doctor_reports_thurbox_compatibility_without_sending_anything() {
+    for (version, expected_status) in [("2.19.0", "ok"), ("2.18.9", "warning")] {
+        let fixture = thurbox_fixture::ThurboxFixture::new(version);
+        let temporary = tempfile::tempdir().expect("temporary directory");
+        let state_root = temporary.path().join("state");
+        std::fs::create_dir(&state_root).expect("state root");
+        std::fs::set_permissions(&state_root, std::fs::Permissions::from_mode(0o700))
+            .expect("private state root");
+        let mut command = Command::new(env!("CARGO_BIN_EXE_proqi"));
+        command
+            .arg("--state-dir")
+            .arg(&state_root)
+            .arg("--json")
+            .arg("doctor")
+            .env_remove("HERDR_ENV")
+            .env_remove("PROQI_DISABLE_THURBOX")
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let inherited = std::env::var_os("PATH").unwrap_or_default();
+        let fixture_program = fixture.program();
+        let fixture_directory = Path::new(&fixture_program)
+            .parent()
+            .expect("fixture directory")
+            .to_path_buf();
+        let paths = std::iter::once(fixture_directory).chain(std::env::split_paths(&inherited));
+        command.env("PATH", std::env::join_paths(paths).expect("fixture PATH"));
+        let output = command.output().expect("run doctor");
+        assert!(output.status.success());
+        assert_eq!(fixture.sent_bytes(), None, "doctor must not send a prompt");
+        let envelope: Value = serde_json::from_slice(&output.stdout).expect("doctor JSON");
+        let checks = envelope["data"]["checks"]
+            .as_array()
+            .expect("doctor checks");
+        let thurbox = checks
+            .iter()
+            .find(|check| check["id"] == "thurbox")
+            .expect("thurbox check");
+        assert_eq!(thurbox["status"], expected_status, "{version}");
+        if expected_status == "ok" {
+            assert_eq!(thurbox["facts"]["version"], version);
+            assert_eq!(thurbox["facts"]["protocol"], 45);
+        } else {
+            let remediation = thurbox["remediation"].as_str().expect("remediation");
+            assert!(remediation.contains("2.19.0"), "{remediation}");
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn doctor_skips_thurbox_when_the_integration_is_disabled() {
+    let temporary = tempfile::tempdir().expect("temporary directory");
+    let root = temporary.path().join("state");
+    std::fs::create_dir(&root).expect("state root");
+    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))
+        .expect("private state root");
+    let report = success(&root, &["doctor"], None);
+    let thurbox = report["checks"]
+        .as_array()
+        .expect("doctor checks")
+        .iter()
+        .find(|check| check["id"] == "thurbox")
+        .expect("thurbox check")
+        .clone();
+    assert_eq!(thurbox["status"], "skipped");
+    assert_eq!(thurbox["facts"]["available"], false);
 }
 
 const fn fixture_version(protocol: u32) -> &'static str {
